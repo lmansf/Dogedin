@@ -25,6 +25,7 @@ export default function CartDrawer() {
           open ? "translate-x-0" : "translate-x-full"
         }`}
         aria-hidden={!open}
+        inert={!open}
       >
         <header className="flex items-center justify-between border-b-[3px] border-black bg-[var(--gold)] px-5 py-4">
           <h2 className="font-display text-2xl font-extrabold">Your pack 🛒</h2>
