@@ -1,5 +1,5 @@
 import DogCarousel from "@/components/DogCarousel";
-import ProductCard from "@/components/ProductCard";
+import ProductRow from "@/components/ProductRow";
 import { getProducts } from "@/lib/shopify";
 
 export default async function Home() {
@@ -33,17 +33,11 @@ export default async function Home() {
       {/* First card: dog photo carousel with a featured item slot. */}
       <DogCarousel featured={featured} />
 
-      <section>
-        <div className="mb-6 flex items-end justify-between">
-          <h2 className="font-display text-3xl font-extrabold tracking-tight">
+      {products.length === 0 ? (
+        <section>
+          <h2 className="mb-6 font-display text-3xl font-extrabold tracking-tight">
             Shop all 🛍️
           </h2>
-          <span className="hidden -rotate-2 border-2 border-black bg-[var(--turq)] px-3 py-1 text-xs font-black uppercase text-[var(--sand)] shadow-hard sm:inline-block">
-            Fresh drops
-          </span>
-        </div>
-
-        {products.length === 0 ? (
           <div className="border-[3px] border-dashed border-black bg-white p-10 text-center">
             <div className="text-5xl">🐾</div>
             <p className="mt-3 font-display text-xl font-extrabold">
@@ -65,14 +59,10 @@ export default async function Home() {
               to see the layout with sample items.
             </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((p, i) => (
-              <ProductCard key={p.id} product={p} index={i} />
-            ))}
-          </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <ProductRow title="Shop all 🛍️" badge="Fresh drops" products={products} />
+      )}
     </div>
   );
 }

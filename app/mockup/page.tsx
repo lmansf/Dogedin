@@ -1,5 +1,5 @@
 import DogCarousel from "@/components/DogCarousel";
-import ProductCard from "@/components/ProductCard";
+import ProductRow from "@/components/ProductRow";
 import type { Product } from "@/lib/shopify";
 
 // TEMPORARY sample data so we can build/lay out the storefront before Shopify is
@@ -7,103 +7,54 @@ import type { Product } from "@/lib/shopify";
 // picsum.photos entry in next.config.mjs before launch.
 // Note: variantIds are fake, so "Add to cart" here will error - that's expected
 // until a real Shopify store is wired up.
-const SAMPLE: Product[] = [
-  {
-    id: "1",
-    handle: "fleece-hoodie",
-    title: "Cozy Fleece Dog Hoodie",
-    description: "Warm, soft fleece pullover for chilly walks. Machine washable.",
-    image: "https://picsum.photos/seed/fleece-hoodie/600/600",
-    imageAlt: "Cozy fleece dog hoodie",
-    variantId: "gid://shopify/ProductVariant/mock-1",
-    price: 34,
-    compareAtPrice: 48,
+function sample(
+  id: string,
+  handle: string,
+  title: string,
+  description: string,
+  price: number,
+  compareAtPrice: number | null
+): Product {
+  return {
+    id,
+    handle,
+    title,
+    description,
+    image: `https://picsum.photos/seed/${handle}/600/600`,
+    imageAlt: title,
+    variantId: `gid://shopify/ProductVariant/mock-${id}`,
+    price,
+    compareAtPrice,
     currency: "USD",
-  },
-  {
-    id: "2",
-    handle: "chew-bone",
-    title: "Indestructible Chew Bone",
-    description: "Tough natural-rubber bone for aggressive chewers. Vet recommended.",
-    image: "https://picsum.photos/seed/chew-bone/600/600",
-    imageAlt: "Rubber chew bone",
-    variantId: "gid://shopify/ProductVariant/mock-2",
-    price: 16,
-    compareAtPrice: null,
-    currency: "USD",
-  },
-  {
-    id: "3",
-    handle: "rope-leash",
-    title: "Hand-Braided Rope Leash",
-    description: "6ft climbing-grade rope leash with a brass clasp.",
-    image: "https://picsum.photos/seed/rope-leash/600/600",
-    imageAlt: "Braided rope leash",
-    variantId: "gid://shopify/ProductVariant/mock-3",
-    price: 28,
-    compareAtPrice: null,
-    currency: "USD",
-  },
-  {
-    id: "4",
-    handle: "orthopedic-bed",
-    title: "Orthopedic Memory-Foam Bed",
-    description: "Joint-support foam base with a removable washable cover.",
-    image: "https://picsum.photos/seed/orthopedic-bed/600/600",
-    imageAlt: "Orthopedic dog bed",
-    variantId: "gid://shopify/ProductVariant/mock-4",
-    price: 89,
-    compareAtPrice: 120,
-    currency: "USD",
-  },
-  {
-    id: "5",
-    handle: "travel-bowl",
-    title: "Collapsible Travel Bowl",
-    description: "Silicone bowl that folds flat. Clips to any bag or belt.",
-    image: "https://picsum.photos/seed/travel-bowl/600/600",
-    imageAlt: "Collapsible travel bowl",
-    variantId: "gid://shopify/ProductVariant/mock-5",
-    price: 12,
-    compareAtPrice: null,
-    currency: "USD",
-  },
-  {
-    id: "6",
-    handle: "reflective-collar",
-    title: "Reflective Adventure Collar",
-    description: "Weatherproof collar with reflective stitching for night walks.",
-    image: "https://picsum.photos/seed/reflective-collar/600/600",
-    imageAlt: "Reflective collar",
-    variantId: "gid://shopify/ProductVariant/mock-6",
-    price: 22,
-    compareAtPrice: 30,
-    currency: "USD",
-  },
-  {
-    id: "7",
-    handle: "puzzle-feeder",
-    title: "Slow-Feeder Puzzle Bowl",
-    description: "Maze-pattern bowl that slows fast eaters and beats boredom.",
-    image: "https://picsum.photos/seed/puzzle-feeder/600/600",
-    imageAlt: "Puzzle feeder bowl",
-    variantId: "gid://shopify/ProductVariant/mock-7",
-    price: 19,
-    compareAtPrice: null,
-    currency: "USD",
-  },
-  {
-    id: "8",
-    handle: "rain-jacket",
-    title: "Packable Rain Jacket",
-    description: "Lightweight waterproof shell with a high collar and leash port.",
-    image: "https://picsum.photos/seed/rain-jacket/600/600",
-    imageAlt: "Dog rain jacket",
-    variantId: "gid://shopify/ProductVariant/mock-8",
-    price: 39,
-    compareAtPrice: 52,
-    currency: "USD",
-  },
+  };
+}
+
+// Category 1: for the dog.
+const DOG_STUFF: Product[] = [
+  sample("d1", "fleece-hoodie", "Cozy Fleece Dog Hoodie", "Warm fleece pullover for chilly Gulf mornings. Machine washable.", 34, 48),
+  sample("d2", "chew-bone", "Indestructible Chew Bone", "Tough natural-rubber bone for aggressive chewers.", 16, null),
+  sample("d3", "rope-leash", "Hand-Braided Rope Leash", "6ft climbing-grade rope leash with a brass clasp.", 28, null),
+  sample("d4", "ortho-bed", "Orthopedic Memory-Foam Bed", "Joint-support foam base with a washable cover.", 89, 120),
+  sample("d5", "travel-bowl", "Collapsible Travel Bowl", "Silicone bowl that folds flat. Clips to any bag.", 12, null),
+  sample("d6", "reflective-collar", "Reflective Adventure Collar", "Weatherproof collar with reflective stitching.", 22, 30),
+  sample("d7", "puzzle-feeder", "Slow-Feeder Puzzle Bowl", "Maze-pattern bowl that slows fast eaters.", 19, null),
+  sample("d8", "rain-jacket", "Packable Rain Jacket", "Lightweight waterproof shell with a leash port.", 39, 52),
+  sample("d9", "tartan-bandana", "Dunedin Tartan Bandana", "Highland-plaid bandana for the very best boy.", 14, null),
+  sample("d10", "beach-ball", "Floating Beach Fetch Ball", "Bright, buoyant fetch ball for Honeymoon Island.", 11, 15),
+];
+
+// Category 2: for the people.
+const PEOPLE_STUFF: Product[] = [
+  sample("p1", "dad-cap", "Dunedin Tartan Dad Cap", "Six-panel cap with a woven tartan patch.", 28, null),
+  sample("p2", "gulf-tote", "Gulf Coast Canvas Tote", "Heavy-canvas tote for the farmers market & the beach.", 24, 32),
+  sample("p3", "brews-tee", "“Good Dogs, Good Brews” Tee", "Soft ringspun tee, printed in downtown Dunedin.", 30, null),
+  sample("p4", "koozie", "Craft Beer Can Koozie", "Neoprene koozie for the brewery crawl.", 9, null),
+  sample("p5", "highland-hoodie", "Highland Games Hoodie", "Heavyweight hoodie with a caber-toss crest.", 54, 72),
+  sample("p6", "beach-towel", "Honeymoon Island Beach Towel", "Oversized sand-resistant towel in sunset stripes.", 34, null),
+  sample("p7", "citrus-candle", "Citrus Crate Soy Candle", "Hand-poured candle that smells like an orange grove.", 22, null),
+  sample("p8", "matching-bandana", "Owner + Pup Matching Bandana", "Because you both deserve the tartan.", 18, 24),
+  sample("p9", "enamel-mug", "Pinellas Trail Enamel Mug", "Campfire-style enamel mug for trail coffee.", 16, null),
+  sample("p10", "sticker-pack", "Dunedin Sticker Pack", "Six die-cut stickers: paws, palms & pints.", 8, null),
 ];
 
 export default function MockupPage() {
@@ -115,18 +66,21 @@ export default function MockupPage() {
         launch.
       </div>
 
-      <DogCarousel featured={SAMPLE[0]} />
+      <DogCarousel featured={DOG_STUFF[0]} />
 
-      <section>
-        <h2 className="mb-6 font-display text-3xl font-extrabold tracking-tight">
-          Sample products 🦴
-        </h2>
-        <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
-          {SAMPLE.map((p, i) => (
-            <ProductCard key={p.id} product={p} index={i} />
-          ))}
-        </div>
-      </section>
+      <ProductRow
+        title="For the dog 🐕"
+        badge="Good boys"
+        badgeColor="var(--turq)"
+        products={DOG_STUFF}
+      />
+
+      <ProductRow
+        title="For the human 🧑"
+        badge="Good owners"
+        badgeColor="var(--red)"
+        products={PEOPLE_STUFF}
+      />
     </div>
   );
 }
