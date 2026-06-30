@@ -67,12 +67,6 @@ export default function RootLayout({
                 <a href="/" className="hidden hover:underline sm:inline">
                   Shop
                 </a>
-                <a
-                  href="/mockup"
-                  className="hidden -rotate-2 border-[3px] border-black bg-[var(--red)] px-3 py-1 text-[var(--sand)] shadow-hard hover:-translate-y-0.5 sm:inline-block"
-                >
-                  Mockup
-                </a>
                 <CartButton />
               </nav>
             </div>

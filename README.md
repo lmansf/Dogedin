@@ -15,6 +15,10 @@ Next.js (App Router) + Tailwind 4, deployed on Vercel.
   merchant curates in admin (no code). The home page expects collections with handles
   `for-dogs` and `for-humans`; create them in Shopify to fill the two rows. Add more
   rows by calling `getCollection("<handle>")` and rendering another `<ProductRow>`.
+- **Demo fallback**: until those collections return products, the home page falls back
+  to a demo catalog (`lib/demoProducts.ts`, picsum images) so the storefront looks
+  alive. Live Shopify data replaces it automatically. Remove the demo module and the
+  `picsum.photos` entry in `next.config.mjs` once real products are in.
 
 ## Setup
 
