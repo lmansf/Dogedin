@@ -5,11 +5,11 @@ import AddToCartButton from "@/components/cart/AddToCartButton";
 
 // Rotating accent colors so a grid of cards feels lively, not uniform.
 const ACCENTS = [
-  "var(--amber)",
-  "var(--lime)",
+  "var(--gold)",
+  "var(--turq)",
   "var(--sky)",
-  "var(--pink)",
   "var(--coral)",
+  "var(--orange)",
 ];
 
 export default function ProductCard({

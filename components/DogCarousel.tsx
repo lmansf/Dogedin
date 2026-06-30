@@ -12,10 +12,10 @@ import AddToCartButton from "@/components/cart/AddToCartButton";
 // slide's distance-from-center to an inline scale/opacity. With JS off it
 // degrades to a plain centered scroll-snap carousel (all slides full).
 const DOG_SLIDES = [
-  { grad: "from-[var(--amber)] to-[var(--coral)]", emoji: "🐕" },
-  { grad: "from-[var(--sky)] to-[var(--grape)]", emoji: "🐩" },
-  { grad: "from-[var(--lime)] to-[var(--sky)]", emoji: "🦮" },
-  { grad: "from-[var(--pink)] to-[var(--amber)]", emoji: "🐶" },
+  { grad: "from-[var(--turq)] to-[var(--sky)]", emoji: "🏖️" }, // Honeymoon Island
+  { grad: "from-[var(--green)] to-[var(--navy)]", emoji: "🏴" }, // Highland
+  { grad: "from-[var(--orange)] to-[var(--coral)]", emoji: "🌅" }, // citrus sunset
+  { grad: "from-[var(--gold)] to-[var(--amber)]", emoji: "🍺" }, // craft beer
 ];
 
 // Distance-from-center → scale/opacity. Exported so the math is unit-testable.
@@ -96,7 +96,7 @@ function FeaturedSlide({ product }: { product?: Product | null }) {
   const off = product ? discountPercent(product.price, product.compareAtPrice) : 0;
 
   return (
-    <div className="relative flex h-full w-full overflow-hidden rounded-xl border-[3px] border-black bg-[var(--cream)]">
+    <div className="relative flex h-full w-full overflow-hidden rounded-xl border-[3px] border-black bg-[var(--sand)]">
       <div className="relative w-1/2 border-r-[3px] border-black bg-zinc-100">
         {product?.image ? (
           <Image
@@ -120,7 +120,7 @@ function FeaturedSlide({ product }: { product?: Product | null }) {
       </div>
 
       <div className="flex w-1/2 flex-col justify-center gap-2 p-5">
-        <span className="w-fit -rotate-2 border-2 border-black bg-[var(--lime)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide">
+        <span className="w-fit -rotate-2 border-2 border-black bg-[var(--turq)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--sand)]">
           ★ Featured
         </span>
         <h3 className="font-display text-xl font-extrabold leading-tight">

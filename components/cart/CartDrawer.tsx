@@ -21,12 +21,12 @@ export default function CartDrawer() {
 
       {/* Panel */}
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l-[3px] border-black bg-[var(--cream)] transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l-[3px] border-black bg-[var(--sand)] transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
         aria-hidden={!open}
       >
-        <header className="flex items-center justify-between border-b-[3px] border-black bg-[var(--amber)] px-5 py-4">
+        <header className="flex items-center justify-between border-b-[3px] border-black bg-[var(--gold)] px-5 py-4">
           <h2 className="font-display text-2xl font-extrabold">Your pack 🛒</h2>
           <button
             onClick={() => setOpen(false)}
@@ -128,7 +128,7 @@ export default function CartDrawer() {
           <a
             href={cart?.checkoutUrl ?? "#"}
             aria-disabled={!cart?.checkoutUrl}
-            className={`block border-[3px] border-black bg-[var(--grape)] py-3 text-center font-display text-lg font-extrabold uppercase text-white shadow-hard transition-transform hover:-translate-y-0.5 ${
+            className={`block border-[3px] border-black bg-[var(--navy)] py-3 text-center font-display text-lg font-extrabold uppercase text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 ${
               !cart?.checkoutUrl ? "pointer-events-none opacity-50" : ""
             }`}
           >

@@ -1,18 +1,22 @@
 @import "tailwindcss";
 
+/* Dunedin, FL palette: Scottish heritage + Gulf coast + citrus/craft-beer. */
 :root {
-  --cream: #fff5e1;
-  --ink: #161616;
-  --amber: #ffb703;
-  --coral: #ff5c39;
-  --grape: #7c3aed;
-  --sky: #3da5d9;
-  --lime: #a7e34d;
-  --pink: #ff4d9d;
+  --sand: #f4e9ce; /* shell sand (background) */
+  --ink: #211e18; /* driftwood ink (text) */
+  --green: #1f5c4a; /* tartan green */
+  --navy: #1e3a5f; /* heritage navy */
+  --red: #a6332e; /* tartan red */
+  --gold: #c99a2e; /* highland gold */
+  --turq: #1fa89b; /* sea glass */
+  --sky: #6fb7d4; /* gulf sky */
+  --coral: #ff7a52; /* sunset coral */
+  --orange: #ef8a17; /* citrus orange */
+  --amber: #b5651d; /* amber ale */
 }
 
 body {
-  background: var(--cream);
+  background: var(--sand);
   color: var(--ink);
   font-family: var(--font-body), system-ui, sans-serif;
 }
@@ -21,10 +25,10 @@ h1,
 h2,
 h3,
 .font-display {
-  font-family: var(--font-display), system-ui, sans-serif;
+  font-family: var(--font-display), Georgia, serif;
 }
 
-/* Hard offset "sticker" shadows for the brutalist look. */
+/* Hard offset "sticker" shadows. */
 .shadow-hard {
   box-shadow: 4px 4px 0 0 var(--ink);
 }
@@ -51,12 +55,32 @@ h3,
   }
 }
 .animate-marquee {
-  animation: marquee 22s linear infinite;
+  animation: marquee 24s linear infinite;
 }
 
-/* Subtle dotted texture for section backgrounds. */
+/* Dotted texture for section backgrounds. */
 .dots {
   background-image: radial-gradient(var(--ink) 1.4px, transparent 1.4px);
   background-size: 22px 22px;
   opacity: 0.06;
+}
+
+/* Scottish tartan plaid - used for ribbons and accents. */
+.tartan {
+  background-color: var(--green);
+  background-image:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0 13px, transparent 13px 26px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.1) 0 13px, transparent 13px 26px),
+    repeating-linear-gradient(90deg, rgba(166, 51, 46, 0.85) 0 3px, transparent 3px 26px),
+    repeating-linear-gradient(0deg, rgba(166, 51, 46, 0.85) 0 3px, transparent 3px 26px),
+    repeating-linear-gradient(90deg, transparent 7px, rgba(201, 154, 46, 0.9) 7px 9px, transparent 9px 26px),
+    repeating-linear-gradient(0deg, transparent 7px, rgba(201, 154, 46, 0.9) 7px 9px, transparent 9px 26px);
+}
+
+/* Gulf-coast scalloped wave edge (place as a thin strip divider). */
+.scallop {
+  height: 16px;
+  background: var(--turq);
+  -webkit-mask: radial-gradient(circle at 12px 16px, transparent 11px, #000 12px) 0 0 / 24px 16px repeat-x;
+  mask: radial-gradient(circle at 12px 16px, transparent 11px, #000 12px) 0 0 / 24px 16px repeat-x;
 }

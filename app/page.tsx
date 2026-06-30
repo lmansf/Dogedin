@@ -9,22 +9,23 @@ export default async function Home() {
   return (
     <div className="flex flex-col gap-12">
       {/* Eccentric hero */}
-      <section className="relative overflow-hidden border-[3px] border-black bg-[var(--amber)] p-8 shadow-hard-lg md:p-12">
+      <section className="relative overflow-hidden border-[3px] border-black bg-[var(--gold)] p-8 shadow-hard-lg md:p-12">
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">
-          <span className="inline-block -rotate-2 border-[3px] border-black bg-white px-3 py-1 text-xs font-black uppercase tracking-widest shadow-hard">
-            New season · very good dogs
+          <span className="inline-block -rotate-2 border-[3px] border-black bg-[var(--sand)] px-3 py-1 text-xs font-black uppercase tracking-widest shadow-hard">
+            🏴 Scotland of the Sunshine State · est. Dunedin
           </span>
           <h1 className="mt-4 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] md:text-7xl">
             Good gear for
-            <span className="ml-3 inline-block rotate-1 bg-[var(--pink)] px-2 text-white">
+            <span className="ml-3 inline-block rotate-1 bg-[var(--red)] px-2 text-[var(--sand)]">
               extremely
             </span>{" "}
             good dogs.
           </h1>
-          <p className="mt-5 max-w-xl text-lg font-bold text-black/70">
-            Toys, beds, leashes and treats - picked by dogs, approved by dogs,
-            occasionally chewed by dogs.
+          <p className="mt-5 max-w-xl text-lg font-bold text-[var(--ink)]/70">
+            Tartan toys, beach beds, leashes and treats - picked by dogs,
+            approved by dogs, occasionally chewed by dogs. Shipped fresh from the
+            Gulf coast.
           </p>
         </div>
       </section>
@@ -37,7 +38,7 @@ export default async function Home() {
           <h2 className="font-display text-3xl font-extrabold tracking-tight">
             Shop all 🛍️
           </h2>
-          <span className="hidden -rotate-2 border-2 border-black bg-[var(--lime)] px-3 py-1 text-xs font-black uppercase shadow-hard sm:inline-block">
+          <span className="hidden -rotate-2 border-2 border-black bg-[var(--turq)] px-3 py-1 text-xs font-black uppercase text-[var(--sand)] shadow-hard sm:inline-block">
             Fresh drops
           </span>
         </div>
