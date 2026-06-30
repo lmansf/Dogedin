@@ -1,21 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #18181b;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #fafafa;
-  }
+  --cream: #fff5e1;
+  --ink: #161616;
+  --amber: #ffb703;
+  --coral: #ff5c39;
+  --grape: #7c3aed;
+  --sky: #3da5d9;
+  --lime: #a7e34d;
+  --pink: #ff4d9d;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+/* Hard offset "sticker" shadows for the brutalist look. */
+.shadow-hard {
+  box-shadow: 4px 4px 0 0 var(--ink);
+}
+.shadow-hard-lg {
+  box-shadow: 7px 7px 0 0 var(--ink);
 }
 
 /* Hide scrollbar on the native scroll-snap carousel without killing scroll. */
@@ -25,4 +39,24 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Scrolling announcement marquee. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 22s linear infinite;
+}
+
+/* Subtle dotted texture for section backgrounds. */
+.dots {
+  background-image: radial-gradient(var(--ink) 1.4px, transparent 1.4px);
+  background-size: 22px 22px;
+  opacity: 0.06;
 }

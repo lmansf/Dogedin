@@ -1,44 +1,78 @@
 import Image from "next/image";
 import type { Product } from "@/lib/shopify";
 import { formatMoney, discountPercent } from "@/lib/format";
+import AddToCartButton from "@/components/cart/AddToCartButton";
 
-export default function ProductCard({ product }: { product: Product }) {
+// Rotating accent colors so a grid of cards feels lively, not uniform.
+const ACCENTS = [
+  "var(--amber)",
+  "var(--lime)",
+  "var(--sky)",
+  "var(--pink)",
+  "var(--coral)",
+];
+
+export default function ProductCard({
+  product,
+  index = 0,
+}: {
+  product: Product;
+  index?: number;
+}) {
   const off = discountPercent(product.price, product.compareAtPrice);
+  const accent = ACCENTS[index % ACCENTS.length];
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-zinc-900">
-      <div className="relative aspect-square bg-zinc-100 dark:bg-zinc-800">
+    <article className="group flex flex-col border-[3px] border-black bg-white shadow-hard transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-1 hover:shadow-hard-lg">
+      <div className="relative aspect-square border-b-[3px] border-black bg-zinc-100">
         {product.image ? (
           <Image
             src={product.image}
             alt={product.imageAlt}
             fill
             sizes="(max-width: 768px) 50vw, 300px"
-            className="object-cover transition group-hover:scale-105"
+            className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-4xl">🦴</div>
+          <div className="flex h-full items-center justify-center text-5xl">
+            🦴
+          </div>
         )}
         {off > 0 && (
-          <span className="absolute left-3 top-3 rounded-full bg-rose-600 px-2 py-1 text-xs font-semibold text-white">
+          <span className="absolute -right-2 -top-2 rotate-6 border-[3px] border-black bg-[var(--coral)] px-2 py-1 text-sm font-black text-white shadow-hard">
             -{off}%
           </span>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-1 p-4">
-        <h3 className="font-semibold leading-tight">{product.title}</h3>
-        <p className="line-clamp-2 text-sm text-zinc-500">{product.description}</p>
-        <div className="mt-auto flex items-baseline gap-2 pt-2">
-          <span className="font-semibold">
-            {formatMoney(product.price, product.currency)}
-          </span>
-          {product.compareAtPrice && (
-            <span className="text-sm text-zinc-400 line-through">
-              {formatMoney(product.compareAtPrice, product.currency)}
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <span
+          className="w-fit border-2 border-black px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide"
+          style={{ background: accent }}
+        >
+          Good gear
+        </span>
+        <h3 className="font-display text-lg font-extrabold leading-tight">
+          {product.title}
+        </h3>
+        <p className="line-clamp-2 text-sm text-black/60">
+          {product.description}
+        </p>
+
+        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-xl font-extrabold">
+              {formatMoney(product.price, product.currency)}
             </span>
-          )}
+            {product.compareAtPrice && (
+              <span className="text-sm text-black/40 line-through">
+                {formatMoney(product.compareAtPrice, product.currency)}
+              </span>
+            )}
+          </div>
         </div>
+
+        <AddToCartButton variantId={product.variantId} className="mt-2 w-full" />
       </div>
     </article>
   );
