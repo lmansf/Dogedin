@@ -43,7 +43,7 @@ export type Cart = {
 async function storefront<T = any>(
   query: string,
   variables: Record<string, unknown> = {},
-  cache?: RequestCache
+  init: RequestInit = { cache: "no-store" }
 ): Promise<T> {
   if (!domain || !token) {
     throw new Error("Shopify is not configured (missing store domain or token).");
@@ -56,7 +56,7 @@ async function storefront<T = any>(
       "X-Shopify-Storefront-Access-Token": token,
     },
     body: JSON.stringify({ query, variables }),
-    ...(cache ? { cache } : { cache: "no-store" }),
+    ...init,
   });
 
   if (!res.ok) throw new Error(`Shopify Storefront API ${res.status}`);
@@ -109,7 +109,7 @@ const COLLECTION_QUERY = /* GraphQL */ `
 export async function getProducts(first = 12): Promise<Product[]> {
   // Catalog degrades gracefully: no creds yet -> empty grid, site still renders.
   if (!domain || !token) return [];
-  const data = await storefront(PRODUCTS_QUERY, { first }, "force-cache");
+  const data = await storefront(PRODUCTS_QUERY, { first }, { next: { revalidate: 300 } });
   return (data?.products?.nodes ?? []).map(toProduct);
 }
 
@@ -121,7 +121,7 @@ export async function getCollection(
   first = 12
 ): Promise<Product[]> {
   if (!domain || !token) return [];
-  const data = await storefront(COLLECTION_QUERY, { handle, first }, "force-cache");
+  const data = await storefront(COLLECTION_QUERY, { handle, first }, { next: { revalidate: 300 } });
   return (data?.collection?.products?.nodes ?? []).map(toProduct);
 }
 
