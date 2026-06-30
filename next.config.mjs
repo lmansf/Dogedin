@@ -5,6 +5,8 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "cdn.shopify.com" },
       { protocol: "https", hostname: "images.dog.ceo" },
+      // ponytail: only for the temporary /mockup sample data - drop with it.
+      { protocol: "https", hostname: "picsum.photos" },
     ],
   },
 };

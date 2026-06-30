@@ -19,20 +19,24 @@ export default function RootLayout({
             <a href="/" className="text-xl font-bold tracking-tight">
               🐾 Dogedin
             </a>
-            <nav className="flex gap-6 text-sm text-zinc-500">
+            <nav className="flex items-center gap-6 text-sm text-zinc-500">
               <a href="/" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Shop
               </a>
               <a href="/" className="hover:text-zinc-900 dark:hover:text-zinc-100">
                 Cart
               </a>
+              {/* ponytail: temporary dev tab - remove before launch (see app/mockup). */}
+              <a
+                href="/mockup"
+                className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300"
+              >
+                Mockup
+              </a>
             </nav>
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-6xl px-4 py-10 text-sm text-zinc-400">
-          © {new Date().getFullYear()} Dogedin
-        </footer>
       </body>
     </html>
   );
