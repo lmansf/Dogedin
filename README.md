@@ -11,6 +11,18 @@ Next.js (App Router) + Tailwind 4, deployed on Vercel.
   Currently idle - no tables yet.
 - **Carousel**: native CSS scroll-snap (no carousel library). The first card on the
   home page is a dog-photo carousel whose last slide is a **featured item slot**.
+- **Category rows**: each product carousel is driven by a Shopify **collection** the
+  merchant curates in admin (no code). The home page expects collections with handles
+  `for-dogs` and `for-humans`; create them in Shopify to fill the two rows. Add more
+  rows by calling `getCollection("<handle>")` and rendering another `<ProductRow>`.
+- **Demo fallback**: until those collections return products, the home page falls back
+  to a demo catalog (`lib/demoProducts.ts`, picsum images) so the storefront looks
+  alive. Live Shopify data replaces it automatically. Demo items use placeholder
+  variant ids, so **Add to cart** on them errors until Shopify is connected. Remove the
+  demo module and the `picsum.photos` entry in `next.config.mjs` once real products are in.
+- **Cart**: a slide-out drawer (header cart button) backed by Shopify cart mutations via
+  server actions (`app/cart/actions.ts`, wrapping `lib/shopify.ts`). The cart id lives in an
+  httpOnly cookie and **Checkout** hands off to Shopify's hosted checkout URL.
 
 ## Setup
 
@@ -20,8 +32,8 @@ cp .env.local.example .env.local   # fill in creds (optional - builds without th
 npm run dev
 ```
 
-With no env set, the site builds and renders with placeholder dog photos and an
-empty product grid. Add the Shopify vars to pull live products.
+With no env set, the site builds and renders with placeholder dog photos and the
+demo catalog (the two category rows). Add the Shopify vars to pull live products.
 
 ## Environment
 

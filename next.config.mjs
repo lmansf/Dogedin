@@ -5,6 +5,9 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "cdn.shopify.com" },
       { protocol: "https", hostname: "images.dog.ceo" },
+      // Demo catalog images (lib/demoProducts.ts) - drop once live Shopify
+      // products replace the demo fallback.
+      { protocol: "https", hostname: "picsum.photos" },
     ],
   },
 };

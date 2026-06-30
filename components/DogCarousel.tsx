@@ -4,24 +4,24 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import type { Product } from "@/lib/shopify";
 import { formatMoney, discountPercent } from "@/lib/format";
+import AddToCartButton from "@/components/cart/AddToCartButton";
 
 // Center-focused "album" carousel: the centered slide shows full, and slides
 // shrink + dim the further they sit from center, compacting on either side.
-// Native CSS scroll-snap does the scrolling; one cheap scroll handler maps each
-// slide's distance-from-center to an inline scale/opacity (no Tailwind variant,
-// no IntersectionObserver). With JS off it degrades to a plain scroll-snap carousel.
-// ponytail: placeholder gradients stand in for dog photos until real ones land.
+// Native CSS scroll-snap for the scrolling; one cheap scroll handler maps each
+// slide's distance-from-center to an inline scale/opacity. With JS off it
+// degrades to a plain centered scroll-snap carousel (all slides full).
 const DOG_SLIDES = [
-  "from-amber-200 to-orange-300",
-  "from-sky-200 to-indigo-300",
-  "from-emerald-200 to-teal-300",
-  "from-rose-200 to-pink-300",
+  { grad: "from-[var(--turq)] to-[var(--sky)]", emoji: "🏖️" }, // Honeymoon Island
+  { grad: "from-[var(--green)] to-[var(--navy)]", emoji: "🏴" }, // Highland
+  { grad: "from-[var(--orange)] to-[var(--coral)]", emoji: "🌅" }, // citrus sunset
+  { grad: "from-[var(--gold)] to-[var(--amber)]", emoji: "🍺" }, // craft beer
 ];
 
 // Distance-from-center → scale/opacity. Exported so the math is unit-testable.
 export function focus(distance: number, slideWidth: number) {
   const t = Math.min(distance / slideWidth, 1); // 0 at center → 1 a slide away
-  return { scale: 1 - t * 0.18, opacity: 1 - t * 0.5 };
+  return { scale: 1 - t * 0.16, opacity: 1 - t * 0.45 };
 }
 
 export default function DogCarousel({ featured }: { featured?: Product | null }) {
@@ -58,23 +58,24 @@ export default function DogCarousel({ featured }: { featured?: Product | null })
   }, []);
 
   return (
-    <section className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <section className="border-[3px] border-black bg-white p-3 shadow-hard-lg">
       <div
         ref={trackRef}
-        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-[20%] py-2"
+        className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-[20%] py-2"
       >
-        {DOG_SLIDES.map((gradient, i) => (
+        {DOG_SLIDES.map((slide, i) => (
           <div
             key={i}
             data-slide
             className="aspect-[16/9] min-w-[60%] shrink-0 origin-center snap-center transition-[transform,opacity] duration-150 ease-out md:min-w-[52%]"
           >
             <div
-              className={`flex h-full w-full items-end rounded-2xl bg-gradient-to-br ${gradient} p-6`}
+              className={`flex h-full w-full items-end justify-between rounded-xl border-[3px] border-black bg-gradient-to-br ${slide.grad} p-6`}
             >
-              <span className="rounded-full bg-black/30 px-3 py-1 text-sm font-medium text-white backdrop-blur">
-                🐕 Dog photo {i + 1}
+              <span className="border-2 border-black bg-white px-3 py-1 text-sm font-extrabold uppercase">
+                Dog #{i + 1}
               </span>
+              <span className="text-5xl drop-shadow">{slide.emoji}</span>
             </div>
           </div>
         ))}
@@ -95,47 +96,53 @@ function FeaturedSlide({ product }: { product?: Product | null }) {
   const off = product ? discountPercent(product.price, product.compareAtPrice) : 0;
 
   return (
-    <div className="relative flex h-full w-full overflow-hidden rounded-2xl border border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-800">
-      <div className="relative w-1/2 bg-zinc-100 dark:bg-zinc-700">
+    <div className="relative flex h-full w-full overflow-hidden rounded-xl border-[3px] border-black bg-[var(--sand)]">
+      <div className="relative w-1/2 border-r-[3px] border-black bg-zinc-100">
         {product?.image ? (
           <Image
             src={product.image}
             alt={product.imageAlt}
             fill
+            priority
             sizes="350px"
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-5xl">🦴</div>
+          <div className="flex h-full items-center justify-center text-5xl">
+            🦴
+          </div>
         )}
         {off > 0 && (
-          <span className="absolute left-3 top-3 rounded-full bg-rose-600 px-2 py-1 text-xs font-semibold text-white">
+          <span className="absolute -right-2 -top-2 rotate-6 border-[3px] border-black bg-[var(--coral)] px-2 py-1 text-sm font-black text-white shadow-hard">
             -{off}%
           </span>
         )}
       </div>
 
-      <div className="flex w-1/2 flex-col justify-center gap-2 p-6">
-        <span className="text-xs font-semibold uppercase tracking-wide text-amber-600">
-          Featured
+      <div className="flex w-1/2 flex-col justify-center gap-2 p-5">
+        <span className="w-fit -rotate-2 border-2 border-black bg-[var(--turq)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--sand)]">
+          ★ Featured
         </span>
-        <h3 className="text-xl font-bold leading-tight">
+        <h3 className="font-display text-xl font-extrabold leading-tight">
           {product?.title ?? "Featured item slot"}
         </h3>
-        <p className="line-clamp-3 text-sm text-zinc-500">
+        <p className="line-clamp-2 text-sm text-black/60">
           {product?.description ?? "Connect Shopify to feature a product here."}
         </p>
         {product && (
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-lg font-semibold">
-              {formatMoney(product.price, product.currency)}
-            </span>
-            {product.compareAtPrice && (
-              <span className="text-sm text-zinc-400 line-through">
-                {formatMoney(product.compareAtPrice, product.currency)}
+          <>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="font-display text-xl font-extrabold">
+                {formatMoney(product.price, product.currency)}
               </span>
-            )}
-          </div>
+              {product.compareAtPrice && (
+                <span className="text-sm text-black/40 line-through">
+                  {formatMoney(product.compareAtPrice, product.currency)}
+                </span>
+              )}
+            </div>
+            <AddToCartButton variantId={product.variantId} className="mt-2 w-fit" />
+          </>
         )}
       </div>
     </div>
