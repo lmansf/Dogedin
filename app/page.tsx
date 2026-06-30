@@ -1,10 +1,19 @@
 import DogCarousel from "@/components/DogCarousel";
 import ProductRow from "@/components/ProductRow";
-import { getProducts } from "@/lib/shopify";
+import { getCollection } from "@/lib/shopify";
+
+// Each carousel row is driven by a Shopify collection the merchant curates in
+// admin. Create collections with these handles to fill the rows.
+const FOR_DOGS = "for-dogs";
+const FOR_HUMANS = "for-humans";
 
 export default async function Home() {
-  const products = await getProducts();
-  const featured = products[0] ?? null;
+  const [forDogs, forHumans] = await Promise.all([
+    getCollection(FOR_DOGS),
+    getCollection(FOR_HUMANS),
+  ]);
+  const featured = forDogs[0] ?? forHumans[0] ?? null;
+  const isEmpty = forDogs.length === 0 && forHumans.length === 0;
 
   return (
     <div className="flex flex-col gap-12">
@@ -33,7 +42,7 @@ export default async function Home() {
       {/* First card: dog photo carousel with a featured item slot. */}
       <DogCarousel featured={featured} />
 
-      {products.length === 0 ? (
+      {isEmpty ? (
         <section>
           <h2 className="mb-6 font-display text-3xl font-extrabold tracking-tight">
             Shop all 🛍️
@@ -48,11 +57,14 @@ export default async function Home() {
               <code className="bg-black/5 px-1 font-mono">
                 SHOPIFY_STORE_DOMAIN
               </code>{" "}
-              and{" "}
+              +{" "}
               <code className="bg-black/5 px-1 font-mono">
                 SHOPIFY_STOREFRONT_TOKEN
-              </code>{" "}
-              to pull live products - or peek at the{" "}
+              </code>
+              , then create{" "}
+              <code className="bg-black/5 px-1 font-mono">{FOR_DOGS}</code> and{" "}
+              <code className="bg-black/5 px-1 font-mono">{FOR_HUMANS}</code>{" "}
+              collections in Shopify to fill these rows - or peek at the{" "}
               <a href="/mockup" className="font-bold underline">
                 Mockup tab
               </a>{" "}
@@ -61,7 +73,24 @@ export default async function Home() {
           </div>
         </section>
       ) : (
-        <ProductRow title="Shop all 🛍️" badge="Fresh drops" products={products} />
+        <>
+          {forDogs.length > 0 && (
+            <ProductRow
+              title="For the dog 🐕"
+              badge="Good boys"
+              badgeColor="var(--turq)"
+              products={forDogs}
+            />
+          )}
+          {forHumans.length > 0 && (
+            <ProductRow
+              title="For the human 🧑"
+              badge="Good owners"
+              badgeColor="var(--red)"
+              products={forHumans}
+            />
+          )}
+        </>
       )}
     </div>
   );

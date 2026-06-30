@@ -11,6 +11,10 @@ Next.js (App Router) + Tailwind 4, deployed on Vercel.
   Currently idle - no tables yet.
 - **Carousel**: native CSS scroll-snap (no carousel library). The first card on the
   home page is a dog-photo carousel whose last slide is a **featured item slot**.
+- **Category rows**: each product carousel is driven by a Shopify **collection** the
+  merchant curates in admin (no code). The home page expects collections with handles
+  `for-dogs` and `for-humans`; create them in Shopify to fill the two rows. Add more
+  rows by calling `getCollection("<handle>")` and rendering another `<ProductRow>`.
 
 ## Setup
 

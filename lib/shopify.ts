@@ -69,22 +69,38 @@ async function storefront<T = any>(
 /* Catalog                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const PRODUCTS_QUERY = /* GraphQL */ `
-  query Products($first: Int!) {
-    products(first: $first, sortKey: BEST_SELLING) {
+const PRODUCT_FIELDS = /* GraphQL */ `
+  fragment ProductFields on Product {
+    id
+    handle
+    title
+    description
+    featuredImage { url altText }
+    variants(first: 1) {
       nodes {
         id
-        handle
-        title
-        description
-        featuredImage { url altText }
-        variants(first: 1) {
-          nodes {
-            id
-            price { amount currencyCode }
-            compareAtPrice { amount currencyCode }
-          }
-        }
+        price { amount currencyCode }
+        compareAtPrice { amount currencyCode }
+      }
+    }
+  }
+`;
+
+const PRODUCTS_QUERY = /* GraphQL */ `
+  ${PRODUCT_FIELDS}
+  query Products($first: Int!) {
+    products(first: $first, sortKey: BEST_SELLING) {
+      nodes { ...ProductFields }
+    }
+  }
+`;
+
+const COLLECTION_QUERY = /* GraphQL */ `
+  ${PRODUCT_FIELDS}
+  query Collection($handle: String!, $first: Int!) {
+    collection(handle: $handle) {
+      products(first: $first) {
+        nodes { ...ProductFields }
       }
     }
   }
@@ -95,6 +111,18 @@ export async function getProducts(first = 12): Promise<Product[]> {
   if (!domain || !token) return [];
   const data = await storefront(PRODUCTS_QUERY, { first }, "force-cache");
   return (data?.products?.nodes ?? []).map(toProduct);
+}
+
+// Products in a single Shopify collection (e.g. "for-dogs"). One collection
+// drives one ProductRow. Returns [] when unconfigured or the handle is unknown,
+// so a missing collection just yields an empty row instead of an error.
+export async function getCollection(
+  handle: string,
+  first = 12
+): Promise<Product[]> {
+  if (!domain || !token) return [];
+  const data = await storefront(COLLECTION_QUERY, { handle, first }, "force-cache");
+  return (data?.collection?.products?.nodes ?? []).map(toProduct);
 }
 
 function toProduct(node: any): Product {
