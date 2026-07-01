@@ -1,5 +1,4 @@
 import type Stripe from "stripe";
-import { randomUUID } from "node:crypto";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -42,7 +41,8 @@ export async function POST(req: Request) {
               stripe_subscription_id:
                 typeof s.subscription === "string" ? s.subscription : null,
               status: "active",
-              card_code: `DOG-${randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()}`,
+              // card_code is intentionally omitted — the DB default generates it
+              // once on insert and it must stay stable across retries.
               updated_at: new Date().toISOString(),
             },
             { onConflict: "user_id", ignoreDuplicates: false }
@@ -62,12 +62,15 @@ export async function POST(req: Request) {
               : sub.status === "past_due"
                 ? "past_due"
                 : "inactive";
-        if (userId) {
-          await supabaseAdmin
-            .from("members")
-            .update({ status, updated_at: new Date().toISOString() })
-            .eq("user_id", userId);
-        }
+        // Prefer the user id from metadata, but fall back to matching the stored
+        // subscription id so a cancellation still downgrades the member even if
+        // the event lacks our metadata (dashboard edits, portal changes, etc.).
+        const query = supabaseAdmin
+          .from("members")
+          .update({ status, updated_at: new Date().toISOString() });
+        await (userId
+          ? query.eq("user_id", userId)
+          : query.eq("stripe_subscription_id", sub.id));
         break;
       }
     }

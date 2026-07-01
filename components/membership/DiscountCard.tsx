@@ -23,16 +23,33 @@ export default function DiscountCard() {
 
   useEffect(() => {
     if (!supabase || !user) return;
-    supabase
-      .from("members")
-      .select("status, card_code, member_name")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setMember((data as Member | null) ?? null);
-        setChecked(true);
-      });
-  }, [user]);
+    let cancelled = false;
+    let tries = 0;
+
+    // Poll briefly: the Stripe webhook that flips status to "active" may land a
+    // beat after the post-checkout redirect. Stop once active or after a few
+    // tries so a genuine non-member settles on the "join" state quickly.
+    const run = async () => {
+      const { data } = await supabase!
+        .from("members")
+        .select("status, card_code, member_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const row = (data as Member | null) ?? null;
+      setMember(row);
+      setChecked(true);
+      if (row?.status !== "active" && tries < 4) {
+        tries += 1;
+        setTimeout(run, 2000);
+      }
+    };
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (member?.status === "active" && member.card_code) {

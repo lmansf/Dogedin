@@ -12,7 +12,6 @@ export const DOG_PHOTO_BUCKET = "dog-photos";
 export type PublicDog = {
   id: string;
   slug: string;
-  tagCode: string;
   dogName: string;
   breed: string | null;
   photoPath: string | null;
@@ -43,7 +42,7 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
     const { data, error } = await supabase
       .from("public_dog_profiles")
       .select(
-        "id, slug, tag_code, dog_name, breed, photo_path, lost_contact_opt_in, owner_phone, owner_email"
+        "id, slug, dog_name, breed, photo_path, lost_contact_opt_in, owner_phone, owner_email"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -51,7 +50,6 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
     return {
       id: data.id,
       slug: data.slug,
-      tagCode: data.tag_code,
       dogName: data.dog_name,
       breed: data.breed,
       photoPath: data.photo_path,

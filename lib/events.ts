@@ -17,13 +17,12 @@ export type CalendarEvent = {
   url: string | null;
 };
 
-// Unescape RFC 5547 TEXT values (\n \, \; \\).
+// Unescape RFC 5545 TEXT values (\n \, \; \\). Single pass over each backslash
+// escape so "\\n" (escaped backslash + n) becomes "\n" literally, not a newline.
 function unescapeText(v: string): string {
-  return v
-    .replace(/\\n/gi, "\n")
-    .replace(/\\,/g, ",")
-    .replace(/\\;/g, ";")
-    .replace(/\\\\/g, "\\");
+  return v.replace(/\\([\\nN,;])/g, (_, c) =>
+    c === "n" || c === "N" ? "\n" : c
+  );
 }
 
 // Parse an iCal date/date-time into epoch ms. We interpret the written
@@ -109,9 +108,13 @@ export async function getUpcomingEvents(limit = 20): Promise<CalendarEvent[]> {
   }
 }
 
-// Format helpers — render in a fixed timezone (Dunedin, FL is US Eastern) so
-// output is stable regardless of where the server/visitor is.
-const TZ = "America/New_York";
+// Format helpers. We echo the calendar's authored wall-clock time: date-times
+// are built from their literal components as UTC (see parseICalDate), so we also
+// FORMAT in UTC. That way a Google Calendar event authored as 7:00 PM (via TZID)
+// displays as 7:00 PM regardless of the server/visitor timezone. (A rare feed
+// using absolute "…Z" times would show UTC; typical single-calendar feeds use
+// local TZID times, which is the case this optimises for.)
+const TZ = "UTC";
 
 export function formatEventDate(ev: CalendarEvent): string {
   const d = new Date(ev.start);

@@ -51,10 +51,10 @@ export default function MembershipCta() {
   const join = () => {
     setError(null);
     startTransition(async () => {
-      const res = await createCheckoutSession({
-        userId: user.id,
-        email: user.email ?? "",
-      });
+      const { data } = await supabase!.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return setError("Please sign in again.");
+      const res = await createCheckoutSession({ accessToken: token });
       if ("url" in res) window.location.href = res.url;
       else setError(res.error);
     });

@@ -129,6 +129,13 @@ function RegistrationForm({
         lost_contact_opt_in: lostOptIn,
       };
 
+      // Remove the just-uploaded photo if the profile never gets created, so a
+      // failed registration doesn't leave an orphaned object in storage.
+      const cleanupPhoto = async () => {
+        if (photoPath)
+          await client.storage.from(DOG_PHOTO_BUCKET).remove([photoPath]);
+      };
+
       for (let attempt = 0; attempt < 4; attempt++) {
         const slug = `${stem}-${randomSuffix()}`;
         const { error: insErr } = await client
@@ -136,10 +143,12 @@ function RegistrationForm({
           .insert({ ...base, slug, tag_code: randomTagCode() });
         if (!insErr) return onDone(slug);
         if (insErr.code !== "23505") {
+          await cleanupPhoto();
           return setError(`Couldn't save the profile: ${insErr.message}`);
         }
         // 23505 = unique violation on slug or tag_code → try fresh codes.
       }
+      await cleanupPhoto();
       setError("Couldn't generate a unique profile link — please try again.");
     });
   };

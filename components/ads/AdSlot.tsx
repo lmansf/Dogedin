@@ -21,9 +21,8 @@ export default function AdSlot({ label = "Local business" }: { label?: string })
       return;
     }
     supabase
-      .from("advertisers")
+      .from("public_ads")
       .select("id, business_name, image_url, link_url, weight")
-      .eq("active", true)
       .then(({ data }) => {
         if (cancelled) return;
         const ads: Ad[] = (data ?? []).map((a) => ({

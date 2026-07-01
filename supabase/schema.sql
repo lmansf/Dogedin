@@ -103,10 +103,14 @@ create policy "owners manage own dogs" on public.dog_profiles
 
 -- Public, privilege-gated view. Definer (security_invoker=false) so it bypasses
 -- base RLS and exposes only safe columns; contact is nulled unless opted in.
+-- Note: tag_code is deliberately NOT exposed here. It's a semi-secret pointer
+-- for the physical tag/QR; the owner sees it on /account (base table, owner
+-- RLS), and finders resolve it via resolve_tag(). Exposing it in a public,
+-- unfiltered view would let anyone enumerate every dog's tag.
 create or replace view public.public_dog_profiles
 with (security_invoker = false) as
   select
-    id, slug, tag_code, dog_name, breed, photo_path, lost_contact_opt_in,
+    id, slug, dog_name, breed, photo_path, lost_contact_opt_in,
     case when lost_contact_opt_in then owner_phone end as owner_phone,
     case when lost_contact_opt_in then owner_email end as owner_email
   from public.dog_profiles;
@@ -116,12 +120,18 @@ grant select on public.public_dog_profiles to anon, authenticated;
 create or replace function public.search_dogs(q text)
 returns table (slug text, dog_name text, breed text, photo_path text, has_contact boolean)
 language sql security definer stable set search_path = public as $$
+  -- raw = the trimmed query (exact tag match); esc = the same with LIKE
+  -- metacharacters (\ % _) escaped so a query of "%" can't match every row.
+  with e as (
+    select btrim(q) as raw,
+           replace(replace(replace(btrim(q), '\', '\\'), '%', '\%'), '_', '\_') as esc
+  )
   select d.slug, d.dog_name, d.breed, d.photo_path, d.lost_contact_opt_in
-  from public.dog_profiles d
-  where length(btrim(q)) >= 2
-    and (d.dog_name ilike '%' || btrim(q) || '%'
-      or d.owner_name ilike '%' || btrim(q) || '%'
-      or upper(d.tag_code) = upper(btrim(q)))
+  from public.dog_profiles d, e
+  where length(e.raw) >= 2
+    and (d.dog_name ilike '%' || e.esc || '%' escape '\'
+      or d.owner_name ilike '%' || e.esc || '%' escape '\'
+      or upper(d.tag_code) = upper(e.raw))
   order by d.dog_name
   limit 50;
 $$;
@@ -175,9 +185,9 @@ create table if not exists public.advertisers (
 alter table public.advertisers enable row level security;
 alter table public.app_admins  enable row level security;
 
-drop policy if exists "active ads are public" on public.advertisers;
-create policy "active ads are public" on public.advertisers
-  for select using (active = true);
+-- The public reads ads through the public_ads view below (display columns
+-- only), NOT the base table — so impressions/clicks stay admin-only. There is
+-- deliberately no anon/public SELECT policy on the base advertisers table.
 
 -- Admins (see app_admins) get full control of advertisers.
 drop policy if exists "admins manage ads" on public.advertisers;
@@ -190,6 +200,15 @@ drop policy if exists "admins read admin list" on public.app_admins;
 create policy "admins read admin list" on public.app_admins
   for select to authenticated
   using (email = (auth.jwt() ->> 'email'));
+
+-- Public read surface for ads: active rows, display columns only (no counters).
+-- Definer view bypasses the base-table RLS; AdSlot reads this.
+create or replace view public.public_ads
+with (security_invoker = false) as
+  select id, business_name, image_url, link_url, weight
+  from public.advertisers
+  where active = true;
+grant select on public.public_ads to anon, authenticated;
 
 -- Counters bumped by SECURITY DEFINER functions so anon never updates the table.
 create or replace function public.increment_ad_impression(p_ad_id uuid)
@@ -214,7 +233,10 @@ create table if not exists public.members (
   stripe_customer_id      text,
   stripe_subscription_id  text,
   status                  text not null default 'inactive',  -- active|past_due|canceled|inactive
-  card_code               text unique,
+  -- Generated once at row creation and never rewritten, so a member's card code
+  -- stays stable across webhook retries / re-subscribes.
+  card_code               text unique default
+                            ('DOG-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))),
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now()
 );
