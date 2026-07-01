@@ -1,0 +1,145 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Image from "next/image";
+import { StarRating } from "./Stars";
+import ReviewItem from "./ReviewItem";
+import ReviewForm from "./ReviewForm";
+import type { Business, Review } from "@/lib/businesses";
+
+// Average star rating, rounded to one decimal. Inlined (rather than imported
+// from lib/businesses) so this client component doesn't pull the Supabase data
+// layer into the browser bundle.
+function averageRating(reviews: Review[]): number {
+  if (reviews.length === 0) return 0;
+  const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+  return Math.round((sum / reviews.length) * 10) / 10;
+}
+
+// A single "things to do" business: image, meta, an optional partner offer, and
+// an expandable reviews section (list + upvotes + replies + write-a-review).
+// Reviews are held in local state so newly posted ones appear immediately, in
+// both persisted and preview modes.
+export default function BusinessCard({
+  business,
+  canPersist,
+}: {
+  business: Business;
+  canPersist: boolean;
+}) {
+  const [reviews, setReviews] = useState<Review[]>(business.reviews);
+  const [open, setOpen] = useState(false);
+
+  const avg = useMemo(() => averageRating(reviews), [reviews]);
+
+  const addReview = (review: Review) =>
+    // Newest first — matches the server's upvotes-then-recency ordering closely
+    // enough for a fresh 0-upvote review.
+    setReviews((prev) => [review, ...prev]);
+
+  return (
+    <article className="flex flex-col border-[3px] border-black bg-white shadow-hard">
+      <div className="relative aspect-[16/9] border-b-[3px] border-black bg-zinc-100">
+        <Image
+          src={business.image}
+          alt={business.name}
+          fill
+          sizes="(max-width: 768px) 100vw, 500px"
+          className="object-cover"
+        />
+        {business.dogFriendly && (
+          <span className="absolute left-2 top-2 border-2 border-black bg-[var(--sand)] px-2 py-0.5 text-xs font-black uppercase shadow-hard">
+            🐾 Dog friendly
+          </span>
+        )}
+        {business.offer && (
+          <span className="absolute -right-2 -top-2 rotate-3 border-[3px] border-black bg-[var(--coral)] px-2 py-1 text-xs font-black text-white shadow-hard">
+            🎟 Deal
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="border-2 border-black bg-[var(--turq)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--sand)]">
+            {business.category}
+          </span>
+          <span className="text-xs font-bold text-black/50">
+            {business.neighborhood}
+          </span>
+        </div>
+
+        <h3 className="font-display text-2xl font-extrabold leading-tight">
+          {business.name}
+        </h3>
+
+        <div className="flex items-center gap-2">
+          <StarRating rating={avg} showValue={reviews.length > 0} />
+          <span className="text-xs font-bold text-black/50">
+            {reviews.length} review{reviews.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <p className="text-sm leading-relaxed text-black/70">
+          {business.description}
+        </p>
+
+        {/* Partner offer banner — the discount we advertise on this business. */}
+        {business.offer && (
+          <div className="mt-1 border-[3px] border-black bg-[var(--gold)]/25 p-3">
+            <p className="font-display text-base font-extrabold">
+              🎟 {business.offer.label}
+            </p>
+            <p className="text-sm font-semibold text-black/70">
+              {business.offer.detail}
+              {business.offer.code && (
+                <>
+                  {" "}
+                  <span className="border border-black bg-white px-1 font-black tracking-wide">
+                    {business.offer.code}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="mt-2 w-fit border-[3px] border-black bg-[var(--gold)] px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+        >
+          {open ? "Hide reviews" : `Reviews & reply →`}
+        </button>
+
+        {open && (
+          <div className="mt-3 flex flex-col gap-3">
+            {reviews.length > 0 ? (
+              <ul className="flex flex-col gap-3">
+                {reviews.map((r) => (
+                  <ReviewItem
+                    key={r.id}
+                    review={r}
+                    offer={business.offer}
+                    canPersist={canPersist}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm font-bold text-black/50">
+                No reviews yet — be the first!
+              </p>
+            )}
+
+            <ReviewForm
+              businessId={business.id}
+              canPersist={canPersist}
+              onAdded={addReview}
+            />
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
