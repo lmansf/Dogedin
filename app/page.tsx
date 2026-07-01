@@ -16,7 +16,6 @@ export default async function Home() {
   ]);
   const forDogs = dogsLive.length ? dogsLive : DEMO_DOGS;
   const forHumans = humansLive.length ? humansLive : DEMO_HUMANS;
-  const featured = forDogs[0] ?? forHumans[0] ?? null;
 
   return (
     <div className="flex flex-col gap-12">
@@ -42,8 +41,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* First card: dog photo carousel with a featured item slot. */}
-      <DogCarousel featured={featured} />
+      {/* Meet-the-pack: dog profile cards, Netflix-style. */}
+      <DogCarousel />
 
       {forDogs.length > 0 && (
         <ProductRow
