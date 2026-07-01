@@ -107,7 +107,11 @@ create policy "owners manage own dogs" on public.dog_profiles
 -- for the physical tag/QR; the owner sees it on /account (base table, owner
 -- RLS), and finders resolve it via resolve_tag(). Exposing it in a public,
 -- unfiltered view would let anyone enumerate every dog's tag.
-create or replace view public.public_dog_profiles
+-- Dropped first (not just CREATE OR REPLACE) so re-running after an earlier
+-- version that exposed tag_code succeeds — you can't drop a view column via
+-- CREATE OR REPLACE.
+drop view if exists public.public_dog_profiles;
+create view public.public_dog_profiles
 with (security_invoker = false) as
   select
     id, slug, dog_name, breed, photo_path, lost_contact_opt_in,
@@ -188,6 +192,8 @@ alter table public.app_admins  enable row level security;
 -- The public reads ads through the public_ads view below (display columns
 -- only), NOT the base table — so impressions/clicks stay admin-only. There is
 -- deliberately no anon/public SELECT policy on the base advertisers table.
+-- Explicitly drop the earlier public policy in case a prior version created it.
+drop policy if exists "active ads are public" on public.advertisers;
 
 -- Admins (see app_admins) get full control of advertisers.
 drop policy if exists "admins manage ads" on public.advertisers;
@@ -240,6 +246,10 @@ create table if not exists public.members (
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now()
 );
+-- Ensure the default is applied even if the table pre-existed without it.
+alter table public.members
+  alter column card_code set default
+    ('DOG-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)));
 
 alter table public.members enable row level security;
 -- A member may read their OWN row. All writes happen server-side in the Stripe
