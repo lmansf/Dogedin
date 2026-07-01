@@ -3,7 +3,7 @@ import { Fraunces, Nunito } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/cart/CartProvider";
 import CartDrawer from "@/components/cart/CartDrawer";
-import CartButton from "@/components/cart/CartButton";
+import SiteNav from "@/components/SiteNav";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -54,7 +54,7 @@ export default function RootLayout({
 
           {/* Header */}
           <header className="sticky top-0 z-30 border-b-[3px] border-black bg-[var(--sand)]">
-            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+            <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
               <a
                 href="/"
                 className="font-display text-2xl font-bold tracking-tight"
@@ -63,36 +63,7 @@ export default function RootLayout({
                   🐾 Dogedin
                 </span>
               </a>
-              <nav className="flex items-center gap-3 text-sm font-extrabold uppercase">
-                <a href="/" className="hidden hover:underline sm:inline">
-                  Shop
-                </a>
-                <a
-                  href="/things-to-do"
-                  className="hidden hover:underline sm:inline"
-                >
-                  Things to do
-                </a>
-                <a href="/dogs" className="hidden hover:underline sm:inline">
-                  Find a dog
-                </a>
-                <a href="/found" className="hidden hover:underline sm:inline">
-                  Found?
-                </a>
-                <a href="/events" className="hidden hover:underline sm:inline">
-                  Events
-                </a>
-                <a href="/register" className="hidden hover:underline sm:inline">
-                  Register
-                </a>
-                <a
-                  href="/membership"
-                  className="hidden hover:underline sm:inline"
-                >
-                  Club
-                </a>
-                <CartButton />
-              </nav>
+              <SiteNav />
             </div>
           </header>
 
