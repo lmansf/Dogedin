@@ -67,6 +67,12 @@ export default function RootLayout({
                 <a href="/" className="hidden hover:underline sm:inline">
                   Shop
                 </a>
+                <a
+                  href="/things-to-do"
+                  className="hidden hover:underline sm:inline"
+                >
+                  Things to do
+                </a>
                 <CartButton />
               </nav>
             </div>
