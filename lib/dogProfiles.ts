@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 
 // Data layer for Phase 1 dog profiles. Public reads only: the profile page and
-// search hit the privilege-gated view / RPC (see supabase/dogs.sql), so nothing
+// search hit the privilege-gated view / RPC (see supabase/schema.sql), so nothing
 // here can leak contact info or owner names. Owner-side reads/writes happen in
 // the client components using the authenticated Supabase session + RLS.
 
@@ -12,6 +12,7 @@ export const DOG_PHOTO_BUCKET = "dog-photos";
 export type PublicDog = {
   id: string;
   slug: string;
+  tagCode: string;
   dogName: string;
   breed: string | null;
   photoPath: string | null;
@@ -42,7 +43,7 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
     const { data, error } = await supabase
       .from("public_dog_profiles")
       .select(
-        "id, slug, dog_name, breed, photo_path, lost_contact_opt_in, owner_phone, owner_email"
+        "id, slug, tag_code, dog_name, breed, photo_path, lost_contact_opt_in, owner_phone, owner_email"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -50,6 +51,7 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
     return {
       id: data.id,
       slug: data.slug,
+      tagCode: data.tag_code,
       dogName: data.dog_name,
       breed: data.breed,
       photoPath: data.photo_path,
@@ -57,6 +59,20 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
       ownerPhone: data.owner_phone ?? null,
       ownerEmail: data.owner_email ?? null,
     };
+  } catch {
+    return null;
+  }
+}
+
+// Resolve a physical tag code (typed in, or read from a QR that points at
+// /found?tag=CODE) to a profile slug. Returns null if no dog carries that code.
+export async function resolveTag(code: string): Promise<string | null> {
+  const c = code.trim();
+  if (!supabase || c.length < 2) return null;
+  try {
+    const { data, error } = await supabase.rpc("resolve_tag", { code: c });
+    if (error || !data) return null;
+    return typeof data === "string" ? data : null;
   } catch {
     return null;
   }

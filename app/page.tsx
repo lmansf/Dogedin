@@ -1,7 +1,13 @@
 import DogCarousel from "@/components/DogCarousel";
 import ProductRow from "@/components/ProductRow";
+import AdSlot from "@/components/ads/AdSlot";
+import InstagramFeed from "@/components/social/InstagramFeed";
 import { getCollection } from "@/lib/shopify";
 import { DEMO_DOGS, DEMO_HUMANS } from "@/lib/demoProducts";
+
+// Refresh at most hourly so the auto-pulled Instagram feed stays current
+// without a rebuild. (Ads fetch client-side, so they're always live.)
+export const revalidate = 3600;
 
 // Each carousel row is driven by a Shopify collection the merchant curates in
 // admin. Until those collections return products, we fall back to the demo
@@ -44,6 +50,9 @@ export default async function Home() {
       {/* Meet-the-pack: dog profile cards, Netflix-style. */}
       <DogCarousel />
 
+      {/* Rotating local-business ad slot (managed at /admin/ads). */}
+      <AdSlot />
+
       {forDogs.length > 0 && (
         <ProductRow
           title="For the dog 🐕"
@@ -60,6 +69,10 @@ export default async function Home() {
           products={forHumans}
         />
       )}
+
+      {/* Auto-pulled Instagram feed (official Graph API; falls back to a
+          follow card until configured). */}
+      <InstagramFeed />
     </div>
   );
 }

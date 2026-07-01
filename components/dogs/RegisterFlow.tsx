@@ -27,6 +27,14 @@ function randomSuffix(): string {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 6);
 }
 
+// Short human-readable code for a physical tag / QR. Avoids ambiguous
+// characters (0/O, 1/I) so it's easy to read off a tag and type into /found.
+function randomTagCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
 export default function RegisterFlow() {
   const router = useRouter();
   const { user, loading, configured } = useSupabaseUser();
@@ -125,12 +133,12 @@ function RegistrationForm({
         const slug = `${stem}-${randomSuffix()}`;
         const { error: insErr } = await client
           .from("dog_profiles")
-          .insert({ ...base, slug });
+          .insert({ ...base, slug, tag_code: randomTagCode() });
         if (!insErr) return onDone(slug);
         if (insErr.code !== "23505") {
           return setError(`Couldn't save the profile: ${insErr.message}`);
         }
-        // 23505 = unique violation → try a new suffix.
+        // 23505 = unique violation on slug or tag_code → try fresh codes.
       }
       setError("Couldn't generate a unique profile link — please try again.");
     });

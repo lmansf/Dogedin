@@ -37,7 +37,7 @@ export default async function ThingsToDoPage() {
         <p className="border-[3px] border-black bg-[var(--gold)]/30 px-4 py-3 text-sm font-bold">
           👋 Preview mode: Supabase isn't connected yet, so new reviews, upvotes
           and replies show for this session but aren't saved. See{" "}
-          <code className="border border-black bg-white px-1">supabase/spots.sql</code>{" "}
+          <code className="border border-black bg-white px-1">supabase/schema.sql</code>{" "}
           to set up the tables.
         </p>
       )}

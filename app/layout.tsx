@@ -76,8 +76,20 @@ export default function RootLayout({
                 <a href="/dogs" className="hidden hover:underline sm:inline">
                   Find a dog
                 </a>
+                <a href="/found" className="hidden hover:underline sm:inline">
+                  Found?
+                </a>
+                <a href="/events" className="hidden hover:underline sm:inline">
+                  Events
+                </a>
                 <a href="/register" className="hidden hover:underline sm:inline">
                   Register
+                </a>
+                <a
+                  href="/membership"
+                  className="hidden hover:underline sm:inline"
+                >
+                  Club
                 </a>
                 <CartButton />
               </nav>
