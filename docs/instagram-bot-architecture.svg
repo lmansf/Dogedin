@@ -18,7 +18,7 @@
 
   <!-- ZONE: Vercel / dogedin.com -->
   <rect x="290" y="130" width="330" height="330" fill="none" stroke="#211e18" stroke-width="2.5" stroke-dasharray="7 5" rx="10"/>
-  <rect x="306" y="116" width="238" height="28" fill="#211e18"/>
+  <rect x="306" y="116" width="266" height="28" fill="#211e18"/>
   <text x="316" y="135" font-size="13" font-weight="800" fill="#f4e9ce">▲ dogedin.com · Next.js on Vercel</text>
 
   <!-- ZONE: Supabase -->
@@ -35,8 +35,8 @@
   <text x="446" y="578" font-size="12" font-weight="600" fill="#211e18" opacity="0.6">Vercel Cron or GitHub Action · runs every morning</text>
 
   <!-- BOX: dog owner -->
-  <rect x="66" y="201" width="180" height="90" fill="#211e18"/>
-  <rect x="60" y="195" width="180" height="90" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
+  <rect x="56" y="201" width="200" height="90" fill="#211e18"/>
+  <rect x="50" y="195" width="200" height="90" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
   <text x="150" y="232" font-size="20" text-anchor="middle">🧑 🐶</text>
   <text x="150" y="256" font-size="15" font-weight="800" text-anchor="middle" fill="#211e18">Dog owner</text>
   <text x="150" y="274" font-size="11.5" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.6">Dunedin local, phone in hand</text>
@@ -100,12 +100,12 @@
 
   <!-- ARROWS -->
   <!-- 1: owner -> register -->
-  <line x1="240" y1="240" x2="307" y2="240" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="273" y="224" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">1 · submit</text>
+  <line x1="250" y1="240" x2="307" y2="240" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="278" y="172" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">1 · submit dog + photo</text>
 
   <!-- 2: register -> supabase -->
   <line x1="595" y1="225" x2="707" y2="225" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="651" y="209" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">2 · photo → bucket, link → db</text>
+  <text x="651" y="172" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">2 · photo → bucket, link → db</text>
 
   <!-- 3: postgres -> bot step 1 -->
   <path d="M820,420 L820,505 L520,505 L520,602" fill="none" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
@@ -128,8 +128,8 @@
   <text x="655" y="762" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">7 · dogedin.com pulls the freshest posts — hourly, zero upkeep</text>
 
   <!-- legend -->
-  <text x="1110" y="380" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">Every box except the bot zone</text>
-  <text x="1110" y="397" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">already exists on dogedin.com.</text>
-  <text x="1110" y="414" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">To build: insta_post_log table,</text>
-  <text x="1110" y="431" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">the cron job, and an IG token.</text>
+  <text x="60" y="580" font-size="12" font-weight="600" fill="#211e18" opacity="0.65">Every box except the bot zone</text>
+  <text x="60" y="599" font-size="12" font-weight="600" fill="#211e18" opacity="0.65">already exists on dogedin.com.</text>
+  <text x="60" y="618" font-size="12" font-weight="600" fill="#211e18" opacity="0.65">To build: insta_post_log table,</text>
+  <text x="60" y="637" font-size="12" font-weight="600" fill="#211e18" opacity="0.65">the cron job, and an IG token.</text>
 </svg>
