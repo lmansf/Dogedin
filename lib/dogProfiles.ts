@@ -62,6 +62,30 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
   }
 }
 
+// Most recently registered dogs, for the homepage "Meet the pack" carousel.
+// Reads the public view (no contact data). Returns [] when Supabase is absent
+// or the pack is still empty — callers fall back to the mascot roster.
+export async function listRecentDogs(limit = 8): Promise<DogSearchResult[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("public_dog_profiles")
+      .select("slug, dog_name, breed, photo_path, lost_contact_opt_in")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    return data.map((d) => ({
+      slug: d.slug,
+      dogName: d.dog_name,
+      breed: d.breed,
+      photoPath: d.photo_path,
+      hasContact: d.lost_contact_opt_in,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // Resolve a physical tag code (typed in, or read from a QR that points at
 // /found?tag=CODE) to a profile slug. Returns null if no dog carries that code.
 export async function resolveTag(code: string): Promise<string | null> {

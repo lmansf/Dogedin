@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import AdSlot from "@/components/ads/AdSlot";
 import { getUpcomingEvents, formatEventDate } from "@/lib/events";
 
 export const metadata: Metadata = {
-  title: "Dog events in Dunedin · Dogedin",
+  title: "Dog events in Dunedin",
   description:
-    "Upcoming dog-friendly events around Dunedin, FL — auto-pulled from a public calendar feed.",
+    "Upcoming dog-friendly events around Dunedin, FL — markets, meetups and yappy hours on the town's dog calendar.",
 };
 
 // Auto-refreshing (ISR) — the page is regenerated at most once an hour so new
@@ -22,10 +24,27 @@ export default async function EventsPage() {
           What&apos;s on
         </h1>
         <p className="mt-3 max-w-xl font-bold text-[var(--sand)]/90">
-          Dog-friendly happenings around Dunedin — pulled straight from the
-          community calendar, updated automatically.
+          Markets, meetups and yappy hours around Dunedin — the town&apos;s dog
+          calendar, always up to date.
         </p>
       </section>
+
+      <p className="text-sm font-bold text-black/60">
+        Make a day of it —{" "}
+        <Link
+          href="/things-to-do"
+          className="font-black text-[var(--turq)] underline"
+        >
+          the pack&apos;s favourite dog-friendly spots →
+        </Link>{" "}
+        · Club members get early access to meetups —{" "}
+        <Link
+          href="/membership"
+          className="font-black text-[var(--turq)] underline"
+        >
+          join →
+        </Link>
+      </p>
 
       {!configured ? (
         <p className="border-[3px] border-black bg-[var(--gold)]/30 px-4 py-3 text-sm font-bold">
@@ -86,6 +105,10 @@ export default async function EventsPage() {
           })}
         </ul>
       )}
+
+      {/* Week sponsor — people planning outings are a local business's best
+          audience. One slot, clearly labelled, under the calendar. */}
+      <AdSlot slot="events_feed" label="Event sponsor" />
     </div>
   );
 }

@@ -4,8 +4,9 @@ import Image from "next/image";
 import { searchDogs, dogPhotoUrl } from "@/lib/dogProfiles";
 
 export const metadata: Metadata = {
-  title: "Find a dog · Dogedin",
-  description: "Search registered dogs by dog name or owner name.",
+  title: "Find a dog",
+  description:
+    "Look up any registered Dunedin dog by their name — or their human's.",
 };
 
 // Search page. Uses a plain GET form (name=q) so it works with no JS —
@@ -28,7 +29,8 @@ export default async function DogSearchPage({
           Find a dog
         </h1>
         <p className="mt-2 font-bold text-[var(--ink)]/70">
-          Search by a dog&apos;s name or their owner&apos;s name.
+          Every registered dog in Dunedin gets a page. Search by the dog&apos;s
+          name — or their human&apos;s.
         </p>
 
         <form method="get" className="mt-4 flex gap-2">
@@ -48,6 +50,23 @@ export default async function DogSearchPage({
           </button>
         </form>
       </section>
+
+      {!query && (
+        <div className="border-[3px] border-black bg-white p-5 text-sm shadow-hard">
+          <p className="font-bold">
+            New to the pack?{" "}
+            <Link href="/register" className="font-black text-[var(--turq)] underline">
+              Register your dog →
+            </Link>
+          </p>
+          <p className="mt-1 font-bold">
+            Found a dog with a Dogedin tag?{" "}
+            <Link href="/found" className="font-black text-[var(--coral)] underline">
+              Look up their tag →
+            </Link>
+          </p>
+        </div>
+      )}
 
       {query && (
         <p className="text-sm font-bold text-black/50">

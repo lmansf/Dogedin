@@ -55,7 +55,10 @@ export default function CartDrawer() {
                 No treats yet
               </p>
               <p className="mt-1 text-sm text-black/60">
-                Add something good for a good dog.
+                Add something good for a good dog —{" "}
+                <a href="/shop" className="font-black text-[var(--turq)] underline">
+                  browse the shop →
+                </a>
               </p>
             </div>
           )}

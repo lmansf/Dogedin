@@ -3,7 +3,7 @@ import Link from "next/link";
 import AccountDogs from "@/components/dogs/AccountDogs";
 
 export const metadata: Metadata = {
-  title: "My dogs · Dogedin",
+  title: "My dogs",
 };
 
 export default function AccountPage() {

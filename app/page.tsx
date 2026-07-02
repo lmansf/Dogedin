@@ -1,31 +1,43 @@
+import Link from "next/link";
 import DogCarousel from "@/components/DogCarousel";
 import ProductRow from "@/components/ProductRow";
 import AdSlot from "@/components/ads/AdSlot";
 import InstagramFeed from "@/components/social/InstagramFeed";
+import EventsPreview from "@/components/home/EventsPreview";
+import SpotsPreview from "@/components/home/SpotsPreview";
 import { getCollection } from "@/lib/shopify";
-import { DEMO_DOGS, DEMO_HUMANS } from "@/lib/demoProducts";
+import { listRecentDogs, dogPhotoUrl } from "@/lib/dogProfiles";
+import { PACK_GRADS, type PackDog } from "@/lib/dogs";
+import { DEMO_DOGS } from "@/lib/demoProducts";
 
-// Refresh at most hourly so the auto-pulled Instagram feed stays current
+// The front door of Dunedin's dog community: pack first, plans second, shop in
+// support. Refreshes at most hourly so the auto-pulled feeds stay current
 // without a rebuild. (Ads fetch client-side, so they're always live.)
 export const revalidate = 3600;
 
-// Each carousel row is driven by a Shopify collection the merchant curates in
-// admin. Until those collections return products, we fall back to the demo
-// catalog so the storefront looks alive.
-const FOR_DOGS = "for-dogs";
-const FOR_HUMANS = "for-humans";
-
 export default async function Home() {
-  const [dogsLive, humansLive] = await Promise.all([
-    getCollection(FOR_DOGS),
-    getCollection(FOR_HUMANS),
+  const [shopTeaser, recentDogs] = await Promise.all([
+    getCollection("for-dogs"),
+    listRecentDogs(8),
   ]);
-  const forDogs = dogsLive.length ? dogsLive : DEMO_DOGS;
-  const forHumans = humansLive.length ? humansLive : DEMO_HUMANS;
+  const teaserProducts = (shopTeaser.length ? shopTeaser : DEMO_DOGS).slice(0, 6);
+
+  // Real registered dogs for the carousel; the component falls back to the
+  // mascot cast when the pack is still empty.
+  const pack: PackDog[] = recentDogs.map((d, i) => ({
+    id: d.slug,
+    name: d.dogName,
+    breed: d.breed || "Very good dog",
+    about: `${d.dogName} is one of Dunedin's registered good dogs — tap through to say hello.`,
+    image: dogPhotoUrl(d.photoPath),
+    emoji: "🐶",
+    grad: PACK_GRADS[i % PACK_GRADS.length],
+    href: `/dog/${d.slug}`,
+  }));
 
   return (
     <div className="flex flex-col gap-12">
-      {/* Eccentric hero */}
+      {/* Community hero */}
       <section className="relative overflow-hidden border-[3px] border-black bg-[var(--gold)] p-8 shadow-hard-lg md:p-12">
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">
@@ -33,42 +45,87 @@ export default async function Home() {
             🏴 Scotland of the Sunshine State · est. Dunedin
           </span>
           <h1 className="mt-4 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] md:text-7xl">
-            Good gear for
+            Dunedin&apos;s home for
             <span className="ml-3 inline-block rotate-1 bg-[var(--red)] px-2 text-[var(--sand)]">
               extremely
             </span>{" "}
             good dogs.
           </h1>
           <p className="mt-5 max-w-xl text-lg font-bold text-[var(--ink)]/70">
-            Tartan toys, beach beds, leashes and treats - picked by dogs,
-            approved by dogs, occasionally chewed by dogs. Shipped fresh from the
-            Gulf coast.
+            Meet the pack, register your own good dog, find a patio that pours
+            water bowls, and see what&apos;s on this weekend. The shop&apos;s
+            here too — it keeps the treats (and this site) coming.
           </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/register"
+              className="border-[3px] border-black bg-[var(--turq)] px-4 py-2 text-sm font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+            >
+              Register your dog →
+            </Link>
+            <Link
+              href="/things-to-do"
+              className="border-[3px] border-black bg-[var(--sand)] px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+            >
+              Explore dog-friendly Dunedin
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* Meet-the-pack: dog profile cards, Netflix-style. */}
-      <DogCarousel />
+      {/* The pack: real registered dogs (mascots until the roster fills). */}
+      <DogCarousel pack={pack} />
 
-      {/* Rotating local-business ad slot (managed at /admin/ads). */}
-      <AdSlot />
+      <EventsPreview />
 
-      {forDogs.length > 0 && (
+      {/* Local business spotlight — the one ad between community sections. */}
+      <AdSlot slot="home_feed" label="Local partner" />
+
+      <SpotsPreview />
+
+      {/* Shop teaser: one earning row, honestly framed. */}
+      <section>
         <ProductRow
-          title="For the dog 🐕"
-          badge="Good boys"
-          badgeColor="var(--turq)"
-          products={forDogs}
+          title="From the shop 🛍"
+          badge="Funds the pack"
+          badgeColor="var(--gold)"
+          products={teaserProducts}
         />
-      )}
-      {forHumans.length > 0 && (
-        <ProductRow
-          title="For the human 🧑"
-          badge="Good owners"
-          badgeColor="var(--red)"
-          products={forHumans}
-        />
-      )}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-bold text-black/60">
+            Every purchase keeps Dogedin free — profiles, lost-dog tags and the
+            local guide.
+          </p>
+          <Link
+            href="/shop"
+            className="border-[3px] border-black bg-[var(--gold)] px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+          >
+            Visit the shop →
+          </Link>
+        </div>
+      </section>
+
+      {/* Dogedin Club band */}
+      <section className="relative overflow-hidden border-[3px] border-black bg-[var(--green)] p-6 shadow-hard-lg md:p-8">
+        <div className="dots pointer-events-none absolute inset-0" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="font-display text-3xl font-extrabold text-[var(--sand)]">
+              The Dogedin Club 🎟
+            </h2>
+            <p className="mt-1 max-w-lg font-bold text-[var(--sand)]/90">
+              Member deals at the places you already love — and every membership
+              keeps profiles, tags and the events board free for the whole pack.
+            </p>
+          </div>
+          <Link
+            href="/membership"
+            className="shrink-0 border-[3px] border-black bg-[var(--gold)] px-5 py-2.5 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+          >
+            Join the Club →
+          </Link>
+        </div>
+      </section>
 
       {/* Auto-pulled Instagram feed (official Graph API; falls back to a
           follow card until configured). */}

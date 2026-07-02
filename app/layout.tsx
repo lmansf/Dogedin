@@ -18,17 +18,51 @@ const body = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Dogedin - good gear for good dogs · Dunedin, FL",
+  title: {
+    default: "Dogedin — Dunedin, FL's club for dog lovers",
+    template: "%s · Dogedin",
+  },
   description:
-    "An eccentric little shop for extremely good dogs. Scotland of the Sunshine State, by way of the Gulf coast.",
+    "Dunedin's dogs, all in one place: profiles, lost-dog tags, dog-friendly guides and events — plus a wee shop that keeps the lights on. Scotland of the Sunshine State, by way of the Gulf coast.",
 };
 
+// Community leads; one shop item earns its keep.
 const MARQUEE = [
   "🏴 SCOTLAND OF THE SUNSHINE STATE",
-  "🦴 FREE TREATS OVER $50",
-  "🌊 SHIPS FROM THE GULF COAST",
+  "🐾 REGISTER YOUR GOOD DOG",
+  "🚨 FOUND A DOG? LOOK UP THE TAG",
   "🍺 GOOD DOGS · GOOD BREWS",
-  "🐾 HIGHLAND GOOD BOYS WELCOME",
+  "📅 SEE WHAT'S ON THIS WEEKEND",
+  "🦴 FREE TREATS OVER $50",
+];
+
+// Footer link columns: every community surface reachable from any page bottom.
+const FOOTER_COLS: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "The Pack",
+    links: [
+      { href: "/register", label: "Register your dog" },
+      { href: "/dogs", label: "Find a dog" },
+      { href: "/found", label: "Found a dog?" },
+      { href: "/account", label: "My dogs" },
+    ],
+  },
+  {
+    title: "Around Dunedin",
+    links: [
+      { href: "/things-to-do", label: "Local guide" },
+      { href: "/events", label: "Events" },
+      { href: "/membership", label: "Dogedin Club" },
+      { href: "/card", label: "Member card" },
+    ],
+  },
+  {
+    title: "Shop & Support",
+    links: [
+      { href: "/shop", label: "The Shop" },
+      { href: "/advertise", label: "Advertise with Dogedin" },
+    ],
+  },
 ];
 
 export default function RootLayout({
@@ -72,13 +106,49 @@ export default function RootLayout({
           {/* Gulf-coast footer */}
           <footer className="mt-16">
             <div className="scallop" />
-            <div className="border-t-[3px] border-black bg-[var(--turq)] py-8 text-center">
-              <p className="font-display text-2xl font-bold text-[var(--sand)]">
-                Built for extremely good dogs 🐕
-              </p>
-              <p className="mt-1 text-sm font-bold uppercase tracking-widest text-[var(--sand)]/80">
-                Scotland of the Sunshine State 🏴 · Dunedin, FL 🌴
-              </p>
+            <div className="border-t-[3px] border-black bg-[var(--turq)]">
+              <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-6 py-8 sm:grid-cols-3">
+                {FOOTER_COLS.map((col) => (
+                  <nav key={col.title} aria-label={col.title}>
+                    <h3 className="font-display text-lg font-extrabold text-[var(--sand)]">
+                      {col.title}
+                    </h3>
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {col.links.map((l) => (
+                        <li key={l.href}>
+                          <a
+                            href={l.href}
+                            className="text-sm font-bold text-[var(--sand)]/85 hover:text-[var(--sand)] hover:underline"
+                          >
+                            {l.label}
+                          </a>
+                        </li>
+                      ))}
+                      {col.title === "Shop & Support" &&
+                        process.env.NEXT_PUBLIC_INSTAGRAM_HANDLE && (
+                          <li>
+                            <a
+                              href={`https://instagram.com/${process.env.NEXT_PUBLIC_INSTAGRAM_HANDLE}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-bold text-[var(--sand)]/85 hover:text-[var(--sand)] hover:underline"
+                            >
+                              Instagram
+                            </a>
+                          </li>
+                        )}
+                    </ul>
+                  </nav>
+                ))}
+              </div>
+              <div className="border-t-2 border-[var(--sand)]/25 py-6 text-center">
+                <p className="font-display text-2xl font-bold text-[var(--sand)]">
+                  By Dunedin dog people, for extremely good dogs 🐕
+                </p>
+                <p className="mt-1 text-sm font-bold uppercase tracking-widest text-[var(--sand)]/80">
+                  Scotland of the Sunshine State 🏴 · Dunedin, FL 🌴
+                </p>
+              </div>
             </div>
           </footer>
 
