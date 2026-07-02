@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { StarRating } from "./Stars";
 import ReviewItem from "./ReviewItem";
@@ -100,6 +101,15 @@ export default function BusinessCard({
                   </span>
                 </>
               )}
+            </p>
+            <p className="mt-1 text-xs font-bold text-black/50">
+              Club member? Show your card.{" "}
+              <Link
+                href="/membership"
+                className="font-black text-[var(--turq)] underline"
+              >
+                Not one yet? →
+              </Link>
             </p>
           </div>
         )}

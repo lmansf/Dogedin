@@ -13,6 +13,33 @@ export type Dog = {
   grad: string; // tailwind gradient classes for the fallback + accent
 };
 
+// Unified card shape for the "Meet the pack" carousel: either a mascot (below)
+// or a real registered dog from the community. href links a real dog to their
+// profile page; mascots have no page (yet), so href is null.
+export type PackDog = {
+  id: string;
+  name: string;
+  breed: string;
+  about: string;
+  image: string | null;
+  emoji: string;
+  grad: string;
+  href: string | null;
+};
+
+// Rotating accent gradients for real community dogs (mascots carry their own).
+export const PACK_GRADS = [
+  "from-[var(--turq)] to-[var(--sky)]",
+  "from-[var(--gold)] to-[var(--amber)]",
+  "from-[var(--green)] to-[var(--navy)]",
+  "from-[var(--orange)] to-[var(--coral)]",
+  "from-[var(--sky)] to-[var(--gold)]",
+];
+
+export function mascotsAsPack(): PackDog[] {
+  return DOGS.map((d) => ({ ...d, href: null }));
+}
+
 export const DOGS: Dog[] = [
   {
     id: "angus",
@@ -59,7 +86,7 @@ export const DOGS: Dog[] = [
     name: "Nessie",
     breed: "Border Collie",
     about:
-      "Named for a monster, gentle as a lamb. Nessie has solved every puzzle feeder in the shop and is now working on the front door.",
+      "Named for a monster, gentle as a lamb. Nessie has solved every puzzle feeder in town and is now working on the front door.",
     image: "https://images.dog.ceo/breeds/collie-border/n02106166_1031.jpg",
     emoji: "🧠",
     grad: "from-[var(--navy)] to-[var(--turq)]",

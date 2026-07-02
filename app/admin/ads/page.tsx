@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import AdsAdmin from "@/components/ads/AdsAdmin";
 
 export const metadata: Metadata = {
-  title: "Manage advertisers · Dogedin",
+  title: "Manage advertisers",
   robots: { index: false, follow: false },
 };
 

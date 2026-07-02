@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import RegisterFlow from "@/components/dogs/RegisterFlow";
 
 export const metadata: Metadata = {
-  title: "Register your dog · Dogedin",
+  title: "Add your dog",
   description:
     "Create a dog profile with a public page and a lost-dog contact option — part of the Dogedin community.",
 };
@@ -17,11 +17,12 @@ export default function RegisterPage() {
             🐾 Community
           </span>
           <h1 className="mt-3 font-display text-4xl font-extrabold leading-[0.95] md:text-5xl">
-            Register your dog
+            Give your good dog a page
           </h1>
           <p className="mt-3 max-w-lg font-bold text-[var(--ink)]/70">
-            Give your good dog a profile page. Turn on “lost dog contact” and a
-            finder can reach you if they ever wander off.
+            Every Dunedin dog gets a free profile and a spot in the pack. Turn
+            on “lost dog contact” and a finder can reach you if they ever wander
+            off.
           </p>
         </div>
       </section>

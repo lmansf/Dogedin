@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Image from "next/image";
-import { DOGS, type Dog } from "@/lib/dogs";
+import { mascotsAsPack, type PackDog } from "@/lib/dogs";
 
 // "Meet the pack" carousel. A Netflix-style horizontal, snap-scrolling row of
 // dog cards. Whichever card is nearest the centre of the track is "active" and
@@ -11,7 +12,14 @@ import { DOGS, type Dog } from "@/lib/dogs";
 // portrait showing just the dog's face, and clicking one recentres it (making
 // it the active card). The active card is derived purely from scroll position,
 // so it keeps working while you drag/swipe; native scroll-snap does the rest.
-export default function DogCarousel() {
+//
+// The roster is real registered community dogs (passed in from the server via
+// lib/dogProfiles#listRecentDogs) with the mascot cast as the fallback while
+// the pack is still small. A permanent final card invites the viewer's own dog
+// into the lineup.
+export default function DogCarousel({ pack }: { pack?: PackDog[] }) {
+  const dogs = pack && pack.length > 0 ? pack : mascotsAsPack();
+  const cardCount = dogs.length + 1; // + the "your dog belongs here" card
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
@@ -54,7 +62,7 @@ export default function DogCarousel() {
       track.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", update);
     };
-  }, []);
+  }, [cardCount]);
 
   const focusCard = (i: number) => {
     const track = trackRef.current;
@@ -63,7 +71,7 @@ export default function DogCarousel() {
   };
 
   const nudge = (dir: 1 | -1) =>
-    focusCard(Math.min(DOGS.length - 1, Math.max(0, active + dir)));
+    focusCard(Math.min(cardCount - 1, Math.max(0, active + dir)));
 
   return (
     <section className="border-[3px] border-black bg-white p-3 shadow-hard-lg sm:p-4">
@@ -73,14 +81,20 @@ export default function DogCarousel() {
             Meet the pack 🐾
           </h2>
           <span className="hidden -rotate-2 border-2 border-black bg-[var(--turq)] px-3 py-1 text-xs font-black uppercase text-[var(--sand)] shadow-hard sm:inline-block">
-            Very good dogs
+            Dunedin&apos;s very good dogs
           </span>
         </div>
-        <div className="hidden gap-2 sm:flex">
+        <div className="hidden items-center gap-3 sm:flex">
+          <Link
+            href="/register"
+            className="text-xs font-black uppercase tracking-wide text-[var(--turq)] hover:underline"
+          >
+            Add your dog →
+          </Link>
           <NudgeButton dir={-1} disabled={active === 0} onClick={() => nudge(-1)} />
           <NudgeButton
             dir={1}
-            disabled={active === DOGS.length - 1}
+            disabled={active === cardCount - 1}
             onClick={() => nudge(1)}
           />
         </div>
@@ -90,7 +104,7 @@ export default function DogCarousel() {
         ref={trackRef}
         className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-[8%] py-2 sm:px-[15%]"
       >
-        {DOGS.map((dog, i) => (
+        {dogs.map((dog, i) => (
           <DogCard
             key={dog.id}
             dog={dog}
@@ -98,6 +112,10 @@ export default function DogCarousel() {
             onSelect={() => focusCard(i)}
           />
         ))}
+        <RegisterCard
+          active={active === cardCount - 1}
+          onSelect={() => focusCard(cardCount - 1)}
+        />
       </div>
     </section>
   );
@@ -108,7 +126,7 @@ function DogCard({
   active,
   onSelect,
 }: {
-  dog: Dog;
+  dog: PackDog;
   active: boolean;
   onSelect: () => void;
 }) {
@@ -165,6 +183,78 @@ function DogCard({
             <p className="text-sm leading-relaxed text-black/70 sm:text-base">
               {dog.about}
             </p>
+            {dog.href && (
+              <Link
+                href={dog.href}
+                className="w-fit border-2 border-black bg-[var(--gold)] px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5"
+              >
+                Visit {dog.name}&apos;s page →
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// The permanent last card: an open spot in the lineup for the viewer's dog.
+function RegisterCard({
+  active,
+  onSelect,
+}: {
+  active: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      data-card
+      className={`h-[300px] shrink-0 origin-center snap-center transition-[width] duration-300 ease-out sm:h-[340px] ${
+        active ? "w-[86vw] sm:w-[640px]" : "w-[42vw] sm:w-[210px]"
+      }`}
+    >
+      <div
+        className={`flex h-full w-full items-center justify-center overflow-hidden rounded-xl border-[3px] border-dashed border-black bg-white shadow-hard ${
+          active ? "" : "cursor-pointer transition-transform hover:-translate-y-1"
+        }`}
+        role={active ? undefined : "button"}
+        tabIndex={active ? undefined : 0}
+        aria-label={active ? undefined : "Register your dog"}
+        onClick={active ? undefined : onSelect}
+        onKeyDown={
+          active
+            ? undefined
+            : (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect();
+                }
+              }
+        }
+      >
+        {active ? (
+          <div className="flex flex-col items-center gap-3 p-6 text-center">
+            <span className="text-5xl">🐾</span>
+            <h3 className="font-display text-2xl font-extrabold leading-tight sm:text-3xl">
+              Your dog belongs here
+            </h3>
+            <p className="max-w-sm text-sm text-black/60">
+              Every Dunedin dog gets a free profile page — and a spot in this
+              lineup.
+            </p>
+            <Link
+              href="/register"
+              className="border-[3px] border-black bg-[var(--turq)] px-4 py-2 text-sm font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5"
+            >
+              Register your dog →
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2 p-3 text-center">
+            <span className="text-4xl">🐾</span>
+            <span className="text-xs font-extrabold uppercase tracking-wide text-black/50">
+              Your dog?
+            </span>
           </div>
         )}
       </div>
@@ -173,12 +263,12 @@ function DogCard({
 }
 
 // Renders the dog photo, falling back to the dog's emoji on its accent gradient
-// if the image can't load (e.g. a stale dog.ceo URL). Client-side onError keeps
-// the carousel looking intentional even when a photo 404s.
-function DogPhoto({ dog, priority }: { dog: Dog; priority: boolean }) {
+// if there's no photo or it can't load (e.g. a stale URL). Client-side onError
+// keeps the carousel looking intentional even when a photo 404s.
+function DogPhoto({ dog, priority }: { dog: PackDog; priority: boolean }) {
   const [failed, setFailed] = useState(false);
 
-  if (failed) {
+  if (!dog.image || failed) {
     return (
       <div
         className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${dog.grad}`}

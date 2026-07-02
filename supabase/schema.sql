@@ -114,7 +114,7 @@ drop view if exists public.public_dog_profiles;
 create view public.public_dog_profiles
 with (security_invoker = false) as
   select
-    id, slug, dog_name, breed, photo_path, lost_contact_opt_in,
+    id, slug, dog_name, breed, photo_path, lost_contact_opt_in, created_at,
     case when lost_contact_opt_in then owner_phone end as owner_phone,
     case when lost_contact_opt_in then owner_email end as owner_email
   from public.dog_profiles;
@@ -177,14 +177,23 @@ create table if not exists public.app_admins (
 create table if not exists public.advertisers (
   id             uuid primary key default gen_random_uuid(),
   business_name  text not null,
+  tagline        text,             -- one-liner shown on the native "card" ad format
   image_url      text not null,   -- /assets/ads/foo.svg (self-hosted) or external
   link_url       text not null,
   weight         int  not null default 1 check (weight between 0 and 100),
   active         boolean not null default true,
-  impressions    bigint not null default 0,
+  -- Flight window: campaigns expire themselves instead of running until an
+  -- admin remembers to untick `active`. Null = evergreen.
+  starts_at      date,
+  ends_at        date,
+  impressions    bigint not null default 0,   -- lifetime totals
   clicks         bigint not null default 0,
   created_at     timestamptz not null default now()
 );
+-- Additive columns for databases created from an earlier schema version.
+alter table public.advertisers add column if not exists tagline  text;
+alter table public.advertisers add column if not exists starts_at date;
+alter table public.advertisers add column if not exists ends_at   date;
 
 alter table public.advertisers enable row level security;
 alter table public.app_admins  enable row level security;
@@ -207,28 +216,96 @@ create policy "admins read admin list" on public.app_admins
   for select to authenticated
   using (email = (auth.jwt() ->> 'email'));
 
--- Public read surface for ads: active rows, display columns only (no counters).
--- Definer view bypasses the base-table RLS; AdSlot reads this.
-create or replace view public.public_ads
+-- Public read surface for ads: in-flight active rows, display columns only (no
+-- counters). Definer view bypasses the base-table RLS; AdSlot reads this.
+-- Dropped first: the column set changed (tagline added) and CREATE OR REPLACE
+-- can't alter a view's columns.
+drop view if exists public.public_ads;
+create view public.public_ads
 with (security_invoker = false) as
-  select id, business_name, image_url, link_url, weight
+  select id, business_name, tagline, image_url, link_url, weight
   from public.advertisers
-  where active = true;
+  where active = true
+    and (starts_at is null or starts_at <= current_date)
+    and (ends_at   is null or ends_at   >= current_date);
 grant select on public.public_ads to anon, authenticated;
 
--- Counters bumped by SECURITY DEFINER functions so anon never updates the table.
-create or replace function public.increment_ad_impression(p_ad_id uuid)
-returns void language sql security definer set search_path = public as $$
-  update public.advertisers set impressions = impressions + 1 where id = p_ad_id;
-$$;
-grant execute on function public.increment_ad_impression(uuid) to anon, authenticated;
+-- Per-slot, per-day stats so the admin can tell an advertiser exactly which
+-- placement performed and price slots honestly. Lifetime counters stay on the
+-- advertisers row; this table answers "what did I get last month, and where?".
+create table if not exists public.ad_stats_daily (
+  ad_id        uuid not null references public.advertisers(id) on delete cascade,
+  slot         text not null,
+  day          date not null default current_date,
+  impressions  bigint not null default 0,
+  clicks       bigint not null default 0,
+  primary key (ad_id, slot, day)
+);
+alter table public.ad_stats_daily enable row level security;
+drop policy if exists "admins read ad stats" on public.ad_stats_daily;
+create policy "admins read ad stats" on public.ad_stats_daily
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
-create or replace function public.increment_ad_click(p_ad_id uuid)
-returns text language sql security definer set search_path = public as $$
-  update public.advertisers set clicks = clicks + 1 where id = p_ad_id
-  returning link_url;
-$$;
-grant execute on function public.increment_ad_click(uuid) to anon, authenticated;
+-- Counters bumped by SECURITY DEFINER functions so anon never updates tables
+-- directly. Slot-aware replacements for the old increment_* functions (dropped
+-- below so re-runs converge). Slot names are sanitised server-side.
+drop function if exists public.increment_ad_impression(uuid);
+drop function if exists public.increment_ad_click(uuid);
+
+create or replace function public.record_ad_impression(p_ad_id uuid, p_slot text default 'unknown')
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  s text := coalesce(nullif(left(regexp_replace(lower(coalesce(p_slot, '')), '[^a-z0-9_-]', '', 'g'), 32), ''), 'unknown');
+begin
+  update public.advertisers set impressions = impressions + 1
+   where id = p_ad_id and active;
+  if found then
+    insert into public.ad_stats_daily (ad_id, slot, impressions)
+      values (p_ad_id, s, 1)
+      on conflict (ad_id, slot, day)
+      do update set impressions = public.ad_stats_daily.impressions + 1;
+  end if;
+end $$;
+grant execute on function public.record_ad_impression(uuid, text) to anon, authenticated;
+
+create or replace function public.record_ad_click(p_ad_id uuid, p_slot text default 'unknown')
+returns text language plpgsql security definer set search_path = public as $$
+declare
+  s text := coalesce(nullif(left(regexp_replace(lower(coalesce(p_slot, '')), '[^a-z0-9_-]', '', 'g'), 32), ''), 'unknown');
+  target text;
+begin
+  update public.advertisers set clicks = clicks + 1
+   where id = p_ad_id and active
+   returning link_url into target;
+  if target is not null then
+    insert into public.ad_stats_daily (ad_id, slot, clicks)
+      values (p_ad_id, s, 1)
+      on conflict (ad_id, slot, day)
+      do update set clicks = public.ad_stats_daily.clicks + 1;
+  end if;
+  return target;
+end $$;
+grant execute on function public.record_ad_click(uuid, text) to anon, authenticated;
+
+-- Advertiser inquiries from the /advertise page: anyone may submit, only
+-- admins may read. The acquisition funnel for Main Street businesses.
+create table if not exists public.ad_inquiries (
+  id             uuid primary key default gen_random_uuid(),
+  business_name  text not null check (char_length(business_name) between 1 and 120),
+  contact_name   text not null check (char_length(contact_name) between 1 and 80),
+  email          text not null check (char_length(email) between 3 and 120),
+  message        text check (char_length(message) <= 2000),
+  created_at     timestamptz not null default now()
+);
+alter table public.ad_inquiries enable row level security;
+drop policy if exists "anyone can submit an ad inquiry" on public.ad_inquiries;
+create policy "anyone can submit an ad inquiry" on public.ad_inquiries
+  for insert with check (true);
+drop policy if exists "admins read ad inquiries" on public.ad_inquiries;
+create policy "admins read ad inquiries" on public.ad_inquiries
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
 -- ============================================================================
 -- 4. MEMBERS — paid membership (rows written by the Stripe webhook)

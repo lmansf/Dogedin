@@ -13,16 +13,18 @@ export async function generateMetadata({
   const { slug } = await params;
   const dog = await getPublicDog(slug);
   return {
-    title: dog ? `${dog.dogName} · Dogedin` : "Dog not found · Dogedin",
+    title: dog ? dog.dogName : "Dog not found",
   };
 }
 
 export default async function DogProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ welcome?: string }>;
 }) {
-  const { slug } = await params;
+  const [{ slug }, { welcome }] = await Promise.all([params, searchParams]);
   const dog = await getPublicDog(slug);
 
   if (!dog) {
@@ -49,7 +51,31 @@ export default async function DogProfilePage({
   const hasContact = dog.lostContactOptIn && (dog.ownerPhone || dog.ownerEmail);
 
   return (
-    <article className="mx-auto flex max-w-2xl flex-col overflow-hidden border-[3px] border-black bg-white shadow-hard-lg">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      {/* Fresh-registration payoff: next steps instead of a dead end. */}
+      {welcome === "1" && (
+        <div className="border-[3px] border-black bg-[var(--green)] p-4 shadow-hard">
+          <p className="font-display text-lg font-extrabold text-[var(--sand)]">
+            🎉 {dog.dogName}&apos;s profile is live!
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link
+              href="/account"
+              className="border-2 border-black bg-[var(--gold)] px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5"
+            >
+              Get your tag &amp; QR code →
+            </Link>
+            <Link
+              href="/membership"
+              className="border-2 border-black bg-[var(--sand)] px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5"
+            >
+              Join the Dogedin Club →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <article className="flex flex-col overflow-hidden border-[3px] border-black bg-white shadow-hard-lg">
       <div className="relative aspect-[4/3] border-b-[3px] border-black bg-zinc-100">
         {img ? (
           <Image
@@ -97,11 +123,34 @@ export default async function DogProfilePage({
             </div>
           ) : null
         ) : (
-          <p className="mt-2 border-2 border-black bg-[var(--sand)] px-3 py-2 text-sm font-bold text-black/60">
-            🔒 This owner has kept their contact details private.
-          </p>
+          <div className="mt-2 border-2 border-black bg-[var(--sand)] px-3 py-2">
+            <p className="text-sm font-bold text-black/60">
+              🔒 This dog&apos;s human keeps their contact details private.
+            </p>
+            <p className="mt-1 text-sm text-black/60">
+              Found this dog? Try the code on their tag at{" "}
+              <Link href="/found" className="font-black underline">
+                the lost &amp; found
+              </Link>{" "}
+              — or check with nearby shops; Dunedin looks after its own.
+            </p>
+          </div>
         )}
       </div>
-    </article>
+      </article>
+
+      {/* Onward paths — every tag QR lands here; never a dead end. */}
+      <p className="text-center text-sm font-bold text-black/60">
+        {dog.dogName} is part of the Dogedin pack — Dunedin, FL&apos;s club for
+        dog lovers.{" "}
+        <Link href="/register" className="font-black text-[var(--turq)] underline">
+          Register your dog →
+        </Link>{" "}
+        ·{" "}
+        <Link href="/dogs" className="font-black text-[var(--turq)] underline">
+          Meet more of the pack →
+        </Link>
+      </p>
+    </div>
   );
 }

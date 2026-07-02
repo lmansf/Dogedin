@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { resolveTag } from "@/lib/dogProfiles";
 
 export const metadata: Metadata = {
-  title: "Found a dog? · Dogedin",
+  title: "Found a dog?",
   description:
     "Found a lost dog? Enter the code from its Dogedin tag to reach the owner.",
 };

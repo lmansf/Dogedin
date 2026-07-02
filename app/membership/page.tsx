@@ -3,16 +3,35 @@ import MembershipCta from "@/components/membership/MembershipCta";
 import { membershipPriceLabel } from "@/lib/stripe";
 
 export const metadata: Metadata = {
-  title: "Dogedin Club membership · Dogedin",
+  title: "Dogedin Club",
   description:
     "Join the Dogedin Club for a digital discount card and member perks at local Dunedin businesses.",
 };
 
-const PERKS = [
-  { emoji: "🎟", text: "A digital discount card for perks at participating Dunedin businesses" },
-  { emoji: "🍺", text: "Member-only deals at breweries, cafés and pet shops" },
-  { emoji: "🏖", text: "Early access to community events & meetups" },
-  { emoji: "🐾", text: "Support a local, dog-obsessed small business" },
+const PERKS: {
+  emoji: string;
+  text: string;
+  link?: { href: string; label: string };
+}[] = [
+  {
+    emoji: "🎟",
+    text: "A digital discount card for perks at participating Dunedin businesses",
+    link: { href: "/things-to-do", label: "See participating spots →" },
+  },
+  {
+    emoji: "🍺",
+    text: "Member-only deals at breweries, cafés and pet shops",
+    link: { href: "/things-to-do", label: "Browse the local guide →" },
+  },
+  {
+    emoji: "🏖",
+    text: "Early access to community events & meetups",
+    link: { href: "/events", label: "See what's on →" },
+  },
+  {
+    emoji: "🐾",
+    text: "Keep the good stuff free — members fund dog profiles, lost-dog tags and the events board for everyone",
+  },
 ];
 
 export default function MembershipPage() {
@@ -40,7 +59,20 @@ export default function MembershipPage() {
             className="flex items-start gap-3 border-[3px] border-black bg-white p-4 shadow-hard"
           >
             <span className="text-2xl">{p.emoji}</span>
-            <span className="text-sm font-semibold">{p.text}</span>
+            <span className="text-sm font-semibold">
+              {p.text}
+              {p.link && (
+                <>
+                  {" "}
+                  <a
+                    href={p.link.href}
+                    className="font-black text-[var(--turq)] underline"
+                  >
+                    {p.link.label}
+                  </a>
+                </>
+              )}
+            </span>
           </li>
         ))}
       </ul>

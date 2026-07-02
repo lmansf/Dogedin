@@ -4,24 +4,25 @@ import { useState } from "react";
 import Link from "next/link";
 import CartButton from "@/components/cart/CartButton";
 
-// Primary site navigation. Inline links on desktop; a hamburger-toggled drawer
-// on mobile (the drawer positions itself under the header bar, which is
-// `relative`). The cart button is always visible.
+// Primary site navigation, community first. Inline links on desktop; a
+// hamburger-toggled drawer on mobile (the drawer positions itself under the
+// header bar, which is `relative`). Two things stay visible at every size:
+// the cart, and the coral "Found a dog?" chip — the lost-dog lookup is an
+// emergency utility and must never hide behind a menu.
 const LINKS = [
-  { href: "/", label: "Shop" },
-  { href: "/things-to-do", label: "Things to do" },
-  { href: "/dogs", label: "Find a dog" },
-  { href: "/found", label: "Found?" },
+  { href: "/things-to-do", label: "Local Guide" },
   { href: "/events", label: "Events" },
-  { href: "/register", label: "Register" },
+  { href: "/dogs", label: "The Pack" },
   { href: "/membership", label: "Club" },
+  { href: "/shop", label: "Shop" },
+  { href: "/account", label: "My dogs" },
 ];
 
 export default function SiteNav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       {/* Desktop links */}
       <nav className="hidden items-center gap-4 text-sm font-extrabold uppercase lg:flex">
         {LINKS.map((l) => (
@@ -30,6 +31,16 @@ export default function SiteNav() {
           </Link>
         ))}
       </nav>
+
+      {/* Emergency chip — always visible, icon-only on the smallest screens. */}
+      <Link
+        href="/found"
+        aria-label="Found a dog? Look up their tag"
+        className="flex items-center gap-1 border-[3px] border-black bg-[var(--coral)] px-2 py-1.5 text-xs font-black uppercase tracking-wide text-white shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+      >
+        <span aria-hidden>🚨</span>
+        <span className="hidden sm:inline">Found a dog?</span>
+      </Link>
 
       <CartButton />
 
@@ -61,17 +72,22 @@ export default function SiteNav() {
             className="absolute inset-x-0 top-full z-50 border-b-[3px] border-black bg-[var(--sand)] shadow-hard-lg lg:hidden"
           >
             <ul className="mx-auto flex max-w-6xl flex-col px-4 py-2">
-              {LINKS.map((l) => (
-                <li key={l.href} className="border-b-2 border-black/10 last:border-0">
-                  <Link
-                    href={l.href}
-                    onClick={() => setOpen(false)}
-                    className="block py-3 text-sm font-extrabold uppercase tracking-wide hover:underline"
+              {[...LINKS, { href: "/register", label: "Register your dog" }].map(
+                (l) => (
+                  <li
+                    key={l.href}
+                    className="border-b-2 border-black/10 last:border-0"
                   >
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
+                    <Link
+                      href={l.href}
+                      onClick={() => setOpen(false)}
+                      className="block py-3 text-sm font-extrabold uppercase tracking-wide hover:underline"
+                    >
+                      {l.label}
+                    </Link>
+                  </li>
+                )
+              )}
             </ul>
           </nav>
         </>
