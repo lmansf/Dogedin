@@ -38,6 +38,19 @@ export function isServiceRole(req: Request): boolean {
   return token.length > 0 && token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 }
 
+// Resolve the caller to any signed-in user (or the service role). Returns a
+// user id / "service", or null for anonymous callers.
+export async function requireUser(
+  req: Request,
+  service: SupabaseClient,
+): Promise<string | null> {
+  if (isServiceRole(req)) return "service";
+  const token = bearer(req);
+  if (!token) return null;
+  const { data, error } = await service.auth.getUser(token);
+  return error || !data?.user ? null : data.user.id;
+}
+
 // Resolve the caller's user from their JWT and require app_admins membership.
 // Returns the admin's user id, or null when the caller isn't an admin.
 export async function requireAdmin(
