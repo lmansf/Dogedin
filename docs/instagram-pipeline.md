@@ -95,6 +95,43 @@ Extensions), then run the two `cron.schedule` statements at the bottom of
 4. After the next `sync-ig-feed` run (or invoke it manually), the post shows
    in the homepage "From the pack" feed.
 
+## Fun-fact moderation
+
+Registration sends the owner's raw fun fact through the `moderate-bio` Edge
+Function **before** the dog is inserted. A small, fast model (default
+`claude-haiku-4-5`, same `ANTHROPIC_API_KEY`) fixes spelling/grammar, trims
+rambling while keeping the owner's voice, caps length, and **rejects**
+profanity, sexual/hateful content, personal contact details, URLs, and spam —
+rejected fun facts are simply stored as empty. This protects both the public
+dog page and the Instagram captions generated from this text. If the function
+isn't deployed, registration falls back to the raw (length-capped) text.
+
+Cost: a fun fact is ~200 input + ~100 output tokens on Haiku ≈ **$0.0007 per
+registration** — effectively free.
+
+**Swapping in a serverless Hugging Face model:** the only thing to change is
+the `fetch` in `supabase/functions/moderate-bio/index.ts` — point it at HF's
+Inference Providers router with an `HF_TOKEN` secret:
+
+```ts
+const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${Deno.env.get("HF_TOKEN")}`,
+    "content-type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "meta-llama/Llama-3.1-8B-Instruct",   // any provider-served model
+    max_tokens: 150,
+    messages: [{ role: "system", content: SYSTEM }, { role: "user", content: text }],
+  }),
+});
+```
+
+No hosting required — but note the free tier is a small monthly credit
+allowance (fine for moderation volume; watch for cold starts and occasional
+model unavailability). `MODERATION_MODEL` stays the knob on the Anthropic path.
+
 ## Security model
 
 - `post_queue` RLS: only `app_admins` can read/update; inserts and publish

@@ -119,7 +119,27 @@ function RegistrationForm({
         if (upErr) return setError(`Photo upload failed: ${upErr.message}`);
       }
 
-      // 2. Insert the profile, retrying on the (rare) slug collision.
+      // 2. Run the fun fact through the moderation/cleanup Edge Function: it
+      // fixes spelling, trims rambles, and rejects anything inappropriate
+      // (cleaned: null) since this text shows publicly and feeds Instagram
+      // captions. If the function isn't deployed yet, fall back to the raw
+      // (length-capped) text so registration never blocks on it.
+      let cleanBio: string | null = bio.trim().slice(0, 300) || null;
+      if (cleanBio) {
+        try {
+          const { data, error: modErr } = await client.functions.invoke(
+            "moderate-bio",
+            { body: { text: cleanBio } }
+          );
+          if (!modErr && data && "cleaned" in data) {
+            cleanBio = data.cleaned;
+          }
+        } catch {
+          // moderation unavailable — keep the raw text
+        }
+      }
+
+      // 3. Insert the profile, retrying on the (rare) slug collision.
       const stem = slugStem(dogName);
       const base = {
         user_id: userId,
@@ -128,7 +148,7 @@ function RegistrationForm({
         owner_email: ownerEmail.trim(),
         dog_name: dogName.trim(),
         breed: breed.trim() || null,
-        bio: bio.trim().slice(0, 300) || null,
+        bio: cleanBio,
         photo_path: photoPath,
         lost_contact_opt_in: lostOptIn,
       };
