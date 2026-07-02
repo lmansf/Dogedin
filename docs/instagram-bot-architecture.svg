@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="800" viewBox="0 0 1360 800" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#211e18"/>
+    </marker>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.6" fill="#211e18" opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <!-- canvas -->
+  <rect width="1360" height="800" fill="#f4e9ce"/>
+  <rect width="1360" height="800" fill="url(#dots)"/>
+
+  <!-- title -->
+  <text x="60" y="62" font-family="Georgia, serif" font-size="32" font-weight="800" fill="#211e18">Dog of the Day — Instagram bot</text>
+  <text x="60" y="90" font-size="15" font-weight="600" fill="#211e18" opacity="0.65">How a submitted pup becomes tomorrow's post · dogedin.com</text>
+
+  <!-- ZONE: Vercel / dogedin.com -->
+  <rect x="290" y="130" width="330" height="330" fill="none" stroke="#211e18" stroke-width="2.5" stroke-dasharray="7 5" rx="10"/>
+  <rect x="306" y="116" width="238" height="28" fill="#211e18"/>
+  <text x="316" y="135" font-size="13" font-weight="800" fill="#f4e9ce">▲ dogedin.com · Next.js on Vercel</text>
+
+  <!-- ZONE: Supabase -->
+  <rect x="690" y="130" width="330" height="330" fill="none" stroke="#211e18" stroke-width="2.5" stroke-dasharray="7 5" rx="10"/>
+  <rect x="706" y="116" width="110" height="28" fill="#1f5c4a"/>
+  <text x="716" y="135" font-size="13" font-weight="800" fill="#f4e9ce">⚡ Supabase</text>
+
+  <!-- ZONE: Daily bot -->
+  <rect x="420" y="540" width="560" height="200" fill="none" stroke="#211e18" stroke-width="2.5" stroke-dasharray="7 5" rx="10"/>
+  <rect x="436" y="526" width="330" height="28" fill="#1e3a5f"/>
+  <text x="446" y="545" font-size="13" font-weight="800" fill="#f4e9ce">⏰ Daily bot · cron, once a day</text>
+  <rect x="776" y="526" width="82" height="28" fill="#a6332e"/>
+  <text x="789" y="545" font-size="13" font-weight="800" fill="#f4e9ce">to build</text>
+  <text x="446" y="578" font-size="12" font-weight="600" fill="#211e18" opacity="0.6">Vercel Cron or GitHub Action · runs every morning</text>
+
+  <!-- BOX: dog owner -->
+  <rect x="66" y="201" width="180" height="90" fill="#211e18"/>
+  <rect x="60" y="195" width="180" height="90" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
+  <text x="150" y="232" font-size="20" text-anchor="middle">🧑 🐶</text>
+  <text x="150" y="256" font-size="15" font-weight="800" text-anchor="middle" fill="#211e18">Dog owner</text>
+  <text x="150" y="274" font-size="11.5" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.6">Dunedin local, phone in hand</text>
+
+  <!-- BOX: /register -->
+  <rect x="321" y="191" width="280" height="80" fill="#211e18"/>
+  <rect x="315" y="185" width="280" height="80" fill="#c99a2e" stroke="#211e18" stroke-width="3"/>
+  <text x="455" y="219" font-size="17" font-weight="800" text-anchor="middle" fill="#211e18">📝 /register</text>
+  <text x="455" y="243" font-size="12" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.75">dog details + photo upload</text>
+
+  <!-- BOX: homepage feed -->
+  <rect x="321" y="336" width="280" height="95" fill="#211e18"/>
+  <rect x="315" y="330" width="280" height="95" fill="#6fb7d4" stroke="#211e18" stroke-width="3"/>
+  <text x="455" y="362" font-size="16" font-weight="800" text-anchor="middle" fill="#211e18">🏠 “From the pack” feed</text>
+  <text x="455" y="384" font-size="12" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.75">homepage shows the latest posts</text>
+  <text x="455" y="404" font-size="12" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.75">ISR — refreshes itself hourly</text>
+
+  <!-- BOX: storage -->
+  <rect x="721" y="191" width="280" height="80" fill="#211e18"/>
+  <rect x="715" y="185" width="280" height="80" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
+  <text x="855" y="219" font-size="15" font-weight="800" text-anchor="middle" fill="#211e18">🗂 Storage · dog-photos</text>
+  <text x="855" y="243" font-size="12" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.6">public image URLs</text>
+
+  <!-- BOX: postgres -->
+  <rect x="721" y="316" width="280" height="110" fill="#211e18"/>
+  <rect x="715" y="310" width="280" height="110" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
+  <text x="855" y="343" font-size="15" font-weight="800" text-anchor="middle" fill="#211e18">🐘 Postgres</text>
+  <text x="855" y="368" font-size="12" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.7">dog_profiles — name, breed, photo link</text>
+  <text x="855" y="390" font-size="12" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.7">insta_post_log — which links are used</text>
+
+  <!-- BOX: instagram -->
+  <rect x="1116" y="216" width="200" height="120" fill="#211e18"/>
+  <rect x="1110" y="210" width="200" height="120" fill="#ff7a52" stroke="#211e18" stroke-width="3"/>
+  <text x="1210" y="252" font-size="19" font-weight="800" text-anchor="middle" fill="#ffffff">📸 Instagram</text>
+  <text x="1210" y="278" font-size="13" font-weight="800" text-anchor="middle" fill="#ffffff" opacity="0.9">@dogedin</text>
+  <text x="1210" y="300" font-size="12" font-weight="600" text-anchor="middle" fill="#ffffff" opacity="0.85">Graph API</text>
+
+  <!-- BOT STEPS -->
+  <rect x="451" y="616" width="150" height="100" fill="#211e18"/>
+  <rect x="445" y="610" width="150" height="100" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
+  <circle cx="463" cy="628" r="12" fill="#211e18"/>
+  <text x="463" y="633" font-size="12" font-weight="800" text-anchor="middle" fill="#f4e9ce">3</text>
+  <text x="520" y="660" font-size="12.5" font-weight="700" text-anchor="middle" fill="#211e18">pull the next</text>
+  <text x="520" y="678" font-size="12.5" font-weight="700" text-anchor="middle" fill="#211e18">unused photo link</text>
+
+  <rect x="621" y="616" width="150" height="100" fill="#211e18"/>
+  <rect x="615" y="610" width="150" height="100" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
+  <circle cx="633" cy="628" r="12" fill="#211e18"/>
+  <text x="633" y="633" font-size="12" font-weight="800" text-anchor="middle" fill="#f4e9ce">4</text>
+  <text x="690" y="653" font-size="12.5" font-weight="700" text-anchor="middle" fill="#211e18">write the day's</text>
+  <text x="690" y="671" font-size="12.5" font-weight="700" text-anchor="middle" fill="#211e18">caption</text>
+  <text x="690" y="691" font-size="11" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.55">(AI or template)</text>
+
+  <rect x="791" y="616" width="165" height="100" fill="#211e18"/>
+  <rect x="785" y="610" width="165" height="100" fill="#ffffff" stroke="#211e18" stroke-width="3"/>
+  <circle cx="803" cy="628" r="12" fill="#211e18"/>
+  <text x="803" y="633" font-size="12" font-weight="800" text-anchor="middle" fill="#f4e9ce">5</text>
+  <text x="867" y="653" font-size="12.5" font-weight="700" text-anchor="middle" fill="#211e18">publish the post</text>
+  <text x="867" y="673" font-size="11" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.55">create media container</text>
+  <text x="867" y="689" font-size="11" font-weight="600" text-anchor="middle" fill="#211e18" opacity="0.55">→ publish (Graph API)</text>
+
+  <!-- ARROWS -->
+  <!-- 1: owner -> register -->
+  <line x1="240" y1="240" x2="307" y2="240" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="273" y="224" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">1 · submit</text>
+
+  <!-- 2: register -> supabase -->
+  <line x1="595" y1="225" x2="707" y2="225" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="651" y="209" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">2 · photo → bucket, link → db</text>
+
+  <!-- 3: postgres -> bot step 1 -->
+  <path d="M820,420 L820,505 L520,505 L520,602" fill="none" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="668" y="497" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">3 · next photo not posted yet</text>
+
+  <!-- 6: bot -> postgres (mark used) -->
+  <path d="M700,540 L700,478 L860,478 L860,428" fill="none" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="782" y="470" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">6 · mark link as posted</text>
+
+  <!-- step chain arrows -->
+  <line x1="597" y1="660" x2="609" y2="660" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="767" y1="660" x2="779" y2="660" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <!-- 5: bot -> instagram -->
+  <path d="M950,660 L1210,660 L1210,338" fill="none" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="1048" y="646" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">5 · publish</text>
+
+  <!-- 7: instagram -> homepage feed -->
+  <path d="M1110,290 L1055,290 L1055,772 L250,772 L250,390 L307,390" fill="none" stroke="#211e18" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="655" y="762" font-size="12.5" font-weight="800" text-anchor="middle" fill="#211e18" stroke="#f4e9ce" stroke-width="5" paint-order="stroke">7 · dogedin.com pulls the freshest posts — hourly, zero upkeep</text>
+
+  <!-- legend -->
+  <text x="1110" y="380" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">Every box except the bot zone</text>
+  <text x="1110" y="397" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">already exists on dogedin.com.</text>
+  <text x="1110" y="414" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">To build: insta_post_log table,</text>
+  <text x="1110" y="431" font-size="11.5" font-weight="600" fill="#211e18" opacity="0.6">the cron job, and an IG token.</text>
+</svg>
