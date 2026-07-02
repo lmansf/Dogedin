@@ -28,7 +28,9 @@ export default async function Home() {
     id: d.slug,
     name: d.dogName,
     breed: d.breed || "Very good dog",
-    about: `${d.dogName} is one of Dunedin's registered good dogs — tap through to say hello.`,
+    about:
+      d.bio ||
+      `${d.dogName} is one of Dunedin's registered good dogs — tap through to say hello.`,
     image: dogPhotoUrl(d.photoPath),
     emoji: "🐶",
     grad: PACK_GRADS[i % PACK_GRADS.length],

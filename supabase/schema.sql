@@ -86,10 +86,13 @@ create table if not exists public.dog_profiles (
   owner_email          text not null check (char_length(owner_email) between 3 and 120),
   dog_name             text not null check (char_length(dog_name) between 1 and 60),
   breed                text check (char_length(breed) <= 60),
+  bio                  text check (char_length(bio) <= 300),  -- optional fun fact
   photo_path           text,
   lost_contact_opt_in  boolean not null default false,
   created_at           timestamptz not null default now()
 );
+-- Additive column for databases created from an earlier schema version.
+alter table public.dog_profiles add column if not exists bio text;
 create index if not exists dog_profiles_user_id_idx    on public.dog_profiles (user_id);
 create index if not exists dog_profiles_dog_name_idx   on public.dog_profiles (lower(dog_name));
 create index if not exists dog_profiles_owner_name_idx on public.dog_profiles (lower(owner_name));
@@ -114,7 +117,7 @@ drop view if exists public.public_dog_profiles;
 create view public.public_dog_profiles
 with (security_invoker = false) as
   select
-    id, slug, dog_name, breed, photo_path, lost_contact_opt_in, created_at,
+    id, slug, dog_name, breed, bio, photo_path, lost_contact_opt_in, created_at,
     case when lost_contact_opt_in then owner_phone end as owner_phone,
     case when lost_contact_opt_in then owner_email end as owner_email
   from public.dog_profiles;
@@ -334,3 +337,91 @@ alter table public.members enable row level security;
 drop policy if exists "members read own row" on public.members;
 create policy "members read own row" on public.members
   for select to authenticated using (auth.uid() = user_id);
+
+-- ============================================================================
+-- 5. DOG OF THE DAY — Instagram pipeline (see docs/instagram-pipeline.md)
+-- ----------------------------------------------------------------------------
+-- Once a day an Edge Function (`daily-post`) publishes the oldest APPROVED
+-- post to Instagram, then drafts the next one: the oldest registered dog (by
+-- created_at) with a photo that has never been queued. Drafts get an
+-- AI-generated caption and sit in post_queue as 'pending' until an admin
+-- approves (optionally editing the caption) or rejects on /admin/posts.
+-- The website reads recent IG posts from ig_feed_cache (synced by another
+-- Edge Function on a schedule) — never from the IG API at page load.
+-- ============================================================================
+
+do $$ begin
+  create type public.post_status as enum
+    ('pending', 'approved', 'rejected', 'published', 'failed');
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.post_queue (
+  id            uuid primary key default gen_random_uuid(),
+  dog_id        uuid not null references public.dog_profiles(id) on delete cascade,
+  caption       text not null,           -- LLM prose + fixed hashtags
+  photo_url     text not null,           -- public URL, copied at draft time
+  status        public.post_status not null default 'pending',
+  ig_media_id   text,                    -- returned by IG after publish
+  ig_permalink  text,
+  error         text,                    -- populated on 'failed' (retryable)
+  created_at    timestamptz not null default now(),
+  reviewed_at   timestamptz,
+  reviewed_by   uuid references auth.users(id),
+  published_at  timestamptz              -- drives the once-a-day guard
+);
+create index if not exists post_queue_status_idx on public.post_queue (status);
+alter table public.post_queue add column if not exists published_at timestamptz;
+
+-- RLS: normal users never touch the queue. Admins (app_admins) review it —
+-- read everything, and update caption/status to approve or reject. Inserts and
+-- publish-side updates happen in Edge Functions via the service role.
+alter table public.post_queue enable row level security;
+drop policy if exists "admins read post queue" on public.post_queue;
+create policy "admins read post queue" on public.post_queue
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+drop policy if exists "admins review post queue" on public.post_queue;
+create policy "admins review post queue" on public.post_queue
+  for update to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
+  with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- Cache of the account's recent IG media, refreshed on a schedule by the
+-- sync-ig-feed Edge Function. The website reads this table (public read),
+-- so page loads never hit the Instagram API.
+create table if not exists public.ig_feed_cache (
+  media_id    text primary key,
+  permalink   text not null,
+  media_url   text,
+  caption     text,
+  media_type  text,
+  posted_at   timestamptz,
+  fetched_at  timestamptz not null default now()
+);
+alter table public.ig_feed_cache enable row level security;
+drop policy if exists "ig feed is public" on public.ig_feed_cache;
+create policy "ig feed is public" on public.ig_feed_cache
+  for select using (true);
+
+-- ---------------------------------------------------------------------------
+-- Scheduling (run these AFTER deploying the Edge Functions — see
+-- docs/instagram-pipeline.md). Requires the pg_cron + pg_net extensions
+-- (Database → Extensions in the dashboard). Replace PROJECT_REF and
+-- SERVICE_ROLE_KEY, then uncomment:
+--
+-- select cron.schedule(
+--   'dogedin-daily-post', '0 14 * * *',   -- 14:00 UTC = 9/10am Dunedin
+--   $cron$ select net.http_post(
+--     url     := 'https://PROJECT_REF.supabase.co/functions/v1/daily-post',
+--     headers := '{"Authorization": "Bearer SERVICE_ROLE_KEY", "Content-Type": "application/json"}'::jsonb,
+--     body    := '{}'::jsonb
+--   ) $cron$);
+--
+-- select cron.schedule(
+--   'dogedin-sync-ig-feed', '*/30 * * * *',
+--   $cron$ select net.http_post(
+--     url     := 'https://PROJECT_REF.supabase.co/functions/v1/sync-ig-feed',
+--     headers := '{"Authorization": "Bearer SERVICE_ROLE_KEY", "Content-Type": "application/json"}'::jsonb,
+--     body    := '{}'::jsonb
+--   ) $cron$);
+-- ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ export type PublicDog = {
   slug: string;
   dogName: string;
   breed: string | null;
+  bio: string | null;
   photoPath: string | null;
   lostContactOptIn: boolean;
   ownerPhone: string | null;
@@ -42,7 +43,7 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
     const { data, error } = await supabase
       .from("public_dog_profiles")
       .select(
-        "id, slug, dog_name, breed, photo_path, lost_contact_opt_in, owner_phone, owner_email"
+        "id, slug, dog_name, breed, bio, photo_path, lost_contact_opt_in, owner_phone, owner_email"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -52,6 +53,7 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
       slug: data.slug,
       dogName: data.dog_name,
       breed: data.breed,
+      bio: data.bio ?? null,
       photoPath: data.photo_path,
       lostContactOptIn: data.lost_contact_opt_in,
       ownerPhone: data.owner_phone ?? null,
@@ -65,12 +67,14 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
 // Most recently registered dogs, for the homepage "Meet the pack" carousel.
 // Reads the public view (no contact data). Returns [] when Supabase is absent
 // or the pack is still empty — callers fall back to the mascot roster.
-export async function listRecentDogs(limit = 8): Promise<DogSearchResult[]> {
+export async function listRecentDogs(
+  limit = 8
+): Promise<(DogSearchResult & { bio: string | null })[]> {
   if (!supabase) return [];
   try {
     const { data, error } = await supabase
       .from("public_dog_profiles")
-      .select("slug, dog_name, breed, photo_path, lost_contact_opt_in")
+      .select("slug, dog_name, breed, bio, photo_path, lost_contact_opt_in")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error || !data) return [];
@@ -78,6 +82,7 @@ export async function listRecentDogs(limit = 8): Promise<DogSearchResult[]> {
       slug: d.slug,
       dogName: d.dog_name,
       breed: d.breed,
+      bio: d.bio ?? null,
       photoPath: d.photo_path,
       hasContact: d.lost_contact_opt_in,
     }));

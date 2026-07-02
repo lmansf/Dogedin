@@ -75,6 +75,7 @@ function RegistrationForm({
   const [ownerEmail, setOwnerEmail] = useState(defaultEmail);
   const [dogName, setDogName] = useState("");
   const [breed, setBreed] = useState("");
+  const [bio, setBio] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [lostOptIn, setLostOptIn] = useState(false);
@@ -127,6 +128,7 @@ function RegistrationForm({
         owner_email: ownerEmail.trim(),
         dog_name: dogName.trim(),
         breed: breed.trim() || null,
+        bio: bio.trim().slice(0, 300) || null,
         photo_path: photoPath,
         lost_contact_opt_in: lostOptIn,
       };
@@ -227,6 +229,21 @@ function RegistrationForm({
           />
         </Field>
       </div>
+
+      <Field label="Fun fact">
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={2}
+          maxLength={300}
+          placeholder="e.g. Has personally greeted every dog on the Pinellas Trail"
+          className={`${inputClass} resize-y`}
+        />
+        <span className="text-[11px] font-semibold text-black/40">
+          Shows on {dogName ? `${dogName}'s` : "your dog's"} page — and gives
+          our dog-of-the-day Instagram post something to brag about.
+        </span>
+      </Field>
 
       <Field label="Photo">
         <div className="flex items-center gap-4">
