@@ -101,6 +101,11 @@ export default async function DogProfilePage({
         {dog.breed && (
           <p className="text-lg font-bold text-black/60">{dog.breed}</p>
         )}
+        {dog.bio && (
+          <p className="text-base italic leading-relaxed text-black/70">
+            “{dog.bio}”
+          </p>
+        )}
 
         {dog.lostContactOptIn ? (
           hasContact ? (
