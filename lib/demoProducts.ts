@@ -21,6 +21,7 @@ function demo(
     image: `https://picsum.photos/seed/${handle}/600/600`,
     imageAlt: title,
     variantId: `gid://shopify/ProductVariant/demo-${id}`,
+    available: true,
     price,
     compareAtPrice,
     currency: "USD",

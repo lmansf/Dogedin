@@ -4,12 +4,26 @@ import { useCart } from "./CartProvider";
 
 export default function AddToCartButton({
   variantId,
+  available = true,
   className = "",
 }: {
   variantId: string;
+  available?: boolean;
   className?: string;
 }) {
   const { add, pending } = useCart();
+
+  if (!available) {
+    return (
+      <button
+        type="button"
+        disabled
+        className={`cursor-not-allowed border-[3px] border-black bg-zinc-200 px-3 py-2 text-sm font-extrabold uppercase tracking-tight text-black/40 shadow-hard ${className}`}
+      >
+        Sold out
+      </button>
+    );
+  }
 
   return (
     <button

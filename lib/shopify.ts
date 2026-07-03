@@ -16,6 +16,7 @@ export type Product = {
   price: number;
   compareAtPrice: number | null;
   currency: string;
+  available: boolean;
 };
 
 export type CartLine = {
@@ -79,6 +80,7 @@ const PRODUCT_FIELDS = /* GraphQL */ `
     variants(first: 1) {
       nodes {
         id
+        availableForSale
         price { amount currencyCode }
         compareAtPrice { amount currencyCode }
       }
@@ -150,6 +152,7 @@ function toProduct(node: any): Product {
     image: node.featuredImage?.url ?? null,
     imageAlt: node.featuredImage?.altText ?? node.title,
     variantId: variant?.id ?? "",
+    available: variant?.availableForSale ?? false,
     price,
     // Only treat compareAtPrice as a discount when it's genuinely higher.
     compareAtPrice: compareAt && compareAt > price ? compareAt : null,
