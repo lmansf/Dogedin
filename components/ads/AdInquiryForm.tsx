@@ -45,7 +45,12 @@ export default function AdInquiryForm() {
     if (!businessName.trim() || !contactName.trim() || !email.trim())
       return setError("Business, contact name and email are required.");
     startTransition(async () => {
+      // Anonymous inserts can't be read back (no anon select policy on this
+      // table), so we mint the id ourselves and pass it straight to the
+      // notify function rather than relying on a post-insert .select().
+      const id = crypto.randomUUID();
       const { error } = await client.from("ad_inquiries").insert({
+        id,
         business_name: businessName.trim().slice(0, 120),
         contact_name: contactName.trim().slice(0, 80),
         email: email.trim().slice(0, 120),
@@ -53,6 +58,9 @@ export default function AdInquiryForm() {
       });
       if (error) return setError("Couldn't send that — please try again.");
       setSent(true);
+      // Best-effort email nudge to the team — the inquiry is already safely
+      // stored above, so a failure here shouldn't affect what the user sees.
+      client.functions.invoke("notify-ad-inquiry", { body: { inquiry_id: id } }).catch(() => {});
     });
   };
 

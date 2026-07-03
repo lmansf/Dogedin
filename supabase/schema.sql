@@ -450,8 +450,10 @@ create table if not exists public.ad_inquiries (
   contact_name   text not null check (char_length(contact_name) between 1 and 80),
   email          text not null check (char_length(email) between 3 and 120),
   message        text check (char_length(message) <= 2000),
-  created_at     timestamptz not null default now()
+  created_at     timestamptz not null default now(),
+  notified_at    timestamptz
 );
+alter table public.ad_inquiries add column if not exists notified_at timestamptz;
 alter table public.ad_inquiries enable row level security;
 drop policy if exists "anyone can submit an ad inquiry" on public.ad_inquiries;
 create policy "anyone can submit an ad inquiry" on public.ad_inquiries
@@ -460,6 +462,8 @@ drop policy if exists "admins read ad inquiries" on public.ad_inquiries;
 create policy "admins read ad inquiries" on public.ad_inquiries
   for select to authenticated
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+-- No update policy: the notify-ad-inquiry Edge Function stamps notified_at
+-- using the service role, which bypasses RLS entirely.
 
 -- ============================================================================
 -- 4. MEMBERS — paid membership (rows written by the Stripe webhook)
