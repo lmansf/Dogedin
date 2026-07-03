@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { getPublicDog, dogPhotoUrl } from "@/lib/dogProfiles";
+import DogSocial from "@/components/dogs/DogSocial";
 
 // Public dog profile. This is the URL a physical tag / QR code will point to in
 // Phase 2 (/dog/{slug}). Contact details render only when the owner opted in.
@@ -143,6 +144,8 @@ export default async function DogProfilePage({
         )}
       </div>
       </article>
+
+      <DogSocial dogId={dog.id} dogName={dog.dogName} />
 
       {/* Onward paths — every tag QR lands here; never a dead end. */}
       <p className="text-center text-sm font-bold text-black/60">

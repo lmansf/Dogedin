@@ -165,6 +165,15 @@ drop policy if exists "owners delete own dog photos" on storage.objects;
 create policy "owners delete own dog photos" on storage.objects
   for delete to authenticated
   using (bucket_id = 'dog-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+-- Admins can also delete any dog photo (moderation: pulling a reported post's
+-- image, which otherwise lives outside the uploading owner's own folder check).
+drop policy if exists "admins delete any dog photo" on storage.objects;
+create policy "admins delete any dog photo" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'dog-photos'
+    and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
+  );
 
 -- ============================================================================
 -- 3. ADVERTISERS — local business ads with rotation + tracking
@@ -425,3 +434,242 @@ create policy "ig feed is public" on public.ig_feed_cache
 --     body    := '{}'::jsonb
 --   ) $cron$);
 -- ---------------------------------------------------------------------------
+
+-- ============================================================================
+-- 6. DOG SOCIAL — friends & photo feed (v1: no messaging/DMs)
+-- ----------------------------------------------------------------------------
+-- Dogs (acting through their owner's authenticated session) can friend other
+-- dogs and post photos to their own feed. Every photo goes through the
+-- `moderate-photo` Edge Function (Claude vision) before it's public — posts
+-- sit as 'pending' (visible only to the owner) until approved or rejected. A
+-- rejected post's storage object is deleted by that function.
+-- ============================================================================
+
+create table if not exists public.dog_friendships (
+  id                uuid primary key default gen_random_uuid(),
+  requester_dog_id  uuid not null references public.dog_profiles(id) on delete cascade,
+  recipient_dog_id  uuid not null references public.dog_profiles(id) on delete cascade,
+  status            text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at        timestamptz not null default now(),
+  responded_at      timestamptz,
+  check (requester_dog_id <> recipient_dog_id)
+);
+create index if not exists dog_friendships_requester_idx on public.dog_friendships (requester_dog_id);
+create index if not exists dog_friendships_recipient_idx on public.dog_friendships (recipient_dog_id);
+
+alter table public.dog_friendships enable row level security;
+
+-- Accepted friendships are part of a dog's public profile (who's in the pack).
+-- Pending requests are private to the two owners until responded to.
+drop policy if exists "accepted friendships are public" on public.dog_friendships;
+create policy "accepted friendships are public" on public.dog_friendships
+  for select using (status = 'accepted');
+
+drop policy if exists "owners see their own requests" on public.dog_friendships;
+create policy "owners see their own requests" on public.dog_friendships
+  for select to authenticated
+  using (
+    exists (select 1 from public.dog_profiles d where d.id = requester_dog_id and d.user_id = auth.uid())
+    or exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid())
+  );
+
+drop policy if exists "owners send friend requests" on public.dog_friendships;
+create policy "owners send friend requests" on public.dog_friendships
+  for insert to authenticated
+  with check (exists (select 1 from public.dog_profiles d where d.id = requester_dog_id and d.user_id = auth.uid()));
+
+drop policy if exists "recipient responds to request" on public.dog_friendships;
+create policy "recipient responds to request" on public.dog_friendships
+  for update to authenticated
+  using (exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid()))
+  with check (exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid()));
+
+-- RLS alone can't compare an UPDATE's new value to its old one, so a
+-- recipient-scoped policy can't stop a caller from also rewriting
+-- requester_dog_id/recipient_dog_id on the same request (retargeting a
+-- friendship at someone who never asked for it). A trigger closes that.
+create or replace function public.lock_friendship_participants()
+returns trigger language plpgsql as $$
+begin
+  if new.requester_dog_id <> old.requester_dog_id
+     or new.recipient_dog_id <> old.recipient_dog_id then
+    raise exception 'Cannot change friendship participants';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists lock_friendship_participants on public.dog_friendships;
+create trigger lock_friendship_participants
+  before update on public.dog_friendships
+  for each row execute function public.lock_friendship_participants();
+
+drop policy if exists "either owner unfriends" on public.dog_friendships;
+create policy "either owner unfriends" on public.dog_friendships
+  for delete to authenticated
+  using (
+    exists (select 1 from public.dog_profiles d where d.id = requester_dog_id and d.user_id = auth.uid())
+    or exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid())
+  );
+
+do $$ begin
+  create type public.post_moderation_status as enum ('pending', 'approved', 'rejected');
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.dog_posts (
+  id                 uuid primary key default gen_random_uuid(),
+  dog_id             uuid not null references public.dog_profiles(id) on delete cascade,
+  photo_path         text not null,
+  caption            text check (char_length(caption) <= 300),
+  moderation_status  public.post_moderation_status not null default 'pending',
+  created_at         timestamptz not null default now()
+);
+create index if not exists dog_posts_dog_id_idx on public.dog_posts (dog_id);
+create index if not exists dog_posts_status_idx on public.dog_posts (moderation_status);
+
+alter table public.dog_posts enable row level security;
+
+drop policy if exists "approved posts are public" on public.dog_posts;
+create policy "approved posts are public" on public.dog_posts
+  for select using (moderation_status = 'approved');
+
+drop policy if exists "owners see their own posts" on public.dog_posts;
+create policy "owners see their own posts" on public.dog_posts
+  for select to authenticated
+  using (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
+
+-- moderation_status must start 'pending' — a client can't insert a
+-- pre-approved post and skip moderate-photo (only the service role, which
+-- bypasses RLS, flips status to approved/rejected).
+drop policy if exists "owners create posts" on public.dog_posts;
+create policy "owners create posts" on public.dog_posts
+  for insert to authenticated
+  with check (
+    exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid())
+    and moderation_status = 'pending'
+  );
+
+drop policy if exists "owners delete own posts" on public.dog_posts;
+create policy "owners delete own posts" on public.dog_posts
+  for delete to authenticated
+  using (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
+
+-- Admins can act on any post too (e.g. pull a reported photo).
+drop policy if exists "admins moderate posts" on public.dog_posts;
+create policy "admins moderate posts" on public.dog_posts
+  for update to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
+  with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+drop policy if exists "admins delete posts" on public.dog_posts;
+create policy "admins delete posts" on public.dog_posts
+  for delete to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+create table if not exists public.post_likes (
+  post_id     uuid not null references public.dog_posts(id) on delete cascade,
+  dog_id      uuid not null references public.dog_profiles(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (post_id, dog_id)
+);
+alter table public.post_likes enable row level security;
+
+drop policy if exists "likes are public" on public.post_likes;
+create policy "likes are public" on public.post_likes for select using (true);
+
+drop policy if exists "owners like posts" on public.post_likes;
+create policy "owners like posts" on public.post_likes
+  for insert to authenticated
+  with check (
+    exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid())
+    and exists (select 1 from public.dog_posts p where p.id = post_id and p.moderation_status = 'approved')
+  );
+
+drop policy if exists "owners unlike posts" on public.post_likes;
+create policy "owners unlike posts" on public.post_likes
+  for delete to authenticated
+  using (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
+
+create table if not exists public.post_comments (
+  id          uuid primary key default gen_random_uuid(),
+  post_id     uuid not null references public.dog_posts(id) on delete cascade,
+  dog_id      uuid not null references public.dog_profiles(id) on delete cascade,
+  body        text not null check (char_length(body) between 1 and 500),
+  created_at  timestamptz not null default now()
+);
+create index if not exists post_comments_post_id_idx on public.post_comments (post_id);
+alter table public.post_comments enable row level security;
+
+drop policy if exists "comments on approved posts are public" on public.post_comments;
+create policy "comments on approved posts are public" on public.post_comments
+  for select using (exists (select 1 from public.dog_posts p where p.id = post_id and p.moderation_status = 'approved'));
+
+drop policy if exists "owners comment on posts" on public.post_comments;
+create policy "owners comment on posts" on public.post_comments
+  for insert to authenticated
+  with check (
+    exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid())
+    and exists (select 1 from public.dog_posts p where p.id = post_id and p.moderation_status = 'approved')
+  );
+
+drop policy if exists "comment or post owner deletes" on public.post_comments;
+create policy "comment or post owner deletes" on public.post_comments
+  for delete to authenticated
+  using (
+    exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid())
+    or exists (
+      select 1 from public.dog_posts p
+      join public.dog_profiles d on d.id = p.dog_id
+      where p.id = post_id and d.user_id = auth.uid()
+    )
+  );
+
+-- Reports feed the admin moderation queue; reporting requires owning a dog
+-- (keeps it tied to a real member, not anonymous).
+create table if not exists public.post_reports (
+  id               uuid primary key default gen_random_uuid(),
+  post_id          uuid not null references public.dog_posts(id) on delete cascade,
+  reporter_dog_id  uuid not null references public.dog_profiles(id) on delete cascade,
+  reason           text check (char_length(reason) <= 500),
+  created_at       timestamptz not null default now(),
+  resolved         boolean not null default false
+);
+alter table public.post_reports enable row level security;
+
+drop policy if exists "owners report posts" on public.post_reports;
+create policy "owners report posts" on public.post_reports
+  for insert to authenticated
+  with check (exists (select 1 from public.dog_profiles d where d.id = reporter_dog_id and d.user_id = auth.uid()));
+
+drop policy if exists "admins read reports" on public.post_reports;
+create policy "admins read reports" on public.post_reports
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+drop policy if exists "admins resolve reports" on public.post_reports;
+create policy "admins resolve reports" on public.post_reports
+  for update to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
+  with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- Tighten dog-photos public read now that dog_posts exists (must run after
+-- section 2, which created the original bucket-wide policy of the same
+-- name — this drop+recreate wins). Profile photos (path: {userId}/{uuid}.ext)
+-- stay fully public. Post photos (path: {userId}/posts/{uuid}.ext) are only
+-- publicly *listable* once approved — otherwise anyone could enumerate the
+-- bucket via the Storage API and pull pending/rejected photos before
+-- moderation (or its deletion-on-reject) has run. Direct fetches by a
+-- *known* URL still bypass RLS on a public bucket regardless (same as
+-- profile photos), but post paths are random UUIDs, so listing was the
+-- only practical way to discover one.
+drop policy if exists "dog photos are public read" on storage.objects;
+create policy "dog photos are public read" on storage.objects
+  for select using (
+    bucket_id = 'dog-photos'
+    and (
+      (storage.foldername(name))[2] is distinct from 'posts'
+      or exists (
+        select 1 from public.dog_posts p
+        where p.photo_path = name and p.moderation_status = 'approved'
+      )
+    )
+  );
