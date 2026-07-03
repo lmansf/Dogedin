@@ -30,11 +30,12 @@ import {
 } from "@/lib/dogPosts";
 
 // Friends + photo feed for a dog's public profile. Read-only for anonymous
-// visitors (friends list, approved photos, like counts). Signed-in owners of
-// ANY dog get an "acting as {dog}" identity to friend/like with; the
+// visitors (friends list, approved photos, paw counts). Signed-in owners of
+// ANY dog get an "acting as {dog}" identity to friend/paw with; the
 // profile's own owner additionally gets the upload form, their
 // pending/rejected posts, and incoming friend requests. No commenting/DMs —
-// friend + like only for now.
+// friend + paw only for now. "Paw" is UI language for a like — internal
+// code (post_likes, toggleLike, likeCounts) keeps its existing names.
 export default function DogSocial({
   dogId,
   dogName,
@@ -180,7 +181,7 @@ export default function DogSocial({
         !user &&
         configured && (
           <div className="border-2 border-black bg-white p-4">
-            <AuthPanel intro={`Sign in to friend ${dogName} and like or comment on photos.`} />
+            <AuthPanel intro={`Sign in to friend ${dogName} and give their photos a paw.`} />
           </div>
         )
       )}
@@ -442,11 +443,13 @@ function PostCard({
               type="button"
               onClick={onLike}
               disabled={!canAct}
+              aria-pressed={liked}
+              aria-label={liked ? "Remove paw" : "Give a paw"}
               className={`font-black uppercase tracking-wide disabled:opacity-40 ${
                 liked ? "text-[var(--coral)]" : "text-black/60"
               }`}
             >
-              {liked ? "♥" : "♡"} {likeCount}
+              🐾 {likeCount}
             </button>
           </div>
           {canAct && (

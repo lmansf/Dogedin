@@ -6,7 +6,7 @@ import Image from "next/image";
 import { StarRating } from "./Stars";
 import ReviewItem from "./ReviewItem";
 import ReviewForm from "./ReviewForm";
-import type { Business, Review } from "@/lib/businesses";
+import type { Business, BusinessHours, Review } from "@/lib/businesses";
 
 // Average star rating, rounded to one decimal. Inlined (rather than imported
 // from lib/businesses) so this client component doesn't pull the Supabase data
@@ -16,6 +16,44 @@ function averageRating(reviews: Review[]): number {
   const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
   return Math.round((sum / reviews.length) * 10) / 10;
 }
+
+// Same reasoning as averageRating above — small pure helpers, inlined rather
+// than imported from lib/businesses.
+function googleMapsDirectionsUrl(address: string): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+}
+function appleMapsDirectionsUrl(address: string): string {
+  return `https://maps.apple.com/?daddr=${encodeURIComponent(address)}`;
+}
+
+const DAY_ORDER: (keyof BusinessHours)[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+const DAY_LABELS: Record<keyof BusinessHours, string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+};
+// Date.getDay(): 0 = Sunday … 6 = Saturday.
+const JS_DAY_TO_KEY: (keyof BusinessHours)[] = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
 
 // A single "things to do" business: image, meta, an optional partner offer, and
 // an expandable reviews section (list + upvotes + replies + write-a-review).
@@ -30,8 +68,11 @@ export default function BusinessCard({
 }) {
   const [reviews, setReviews] = useState<Review[]>(business.reviews);
   const [open, setOpen] = useState(false);
+  const [showHours, setShowHours] = useState(false);
 
   const avg = useMemo(() => averageRating(reviews), [reviews]);
+  const todayKey = useMemo(() => JS_DAY_TO_KEY[new Date().getDay()], []);
+  const today = business.hours?.[todayKey];
 
   const addReview = (review: Review) =>
     // Newest first — matches the server's upvotes-then-recency ordering closely
@@ -84,6 +125,81 @@ export default function BusinessCard({
         <p className="text-sm leading-relaxed text-black/70">
           {business.description}
         </p>
+
+        {/* Directions, contact, and today's hours — the practical info a
+            visitor actually needs to go there. */}
+        {(business.address || business.phone || business.website) && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold">
+            {business.address && (
+              <>
+                <a
+                  href={googleMapsDirectionsUrl(business.address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--turq)] underline"
+                >
+                  📍 Google Maps
+                </a>
+                <a
+                  href={appleMapsDirectionsUrl(business.address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--turq)] underline"
+                >
+                  Apple Maps
+                </a>
+              </>
+            )}
+            {business.phone && (
+              <a href={`tel:${business.phone}`} className="text-black/60 underline">
+                📞 {business.phone}
+              </a>
+            )}
+            {business.website && (
+              <a
+                href={business.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-black/60 underline"
+              >
+                🔗 Website
+              </a>
+            )}
+          </div>
+        )}
+
+        {business.hours && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowHours((v) => !v)}
+              className="text-xs font-black uppercase tracking-wide text-black/50 hover:underline"
+            >
+              🕒{" "}
+              {today
+                ? today.closed
+                  ? "Closed today"
+                  : `Open today ${today.open}–${today.close}`
+                : "Hours"}{" "}
+              {showHours ? "▲" : "▼"}
+            </button>
+            {showHours && (
+              <ul className="mt-1 flex flex-col gap-0.5 text-xs text-black/60">
+                {DAY_ORDER.map((day) => {
+                  const d = business.hours![day];
+                  return (
+                    <li
+                      key={day}
+                      className={day === todayKey ? "font-black text-black" : ""}
+                    >
+                      {DAY_LABELS[day]}: {d.closed ? "Closed" : `${d.open}–${d.close}`}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Partner offer banner — the discount we advertise on this business. */}
         {business.offer && (

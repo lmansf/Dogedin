@@ -149,3 +149,25 @@ export async function reportPost(postId: string, reporterDogId: string, reason: 
     .insert({ post_id: postId, reporter_dog_id: reporterDogId, reason: reason.trim().slice(0, 500) || null });
   return { error: error?.message ?? null };
 }
+
+export type PawpularityEntry = { slug: string; dogName: string; photoUrl: string | null; pawCount: number };
+
+// "Pawpularity contest" — top dogs by total paws (post_likes) across their
+// approved posts. See breed_counts() for the sibling /dogs stat.
+export async function getPawpularityLeaderboard(limit = 10): Promise<PawpularityEntry[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc("pawpularity_leaderboard", { p_limit: limit });
+    if (error || !data) return [];
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    return (data as any[]).map((d) => ({
+      slug: d.slug,
+      dogName: d.dog_name,
+      photoUrl: dogPhotoUrl(d.photo_path),
+      pawCount: Number(d.paw_count),
+    }));
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  } catch {
+    return [];
+  }
+}

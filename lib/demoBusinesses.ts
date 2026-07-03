@@ -1,4 +1,16 @@
-import type { Business } from "@/lib/businesses";
+import type { Business, BusinessHours } from "@/lib/businesses";
+
+// Same hours every day — good enough for demo/preview data. Real submissions
+// go through the per-day form in components/spots/BusinessSubmissionForm.tsx.
+function dailyHours(open: string, close: string, closedOn: string[] = []): BusinessHours {
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+  return days.reduce((acc, day) => {
+    acc[day] = closedOn.includes(day)
+      ? { open: null, close: null, closed: true }
+      : { open, close, closed: false };
+    return acc;
+  }, {} as BusinessHours);
+}
 
 // Seed roster of Dunedin, FL businesses for the "Things to do" page. Used as a
 // fallback so the page looks alive before Supabase is wired up (mirrors
@@ -17,6 +29,10 @@ export const DEMO_BUSINESSES: Business[] = [
       "Florida's oldest craft brewery, with a shaded patio where good dogs are as welcome as the beer.",
     image: "/assets/spots/dunedin-brewery.svg",
     dogFriendly: true,
+    phone: "(727) 555-0142",
+    website: "https://dunedinbrewery.com",
+    address: "937 Douglas Ave, Dunedin, FL 34698",
+    hours: dailyHours("11:00", "22:00"),
     placeId: "demo-place-dunedin-brewery",
     offer: {
       label: "$1 off pints",
@@ -64,6 +80,10 @@ export const DEMO_BUSINESSES: Business[] = [
       "A dedicated off-leash stretch of Gulf shoreline. Shallow, calm water perfect for first-time swimmers.",
     image: "/assets/spots/honeymoon-island.svg",
     dogFriendly: true,
+    phone: null,
+    website: "https://www.pinellascounty.org/park/05_honeymoon.htm",
+    address: "1 Causeway Blvd, Dunedin, FL 34698",
+    hours: dailyHours("08:00", "19:00"),
     placeId: null,
     offer: null,
     reviews: [
@@ -97,6 +117,10 @@ export const DEMO_BUSINESSES: Business[] = [
       "Brunch institution with a leafy dog-friendly patio and a pup menu that's arguably better than the human one.",
     image: "/assets/spots/kellys.svg",
     dogFriendly: true,
+    phone: "(727) 555-0187",
+    website: "https://kellyschicaboomroom.com",
+    address: "319 Main St, Dunedin, FL 34698",
+    hours: dailyHours("08:00", "15:00", ["monday"]),
     placeId: "demo-place-kellys",
     offer: {
       label: "Free pup-cup",
@@ -126,6 +150,10 @@ export const DEMO_BUSINESSES: Business[] = [
       "Quiet boardwalk trails through oak hammock and wetlands. Shady, flat, and blissfully uncrowded on weekdays.",
     image: "/assets/spots/hammock-park.svg",
     dogFriendly: true,
+    phone: null,
+    website: null,
+    address: "1900 San Mateo Dr, Dunedin, FL 34698",
+    hours: dailyHours("07:00", "20:00"),
     placeId: null,
     offer: null,
     reviews: [
