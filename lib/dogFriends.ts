@@ -83,15 +83,20 @@ export async function listIncomingRequests(dogId: string): Promise<IncomingReque
 // button to show: add friend / pending / accept / already friends.
 export async function friendshipStatus(dogA: string, dogB: string): Promise<RelationshipStatus> {
   if (!supabase || !UUID_RE.test(dogA) || !UUID_RE.test(dogB)) return "none";
+  // A pair can have more than one historical row (e.g. a declined request
+  // followed by a fresh one), so this reads all of them rather than
+  // .maybeSingle() — which errors (and was silently swallowed as "none") the
+  // moment a second row exists.
   const { data } = await supabase
     .from("dog_friendships")
     .select("requester_dog_id, status")
-    .or(`and(requester_dog_id.eq.${dogA},recipient_dog_id.eq.${dogB}),and(requester_dog_id.eq.${dogB},recipient_dog_id.eq.${dogA})`)
-    .maybeSingle();
-  if (!data) return "none";
-  if (data.status === "accepted") return "accepted";
-  if (data.status !== "pending") return "none";
-  return data.requester_dog_id === dogA ? "pending-outgoing" : "pending-incoming";
+    .or(`and(requester_dog_id.eq.${dogA},recipient_dog_id.eq.${dogB}),and(requester_dog_id.eq.${dogB},recipient_dog_id.eq.${dogA})`);
+  if (!data || data.length === 0) return "none";
+  const accepted = data.find((f) => f.status === "accepted");
+  if (accepted) return "accepted";
+  const pending = data.find((f) => f.status === "pending");
+  if (!pending) return "none";
+  return pending.requester_dog_id === dogA ? "pending-outgoing" : "pending-incoming";
 }
 
 export async function sendFriendRequest(fromDogId: string, toDogId: string): Promise<{ error: string | null }> {

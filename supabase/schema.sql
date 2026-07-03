@@ -484,6 +484,25 @@ create policy "recipient responds to request" on public.dog_friendships
   using (exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid()))
   with check (exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid()));
 
+-- RLS alone can't compare an UPDATE's new value to its old one, so a
+-- recipient-scoped policy can't stop a caller from also rewriting
+-- requester_dog_id/recipient_dog_id on the same request (retargeting a
+-- friendship at someone who never asked for it). A trigger closes that.
+create or replace function public.lock_friendship_participants()
+returns trigger language plpgsql as $$
+begin
+  if new.requester_dog_id <> old.requester_dog_id
+     or new.recipient_dog_id <> old.recipient_dog_id then
+    raise exception 'Cannot change friendship participants';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists lock_friendship_participants on public.dog_friendships;
+create trigger lock_friendship_participants
+  before update on public.dog_friendships
+  for each row execute function public.lock_friendship_participants();
+
 drop policy if exists "either owner unfriends" on public.dog_friendships;
 create policy "either owner unfriends" on public.dog_friendships
   for delete to authenticated
@@ -518,10 +537,16 @@ create policy "owners see their own posts" on public.dog_posts
   for select to authenticated
   using (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
 
+-- moderation_status must start 'pending' — a client can't insert a
+-- pre-approved post and skip moderate-photo (only the service role, which
+-- bypasses RLS, flips status to approved/rejected).
 drop policy if exists "owners create posts" on public.dog_posts;
 create policy "owners create posts" on public.dog_posts
   for insert to authenticated
-  with check (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
+  with check (
+    exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid())
+    and moderation_status = 'pending'
+  );
 
 drop policy if exists "owners delete own posts" on public.dog_posts;
 create policy "owners delete own posts" on public.dog_posts
@@ -625,3 +650,26 @@ create policy "admins resolve reports" on public.post_reports
   for update to authenticated
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
   with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- Tighten dog-photos public read now that dog_posts exists (must run after
+-- section 2, which created the original bucket-wide policy of the same
+-- name — this drop+recreate wins). Profile photos (path: {userId}/{uuid}.ext)
+-- stay fully public. Post photos (path: {userId}/posts/{uuid}.ext) are only
+-- publicly *listable* once approved — otherwise anyone could enumerate the
+-- bucket via the Storage API and pull pending/rejected photos before
+-- moderation (or its deletion-on-reject) has run. Direct fetches by a
+-- *known* URL still bypass RLS on a public bucket regardless (same as
+-- profile photos), but post paths are random UUIDs, so listing was the
+-- only practical way to discover one.
+drop policy if exists "dog photos are public read" on storage.objects;
+create policy "dog photos are public read" on storage.objects
+  for select using (
+    bucket_id = 'dog-photos'
+    and (
+      (storage.foldername(name))[2] is distinct from 'posts'
+      or exists (
+        select 1 from public.dog_posts p
+        where p.photo_path = name and p.moderation_status = 'approved'
+      )
+    )
+  );
