@@ -4,6 +4,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/cart/CartProvider";
 import CartDrawer from "@/components/cart/CartDrawer";
 import SiteNav from "@/components/SiteNav";
+import { Analytics } from "@vercel/analytics/next";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -155,6 +156,7 @@ export default function RootLayout({
 
           <CartDrawer />
         </CartProvider>
+        <Analytics />
       </body>
     </html>
   );
