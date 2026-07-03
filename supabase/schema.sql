@@ -13,8 +13,24 @@
 
 create extension if not exists pgcrypto;
 
+-- Emails allowed to manage admin surfaces (/admin/*). Seed your own address
+-- here (or in the dashboard) to use them. Created first, before anything else
+-- in this file, because several policies below (businesses, dog photos,
+-- advertisers, post_queue, dog_posts, storage) reference it in an `exists`
+-- check — a policy fails to create if the table it queries doesn't exist yet.
+create table if not exists public.app_admins (
+  email       text primary key,
+  created_at  timestamptz not null default now()
+);
+-- Example: insert into public.app_admins (email) values ('you@example.com');
+alter table public.app_admins enable row level security;
+drop policy if exists "admins read admin list" on public.app_admins;
+create policy "admins read admin list" on public.app_admins
+  for select to authenticated
+  using (email = (auth.jwt() ->> 'email'));
+
 -- ============================================================================
--- 1. THINGS TO DO — local business reviews
+-- 1. THINGS TO DO — local business reviews + self-service listing submissions
 -- ============================================================================
 create table if not exists public.businesses (
   id            uuid primary key default gen_random_uuid(),
@@ -23,13 +39,41 @@ create table if not exists public.businesses (
   category      text not null,
   neighborhood  text,
   description   text,
-  image         text,            -- self-hosted path, e.g. /assets/spots/foo.svg
+  image         text,            -- self-hosted asset path or business-photos public URL
   dog_friendly  boolean not null default true,
   place_id      text,            -- future: real-world place / partner id
   offer         jsonb,           -- { label, detail, code } partner discount
   active        boolean not null default true,
   created_at    timestamptz not null default now()
 );
+
+-- Additive columns for the self-service submission form (owner contact stays
+-- admin-only; the rest is what a visitor needs to actually visit the place).
+alter table public.businesses add column if not exists owner_name  text;
+alter table public.businesses add column if not exists owner_email text;
+alter table public.businesses add column if not exists phone      text;
+alter table public.businesses add column if not exists website    text;
+alter table public.businesses add column if not exists address    text;
+-- { monday: {open, close, closed}, ..., sunday: {...} } — 24h "HH:MM" strings,
+-- open/close null when closed. Built from an actual per-day form, not a
+-- single "hours" free-text field, so /things-to-do can show real hours today.
+alter table public.businesses add column if not exists hours      jsonb;
+
+-- Moderation gate: submissions land 'pending' and only show on the site once
+-- an admin flips them to 'approved' ('denied' keeps them hidden for good).
+-- Backfill from the old `active` flag BEFORE the column gets a default, so
+-- adding it doesn't hide every already-live listing behind a fresh
+-- 'pending' status; only then do we enforce not-null and drop `active`,
+-- which this fully supersedes.
+do $$ begin
+  create type public.business_status as enum ('pending', 'approved', 'denied');
+exception when duplicate_object then null; end $$;
+alter table public.businesses add column if not exists status public.business_status;
+update public.businesses set status = case when active then 'approved' else 'denied' end
+  where status is null;
+alter table public.businesses alter column status set default 'pending';
+alter table public.businesses alter column status set not null;
+alter table public.businesses drop column if exists active;
 
 create table if not exists public.reviews (
   id            uuid primary key default gen_random_uuid(),
@@ -62,8 +106,37 @@ alter table public.businesses      enable row level security;
 alter table public.reviews         enable row level security;
 alter table public.review_replies  enable row level security;
 
-drop policy if exists "businesses are public"  on public.businesses;
-create policy "businesses are public"  on public.businesses     for select using (true);
+-- The base table is no longer publicly readable — it carries owner_name /
+-- owner_email (submitter contact) and pending/denied rows that shouldn't be
+-- visible. Public reads go through public_businesses (below) instead.
+drop policy if exists "businesses are public" on public.businesses;
+
+-- Self-service submissions: anyone can insert, but only ever as 'pending' —
+-- RLS (not just the form) blocks a direct API call from inserting a
+-- pre-approved listing, same reasoning as the dog_posts moderation gate.
+drop policy if exists "anyone can submit a business" on public.businesses;
+create policy "anyone can submit a business" on public.businesses
+  for insert with check (status = 'pending');
+
+-- Admins see and manage everything: the review queue (pending/denied rows)
+-- plus approve/deny/edit on any listing.
+drop policy if exists "admins manage businesses" on public.businesses;
+create policy "admins manage businesses" on public.businesses
+  for all to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
+  with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- Public read surface: approved listings only, and never the submitter's
+-- contact info. Definer view bypasses the base table's now-locked-down RLS.
+drop view if exists public.public_businesses;
+create view public.public_businesses
+with (security_invoker = false) as
+  select id, slug, name, category, neighborhood, description, image, dog_friendly,
+         phone, website, address, hours, place_id, offer, created_at
+  from public.businesses
+  where status = 'approved';
+grant select on public.public_businesses to anon, authenticated;
+
 drop policy if exists "reviews are public"      on public.reviews;
 create policy "reviews are public"      on public.reviews        for select using (true);
 drop policy if exists "reviews are insertable"  on public.reviews;
@@ -72,6 +145,27 @@ drop policy if exists "replies are public"      on public.review_replies;
 create policy "replies are public"      on public.review_replies for select using (true);
 drop policy if exists "replies are insertable"  on public.review_replies;
 create policy "replies are insertable"  on public.review_replies for insert with check (true);
+
+-- Storage bucket for business card photos, uploaded via the public
+-- /list-your-business form. Anonymous insert (no login system for
+-- businesses) is acceptable here the same way ad_inquiries accepts anonymous
+-- text: the photo only ever becomes visible once an admin approves the
+-- listing it belongs to, same trust model as the rest of the submission.
+insert into storage.buckets (id, name, public)
+  values ('business-photos', 'business-photos', true) on conflict (id) do nothing;
+drop policy if exists "business photos are public read" on storage.objects;
+create policy "business photos are public read" on storage.objects
+  for select using (bucket_id = 'business-photos');
+drop policy if exists "anyone can upload a business photo" on storage.objects;
+create policy "anyone can upload a business photo" on storage.objects
+  for insert with check (bucket_id = 'business-photos');
+drop policy if exists "admins delete any business photo" on storage.objects;
+create policy "admins delete any business photo" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'business-photos'
+    and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
+  );
 
 -- ============================================================================
 -- 2. DOG PROFILES — registration, public lookup, physical tag / QR lookup
@@ -193,14 +287,8 @@ create policy "admins delete any dog photo" on storage.objects
 -- ============================================================================
 -- 3. ADVERTISERS — local business ads with rotation + tracking
 -- ============================================================================
--- Emails allowed to manage advertisers (and other admin surfaces). Seed your
--- own address here (or in the dashboard) so you can use /admin/ads.
-create table if not exists public.app_admins (
-  email       text primary key,
-  created_at  timestamptz not null default now()
-);
--- Example: insert into public.app_admins (email) values ('you@example.com');
-
+-- (app_admins, used by the "admins manage ads" policy below, is created at
+-- the very top of this file.)
 create table if not exists public.advertisers (
   id             uuid primary key default gen_random_uuid(),
   business_name  text not null,
@@ -223,7 +311,6 @@ alter table public.advertisers add column if not exists starts_at date;
 alter table public.advertisers add column if not exists ends_at   date;
 
 alter table public.advertisers enable row level security;
-alter table public.app_admins  enable row level security;
 
 -- The public reads ads through the public_ads view below (display columns
 -- only), NOT the base table — so impressions/clicks stay admin-only. There is
@@ -237,11 +324,6 @@ create policy "admins manage ads" on public.advertisers
   for all to authenticated
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
   with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
-
-drop policy if exists "admins read admin list" on public.app_admins;
-create policy "admins read admin list" on public.app_admins
-  for select to authenticated
-  using (email = (auth.jwt() ->> 'email'));
 
 -- Public read surface for ads: in-flight active rows, display columns only (no
 -- counters). Definer view bypasses the base-table RLS; AdSlot reads this.

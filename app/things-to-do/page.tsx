@@ -69,6 +69,18 @@ export default async function ThingsToDoPage() {
           Join the Club →
         </Link>
       </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
+        <p className="text-sm font-bold text-black/70">
+          🌴 Run a dog-friendly spot in Dunedin? Get listed here — free.
+        </p>
+        <Link
+          href="/list-your-business"
+          className="shrink-0 border-[3px] border-black bg-[var(--gold)] px-4 py-2 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5"
+        >
+          List your business →
+        </Link>
+      </div>
     </div>
   );
 }

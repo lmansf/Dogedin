@@ -51,6 +51,7 @@ const FOOTER_COLS: { title: string; links: { href: string; label: string }[] }[]
     title: "Around Dunedin",
     links: [
       { href: "/things-to-do", label: "Local guide" },
+      { href: "/list-your-business", label: "List your business" },
       { href: "/events", label: "Events" },
       { href: "/membership", label: "Dogedin Club" },
       { href: "/card", label: "Member card" },

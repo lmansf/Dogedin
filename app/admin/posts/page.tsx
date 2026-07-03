@@ -25,6 +25,12 @@ export default function AdminPostsPage() {
           >
             Advertisers →
           </Link>
+          <Link
+            href="/admin/businesses"
+            className="text-xs font-black uppercase tracking-wide text-[var(--turq)] hover:underline"
+          >
+            Business listings →
+          </Link>
         </div>
       </div>
       <p className="text-sm font-bold text-black/60">
