@@ -17,26 +17,24 @@ import {
   type RelationshipStatus,
 } from "@/lib/dogFriends";
 import {
-  addComment,
   createPost,
   likeCounts,
   listApprovedPosts,
-  listComments,
   listOwnPosts,
   myLikes,
   reportPost,
   retryModeration,
   toggleLike,
   validatePhoto,
-  type Comment,
   type DogPost,
 } from "@/lib/dogPosts";
 
 // Friends + photo feed for a dog's public profile. Read-only for anonymous
-// visitors (friends list, approved photos, like counts, comments). Signed-in
-// owners of ANY dog get an "acting as {dog}" identity to friend/like/comment
-// with; the profile's own owner additionally gets the upload form, their
-// pending/rejected posts, and incoming friend requests.
+// visitors (friends list, approved photos, like counts). Signed-in owners of
+// ANY dog get an "acting as {dog}" identity to friend/like with; the
+// profile's own owner additionally gets the upload form, their
+// pending/rejected posts, and incoming friend requests. No commenting/DMs —
+// friend + like only for now.
 export default function DogSocial({
   dogId,
   dogName,
@@ -418,25 +416,9 @@ function PostCard({
   actingDogId: string | null;
   onLike: () => void;
 }) {
-  const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState<Comment[] | null>(null);
-  const [draft, setDraft] = useState("");
   const [reporting, setReporting] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
-
-  const toggleComments = async () => {
-    setShowComments((v) => !v);
-    if (!comments) setComments(await listComments(post.id));
-  };
-
-  const submitComment = async () => {
-    if (!actingDogId || !draft.trim()) return;
-    const { error } = await addComment(post.id, actingDogId, draft);
-    if (error) return setNotice(error);
-    setDraft("");
-    setComments(await listComments(post.id));
-  };
 
   const submitReport = async () => {
     if (!actingDogId) return;
@@ -465,9 +447,6 @@ function PostCard({
               }`}
             >
               {liked ? "♥" : "♡"} {likeCount}
-            </button>
-            <button type="button" onClick={toggleComments} className="font-bold text-black/60">
-              💬 {showComments ? "Hide" : "Comments"}
             </button>
           </div>
           {canAct && (
@@ -502,37 +481,6 @@ function PostCard({
         )}
 
         {notice && <p className="text-xs font-bold text-black/60">{notice}</p>}
-
-        {showComments && (
-          <div className="flex flex-col gap-2 border-t border-black/10 pt-2">
-            {(comments ?? []).map((c) => (
-              <p key={c.id} className="text-xs">
-                <span className="font-black">{c.dogName}: </span>
-                {c.body}
-              </p>
-            ))}
-            {comments?.length === 0 && <p className="text-xs text-black/40">No comments yet.</p>}
-            {canAct && (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  maxLength={500}
-                  placeholder="Add a comment…"
-                  className="flex-1 border-2 border-black bg-white px-2 py-1 text-xs outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={submitComment}
-                  className="border-2 border-black bg-[var(--turq)] px-2 py-1 text-[11px] font-black uppercase text-[var(--sand)]"
-                >
-                  Post
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

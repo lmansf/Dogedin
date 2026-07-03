@@ -142,39 +142,6 @@ export async function toggleLike(postId: string, dogId: string, currentlyLiked: 
   }
 }
 
-export type Comment = { id: string; dogId: string; dogName: string; body: string; createdAt: string };
-
-export async function listComments(postId: string): Promise<Comment[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("post_comments")
-    .select("id, dog_id, body, created_at")
-    .eq("post_id", postId)
-    .order("created_at", { ascending: true });
-  if (error || !data || data.length === 0) return [];
-
-  const ids = [...new Set(data.map((c) => c.dog_id))];
-  const { data: dogs } = await supabase.from("public_dog_profiles").select("id, dog_name").in("id", ids);
-  const names = new Map((dogs ?? []).map((d) => [d.id, d.dog_name]));
-  return data.map((c) => ({
-    id: c.id,
-    dogId: c.dog_id,
-    dogName: names.get(c.dog_id) ?? "A dog",
-    body: c.body,
-    createdAt: c.created_at,
-  }));
-}
-
-export async function addComment(postId: string, dogId: string, body: string): Promise<{ error: string | null }> {
-  if (!supabase) return { error: "Not configured" };
-  const trimmed = body.trim().slice(0, 500);
-  if (!trimmed) return { error: "Comment can't be empty." };
-  const { error } = await supabase
-    .from("post_comments")
-    .insert({ post_id: postId, dog_id: dogId, body: trimmed });
-  return { error: error?.message ?? null };
-}
-
 export async function reportPost(postId: string, reporterDogId: string, reason: string): Promise<{ error: string | null }> {
   if (!supabase) return { error: "Not configured" };
   const { error } = await supabase

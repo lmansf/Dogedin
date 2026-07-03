@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { searchDogs, dogPhotoUrl } from "@/lib/dogProfiles";
+import BreedLeaderboard from "@/components/dogs/BreedLeaderboard";
 
 export const metadata: Metadata = {
   title: "Find a dog",
@@ -67,6 +68,8 @@ export default async function DogSearchPage({
           </p>
         </div>
       )}
+
+      <BreedLeaderboard />
 
       {query && (
         <p className="text-sm font-bold text-black/50">

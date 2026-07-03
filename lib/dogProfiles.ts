@@ -105,6 +105,25 @@ export async function resolveTag(code: string): Promise<string | null> {
   }
 }
 
+export type BreedCount = { breed: string; count: number };
+
+// Community-wide breed tally, for the /dogs "breed leaderboard" bar chart.
+// breed_counts() is SECURITY DEFINER (reads across all dogs, not just the
+// caller's own), but only ever returns a breed label + a count — no owner or
+// contact data, same privacy bar as public_dog_profiles.
+export async function getBreedCounts(): Promise<BreedCount[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc("breed_counts");
+    if (error || !data) return [];
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    return (data as any[]).map((d) => ({ breed: d.breed, count: Number(d.dog_count) }));
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  } catch {
+    return [];
+  }
+}
+
 export async function searchDogs(query: string): Promise<DogSearchResult[]> {
   const q = query.trim();
   if (!supabase || q.length < 2) return [];
