@@ -69,8 +69,18 @@ do $$ begin
   create type public.business_status as enum ('pending', 'approved', 'denied');
 exception when duplicate_object then null; end $$;
 alter table public.businesses add column if not exists status public.business_status;
-update public.businesses set status = case when active then 'approved' else 'denied' end
-  where status is null;
+-- Only backfill from `active` while that column still exists — on a second
+-- run of this file (active already dropped below), this would otherwise
+-- fail with "column businesses.active does not exist" and abort the script.
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'businesses' and column_name = 'active'
+  ) then
+    update public.businesses set status = case when active then 'approved' else 'denied' end
+      where status is null;
+  end if;
+end $$;
 alter table public.businesses alter column status set default 'pending';
 alter table public.businesses alter column status set not null;
 alter table public.businesses drop column if exists active;
@@ -137,22 +147,52 @@ with (security_invoker = false) as
   where status = 'approved';
 grant select on public.public_businesses to anon, authenticated;
 
-drop policy if exists "reviews are public"      on public.reviews;
-create policy "reviews are public"      on public.reviews        for select using (true);
-drop policy if exists "reviews are insertable"  on public.reviews;
-create policy "reviews are insertable"  on public.reviews        for insert with check (true);
-drop policy if exists "replies are public"      on public.review_replies;
-create policy "replies are public"      on public.review_replies for select using (true);
-drop policy if exists "replies are insertable"  on public.review_replies;
-create policy "replies are insertable"  on public.review_replies for insert with check (true);
+-- Now that businesses can be pending/denied, reviews/replies must check
+-- approval too — otherwise anyone who knows/guesses a business_id could
+-- pre-load reviews onto a not-yet-approved listing, which then appear the
+-- instant it's approved without ever being part of what the admin reviewed.
+-- A SECURITY DEFINER function (not a direct businesses/public_businesses
+-- reference) because base `businesses` is admin-only now — an anon caller
+-- can't read it even inside a subquery, and the function needs to answer
+-- correctly for anon too.
+create or replace function public.business_is_approved(p_business_id uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from public.businesses where id = p_business_id and status = 'approved'
+  );
+$$;
+grant execute on function public.business_is_approved(uuid) to anon, authenticated;
+
+drop policy if exists "reviews are public" on public.reviews;
+create policy "reviews are public" on public.reviews
+  for select using (public.business_is_approved(business_id));
+drop policy if exists "reviews are insertable" on public.reviews;
+create policy "reviews are insertable" on public.reviews
+  for insert with check (public.business_is_approved(business_id));
+drop policy if exists "replies are public" on public.review_replies;
+create policy "replies are public" on public.review_replies
+  for select using (
+    exists (select 1 from public.reviews r where r.id = review_id and public.business_is_approved(r.business_id))
+  );
+drop policy if exists "replies are insertable" on public.review_replies;
+create policy "replies are insertable" on public.review_replies
+  for insert with check (
+    exists (select 1 from public.reviews r where r.id = review_id and public.business_is_approved(r.business_id))
+  );
 
 -- Storage bucket for business card photos, uploaded via the public
 -- /list-your-business form. Anonymous insert (no login system for
 -- businesses) is acceptable here the same way ad_inquiries accepts anonymous
 -- text: the photo only ever becomes visible once an admin approves the
 -- listing it belongs to, same trust model as the rest of the submission.
-insert into storage.buckets (id, name, public)
-  values ('business-photos', 'business-photos', true) on conflict (id) do nothing;
+-- file_size_limit / allowed_mime_types enforce at the bucket level what
+-- validateBusinessPhoto() only checks client-side — a direct Storage API
+-- call has no other barrier here, since inserts aren't scoped to a caller.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('business-photos', 'business-photos', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+  on conflict (id) do update set
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
 drop policy if exists "business photos are public read" on storage.objects;
 create policy "business photos are public read" on storage.objects
   for select using (bucket_id = 'business-photos');
@@ -260,9 +300,13 @@ language sql security definer stable set search_path = public as $$
 $$;
 grant execute on function public.breed_counts() to anon, authenticated;
 
--- Storage bucket for dog photos.
-insert into storage.buckets (id, name, public)
-  values ('dog-photos', 'dog-photos', true) on conflict (id) do nothing;
+-- Storage bucket for dog photos. Matches the client-side 3MB/image-type
+-- checks in RegisterFlow.tsx and lib/dogPosts.ts at the bucket level too.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('dog-photos', 'dog-photos', true, 3145728, array['image/jpeg', 'image/png', 'image/webp'])
+  on conflict (id) do update set
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
 drop policy if exists "dog photos are public read" on storage.objects;
 create policy "dog photos are public read" on storage.objects
   for select using (bucket_id = 'dog-photos');
@@ -742,3 +786,21 @@ create policy "dog photos are public read" on storage.objects
       )
     )
   );
+
+-- "Pawpularity contest" leaderboard: total paws (post_likes) across each
+-- dog's approved posts. Only ever counts likes on posts that are actually
+-- public, so a pending/rejected post's likes (there shouldn't be any, since
+-- liking requires an approved post — see "owners like posts" above) can't
+-- inflate a dog's count.
+create or replace function public.pawpularity_leaderboard(p_limit int default 10)
+returns table (slug text, dog_name text, photo_path text, paw_count bigint)
+language sql security definer stable set search_path = public as $$
+  select d.slug, d.dog_name, d.photo_path, count(pl.*)::bigint as paw_count
+  from public.post_likes pl
+  join public.dog_posts p on p.id = pl.post_id and p.moderation_status = 'approved'
+  join public.dog_profiles d on d.id = p.dog_id
+  group by d.id, d.slug, d.dog_name, d.photo_path
+  order by paw_count desc, d.dog_name
+  limit greatest(p_limit, 0);
+$$;
+grant execute on function public.pawpularity_leaderboard(int) to anon, authenticated;
