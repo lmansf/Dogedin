@@ -77,7 +77,8 @@ do $$ begin
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'businesses' and column_name = 'active'
   ) then
-    update public.businesses set status = case when active then 'approved' else 'denied' end
+    update public.businesses
+      set status = (case when active then 'approved' else 'denied' end)::public.business_status
       where status is null;
   end if;
 end $$;
