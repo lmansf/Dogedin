@@ -31,14 +31,21 @@ export default function ProductCard({
             alt={product.imageAlt}
             fill
             sizes="(max-width: 768px) 50vw, 300px"
-            className="object-cover"
+            className={`object-cover ${!product.available ? "grayscale opacity-50" : ""}`}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-5xl">
             🦴
           </div>
         )}
-        {off > 0 && (
+        {!product.available && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="-rotate-6 border-[3px] border-black bg-black px-4 py-1.5 text-base font-black uppercase tracking-widest text-white shadow-hard">
+              Sold out
+            </span>
+          </div>
+        )}
+        {product.available && off > 0 && (
           <span className="absolute -right-2 -top-2 rotate-6 border-[3px] border-black bg-[var(--coral)] px-2 py-1 text-sm font-black text-white shadow-hard">
             -{off}%
           </span>
@@ -72,7 +79,11 @@ export default function ProductCard({
           </div>
         </div>
 
-        <AddToCartButton variantId={product.variantId} className="mt-2 w-full" />
+        <AddToCartButton
+          variantId={product.variantId}
+          available={product.available}
+          className="mt-2 w-full"
+        />
       </div>
     </article>
   );
