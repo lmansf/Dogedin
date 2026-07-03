@@ -22,6 +22,12 @@ export default function DogCarousel({ pack }: { pack?: PackDog[] }) {
   const cardCount = dogs.length + 1; // + the "your dog belongs here" card
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  // While a button/card click is driving the scroll (see focusCard), the
+  // width of two cards is mid-transition at the same time as the scroll is
+  // animating. The distance-to-centre check below can't tell that apart from
+  // organic scrolling and will "correct" active back to whichever card is
+  // still-mostly-expanded, undoing the click. Suppressed until that settles.
+  const navigatingUntil = useRef(0);
 
   // Derive the active card from scroll position: the card whose centre sits
   // closest to the track's centre wins. Runs on scroll (rAF-throttled) + resize.
@@ -32,6 +38,7 @@ export default function DogCarousel({ pack }: { pack?: PackDog[] }) {
 
     const update = () => {
       frame = 0;
+      if (Date.now() < navigatingUntil.current) return;
       const cards = Array.from(
         track.querySelectorAll<HTMLElement>("[data-card]")
       );
@@ -47,6 +54,22 @@ export default function DogCarousel({ pack }: { pack?: PackDog[] }) {
           best = i;
         }
       });
+
+      // The side padding is sized to center an EXPANDED edge card. While
+      // scrolling back toward card 0 (or the last card), it's still
+      // collapsed/narrow, so even the hard scroll limit can't bring its
+      // center as close to true-center as its already-expanded neighbour —
+      // the distance check above picks that neighbour instead, and since
+      // you're already at the scroll limit there's no further scrolling to
+      // correct it. At the actual scroll boundaries, the boundary card wins
+      // outright regardless of the distance math.
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      if (track.scrollLeft <= 1) {
+        best = 0;
+      } else if (track.scrollLeft >= maxScroll - 1) {
+        best = cards.length - 1;
+      }
+
       setActive(best);
     };
 
@@ -64,10 +87,43 @@ export default function DogCarousel({ pack }: { pack?: PackDog[] }) {
     };
   }, [cardCount]);
 
+  // Scrolls card `i` into view and marks it active. We can't just hand this
+  // off to the browser's scrollIntoView: it centres the target using its
+  // CURRENT (still-collapsed) width, while the currently-active card is
+  // still expanded at click time - so the maths it does is for a layout
+  // that's about to change out from under it, and it often asks for a
+  // negative scroll position that clamps to 0, landing on card 0 instead of
+  // the intended card. Instead we predict the target's post-expand position
+  // from measurements taken now, before anything moves.
   const focusCard = (i: number) => {
     const track = trackRef.current;
-    const card = track?.querySelectorAll<HTMLElement>("[data-card]")[i];
-    card?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    if (!track) return;
+    const cards = Array.from(track.querySelectorAll<HTMLElement>("[data-card]"));
+    const current = cards[active];
+    const target = cards[i];
+    if (!target) return;
+
+    if (current && target !== current) {
+      const trackRect = track.getBoundingClientRect();
+      const currentRect = current.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      // Collapsing the active card shrinks it from currentRect.width down to
+      // targetRect.width, pulling every later sibling left by the
+      // difference - but only if the target comes after it in the row.
+      const widthDelta = currentRect.width - targetRect.width;
+      const shift = i > active ? widthDelta : 0;
+      const futureLeft = targetRect.left + track.scrollLeft - shift;
+      const futureCenter = futureLeft + currentRect.width / 2; // target expands to the same width `current` has now
+      const desiredScroll = futureCenter - trackRect.width / 2;
+      navigatingUntil.current = Date.now() + 500;
+      setActive(i);
+      track.scrollTo({ left: desiredScroll, behavior: "smooth" });
+      return;
+    }
+
+    navigatingUntil.current = Date.now() + 500;
+    setActive(i);
+    target.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   };
 
   const nudge = (dir: 1 | -1) =>
