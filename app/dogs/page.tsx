@@ -70,7 +70,6 @@ export default async function DogSearchPage({
         </div>
       )}
 
-      <BreedLeaderboard />
       <PawpularityLeaderboard />
 
       {query && (
@@ -122,6 +121,8 @@ export default async function DogSearchPage({
           );
         })}
       </ul>
+
+      <BreedLeaderboard />
     </div>
   );
 }
