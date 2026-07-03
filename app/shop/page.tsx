@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import ProductRow from "@/components/ProductRow";
-import { getCollection } from "@/lib/shopify";
+import { getProducts } from "@/lib/shopify";
 import { DEMO_DOGS, DEMO_HUMANS } from "@/lib/demoProducts";
 
 export const metadata: Metadata = {
@@ -12,19 +12,13 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 // The storefront. It used to be the homepage; it now lives here so the front
-// door can serve the community first. Each row is driven by a Shopify
-// collection the merchant curates in admin; until those return products we
-// fall back to the demo catalog so the shop looks alive.
-const FOR_DOGS = "for-dogs";
-const FOR_HUMANS = "for-humans";
-
+// door can serve the community first. Pulls the whole Shopify catalog (not
+// specific collections — a small store may not curate a "for dogs"/"for
+// humans" split) and falls back to the demo catalog so the shop looks alive
+// before a real store is connected.
 export default async function ShopPage() {
-  const [dogsLive, humansLive] = await Promise.all([
-    getCollection(FOR_DOGS),
-    getCollection(FOR_HUMANS),
-  ]);
-  const forDogs = dogsLive.length ? dogsLive : DEMO_DOGS;
-  const forHumans = humansLive.length ? humansLive : DEMO_HUMANS;
+  const live = await getProducts(24);
+  const products = live.length ? live : [...DEMO_DOGS, ...DEMO_HUMANS];
 
   return (
     <div className="flex flex-col gap-12">
@@ -53,20 +47,12 @@ export default async function ShopPage() {
         </div>
       </section>
 
-      {forDogs.length > 0 && (
+      {products.length > 0 && (
         <ProductRow
-          title="For the dog 🐕"
-          badge="Good boys"
+          title="The shop 🛍"
+          badge="Good gear"
           badgeColor="var(--turq)"
-          products={forDogs}
-        />
-      )}
-      {forHumans.length > 0 && (
-        <ProductRow
-          title="For the human 🧑"
-          badge="Good humans"
-          badgeColor="var(--red)"
-          products={forHumans}
+          products={products}
         />
       )}
     </div>

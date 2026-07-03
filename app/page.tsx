@@ -5,7 +5,7 @@ import AdSlot from "@/components/ads/AdSlot";
 import InstagramFeed from "@/components/social/InstagramFeed";
 import EventsPreview from "@/components/home/EventsPreview";
 import SpotsPreview from "@/components/home/SpotsPreview";
-import { getCollection } from "@/lib/shopify";
+import { getProducts } from "@/lib/shopify";
 import { listRecentDogs, dogPhotoUrl } from "@/lib/dogProfiles";
 import { PACK_GRADS, type PackDog } from "@/lib/dogs";
 import { DEMO_DOGS } from "@/lib/demoProducts";
@@ -17,7 +17,7 @@ export const revalidate = 3600;
 
 export default async function Home() {
   const [shopTeaser, recentDogs] = await Promise.all([
-    getCollection("for-dogs"),
+    getProducts(6),
     listRecentDogs(8),
   ]);
   const teaserProducts = (shopTeaser.length ? shopTeaser : DEMO_DOGS).slice(0, 6);
