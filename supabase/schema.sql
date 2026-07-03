@@ -151,6 +151,21 @@ returns text language sql security definer stable set search_path = public as $$
 $$;
 grant execute on function public.resolve_tag(text) to anon, authenticated;
 
+-- Breed counts for the community "breed leaderboard" bar chart. initcap()
+-- both groups and labels, so casing variants (LABRADOR / labrador) collapse
+-- into one bucket; blank/missing breed rolls up into "Mixed / Unknown".
+create or replace function public.breed_counts()
+returns table (breed text, dog_count bigint)
+language sql security definer stable set search_path = public as $$
+  select
+    initcap(coalesce(nullif(trim(breed), ''), 'mixed / unknown')) as breed,
+    count(*)::bigint as dog_count
+  from public.dog_profiles
+  group by 1
+  order by dog_count desc;
+$$;
+grant execute on function public.breed_counts() to anon, authenticated;
+
 -- Storage bucket for dog photos.
 insert into storage.buckets (id, name, public)
   values ('dog-photos', 'dog-photos', true) on conflict (id) do nothing;
@@ -589,39 +604,11 @@ create policy "owners unlike posts" on public.post_likes
   for delete to authenticated
   using (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
 
-create table if not exists public.post_comments (
-  id          uuid primary key default gen_random_uuid(),
-  post_id     uuid not null references public.dog_posts(id) on delete cascade,
-  dog_id      uuid not null references public.dog_profiles(id) on delete cascade,
-  body        text not null check (char_length(body) between 1 and 500),
-  created_at  timestamptz not null default now()
-);
-create index if not exists post_comments_post_id_idx on public.post_comments (post_id);
-alter table public.post_comments enable row level security;
-
-drop policy if exists "comments on approved posts are public" on public.post_comments;
-create policy "comments on approved posts are public" on public.post_comments
-  for select using (exists (select 1 from public.dog_posts p where p.id = post_id and p.moderation_status = 'approved'));
-
-drop policy if exists "owners comment on posts" on public.post_comments;
-create policy "owners comment on posts" on public.post_comments
-  for insert to authenticated
-  with check (
-    exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid())
-    and exists (select 1 from public.dog_posts p where p.id = post_id and p.moderation_status = 'approved')
-  );
-
-drop policy if exists "comment or post owner deletes" on public.post_comments;
-create policy "comment or post owner deletes" on public.post_comments
-  for delete to authenticated
-  using (
-    exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid())
-    or exists (
-      select 1 from public.dog_posts p
-      join public.dog_profiles d on d.id = p.dog_id
-      where p.id = post_id and d.user_id = auth.uid()
-    )
-  );
+-- Comments (owner-to-owner communication on posts) were removed from v1 scope
+-- — friends + likes only for now. Drops any table from an earlier schema
+-- version so re-running this file converges even on a database that already
+-- had it.
+drop table if exists public.post_comments cascade;
 
 -- Reports feed the admin moderation queue; reporting requires owning a dog
 -- (keeps it tied to a real member, not anonymous).
