@@ -1,8 +1,8 @@
 import type { Product } from "@/lib/shopify";
 
 // Demo catalog. Used as a fallback so the storefront looks alive before a real
-// Shopify store is connected; the moment the `for-dogs` / `for-humans`
-// collections return products, live data takes over (see app/page.tsx).
+// Shopify store is connected; the moment getProducts() returns anything, live
+// data takes over (see app/page.tsx and app/shop/page.tsx).
 // Images come from picsum (see next.config.mjs); variantIds are placeholders,
 // so "Add to cart" on demo items errors until Shopify is wired up.
 function demo(

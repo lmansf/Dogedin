@@ -107,22 +107,33 @@ const COLLECTION_QUERY = /* GraphQL */ `
 `;
 
 export async function getProducts(first = 12): Promise<Product[]> {
-  // Catalog degrades gracefully: no creds yet -> empty grid, site still renders.
+  // Catalog degrades gracefully: no creds, an API error, or a network hiccup
+  // all fall back to [] (callers show the demo catalog) rather than crashing
+  // the page that's rendering it.
   if (!domain || !token) return [];
-  const data = await storefront(PRODUCTS_QUERY, { first }, { next: { revalidate: 300 } });
-  return (data?.products?.nodes ?? []).map(toProduct);
+  try {
+    const data = await storefront(PRODUCTS_QUERY, { first }, { next: { revalidate: 300 } });
+    return (data?.products?.nodes ?? []).map(toProduct);
+  } catch {
+    return [];
+  }
 }
 
 // Products in a single Shopify collection (e.g. "for-dogs"). One collection
-// drives one ProductRow. Returns [] when unconfigured or the handle is unknown,
-// so a missing collection just yields an empty row instead of an error.
+// drives one ProductRow. Returns [] when unconfigured, the handle is unknown,
+// or the API call fails, so a missing collection just yields an empty row
+// instead of an error.
 export async function getCollection(
   handle: string,
   first = 12
 ): Promise<Product[]> {
   if (!domain || !token) return [];
-  const data = await storefront(COLLECTION_QUERY, { handle, first }, { next: { revalidate: 300 } });
-  return (data?.collection?.products?.nodes ?? []).map(toProduct);
+  try {
+    const data = await storefront(COLLECTION_QUERY, { handle, first }, { next: { revalidate: 300 } });
+    return (data?.collection?.products?.nodes ?? []).map(toProduct);
+  } catch {
+    return [];
+  }
 }
 
 function toProduct(node: any): Product {
