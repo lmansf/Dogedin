@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ProductRow from "@/components/ProductRow";
 import { getProducts } from "@/lib/shopify";
+import { HERO_BADGE } from "@/lib/site";
 import { DEMO_DOGS, DEMO_HUMANS } from "@/lib/demoProducts";
 
 export const metadata: Metadata = {
@@ -14,11 +15,14 @@ export const revalidate = 3600;
 // The storefront. It used to be the homepage; it now lives here so the front
 // door can serve the community first. Pulls the whole Shopify catalog (not
 // specific collections — a small store may not curate a "for dogs"/"for
-// humans" split) and falls back to the demo catalog so the shop looks alive
-// before a real store is connected.
+// humans" split). The demo catalog is a dev-only preview: in production an
+// unconfigured or empty store shows an honest "opening soon" state instead
+// of fake products.
 export default async function ShopPage() {
   const live = await getProducts(24);
-  const products = live.length ? live : [...DEMO_DOGS, ...DEMO_HUMANS];
+  const demoFallback =
+    process.env.NODE_ENV !== "production" ? [...DEMO_DOGS, ...DEMO_HUMANS] : [];
+  const products = live.length ? live : demoFallback;
 
   return (
     <div className="flex flex-col gap-12">
@@ -26,7 +30,7 @@ export default async function ShopPage() {
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">
           <span className="inline-block -rotate-2 border-[3px] border-black bg-[var(--sand)] px-3 py-1 text-xs font-black uppercase tracking-widest shadow-hard">
-            🏴 Scotland of the Sunshine State · est. Dunedin
+            {HERO_BADGE}
           </span>
           <h1 className="mt-4 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] md:text-7xl">
             Good gear for
@@ -47,13 +51,23 @@ export default async function ShopPage() {
         </div>
       </section>
 
-      {products.length > 0 && (
+      {products.length > 0 ? (
         <ProductRow
           title="The shop 🛍"
           badge="Good gear"
           badgeColor="var(--turq)"
           products={products}
         />
+      ) : (
+        <section className="border-[3px] border-black bg-white p-8 text-center shadow-hard">
+          <h2 className="font-display text-3xl font-extrabold">
+            The shop is opening soon 🛍
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm font-bold text-black/60">
+            We&apos;re stocking the shelves. Check back shortly — in the
+            meantime, the rest of Dogedin is free and open to every good dog.
+          </p>
+        </section>
       )}
     </div>
   );

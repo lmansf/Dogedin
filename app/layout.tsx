@@ -25,17 +25,15 @@ export const metadata: Metadata = {
     template: "%s · Dogedin",
   },
   description:
-    "Dunedin's dogs, all in one place: profiles, lost-dog tags, dog-friendly guides and events — plus a wee shop that keeps the lights on. Scotland of the Sunshine State, by way of the Gulf coast.",
+    "The dog-owner community of Dunedin, Florida: dog profiles, lost-dog tags, a dog-friendly local guide and events on the Gulf coast — plus a wee shop that keeps the lights on.",
 };
 
-// Community leads; one shop item earns its keep.
+// Community leads; keep every line factual — no offers we don't run.
 const MARQUEE = [
-  "🏴 SCOTLAND OF THE SUNSHINE STATE",
   "🐾 REGISTER YOUR GOOD DOG",
   "🚨 FOUND A DOG? LOOK UP THE TAG",
   "🍺 GOOD DOGS · GOOD BREWS",
   "📅 EVENTS CALENDAR — COMING SOON",
-  "🦴 FREE TREATS OVER $50",
 ];
 
 // Footer link columns: every community surface reachable from any page bottom.
@@ -165,7 +163,7 @@ export default function RootLayout({
                   By Dunedin dog people, for extremely good dogs 🐕
                 </p>
                 <p className="mt-1 text-sm font-bold uppercase tracking-widest text-[var(--sand)]/80">
-                  Scotland of the Sunshine State 🏴 · Dunedin, FL 🌴
+                  Dunedin, FL 🌴
                 </p>
               </div>
             </div>
