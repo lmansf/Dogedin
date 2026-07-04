@@ -4,14 +4,16 @@ Everything below is built and shipped behind sensible defaults; these are the
 five decisions (plus one config step) that turn assumptions into your choices.
 Nothing here blocks the rest — it all works today with the defaults noted.
 
-## 1. Which account(s) are admins? `[Workstream A1]`
+## 1. Which account(s) are admins? `[Workstream A1 — resolved]`
 
 The ad console (and every admin tool) is gated by the existing `app_admins`
 allow-list — the **same email + "My Dogs" sign-in** dog owners already use. A
 signed-in non-admin sees a clear "not an admin" notice; an admin lands on the
-new **/admin** console. **Action:** tell us which email(s) should be admin (or
-add them to `app_admins` yourself). This is the same table the private
-analytics dashboard already uses, so if you set that up, you may be done.
+new **/admin** console and sees a gold **⚙️ Admin** chip in the header on every
+page. **Seeded (idempotent) in `schema.sql`:** `lmansf96@gmail.com` and
+`rosemiller.info@gmail.com`. They take effect when you re-run the schema; to add
+either one immediately without waiting, run in the Supabase SQL editor:
+`insert into public.app_admins (email) values ('rosemiller.info@gmail.com') on conflict do nothing;`
 
 ## 2. Payment model for ads `[Workstream A5 — updated: Stripe auto-activation shipped]`
 

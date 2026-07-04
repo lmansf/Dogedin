@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseUser, AuthPanel, signOut } from "@/components/dogs/auth";
 import { DAYS_OF_WEEK, type BusinessHours } from "@/lib/businesses";
+import { refreshBusinessSurfaces } from "@/app/admin/businesses/actions";
 
 type BusinessRow = {
   id: string;
@@ -62,8 +63,14 @@ export default function BusinessesAdmin() {
     setBusy(row.id);
     setNotice(null);
     const { error } = await supabase.from("businesses").update({ status }).eq("id", row.id);
+    if (error) {
+      setBusy(null);
+      return setNotice(`Couldn't save: ${error.message}`);
+    }
+    // Bust the cached guide/homepage so the change is visible immediately
+    // rather than after the ISR window. Best-effort — the row is already saved.
+    await refreshBusinessSurfaces().catch(() => {});
     setBusy(null);
-    if (error) return setNotice(`Couldn't save: ${error.message}`);
     setNotice(status === "approved" ? "Approved — now live on Things to do." : "Denied — hidden from the site.");
     load();
   };
