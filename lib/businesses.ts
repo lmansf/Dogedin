@@ -4,9 +4,10 @@ import { DEMO_BUSINESSES } from "@/lib/demoBusinesses";
 // "Things to do in Dunedin" domain model. A curated set of local businesses
 // (restaurants, breweries, parks, beaches) that customers can review, upvote,
 // and reply to. Businesses live in the `businesses` Supabase table; reviews and
-// their replies hang off it. When Supabase isn't configured we fall back to the
-// demo seed (lib/demoBusinesses.ts) so the page works out of the box - same
-// pattern as the Shopify/demo-catalog split on the storefront.
+// their replies hang off it. ONLY when Supabase isn't configured at all do we
+// fall back to the demo seed (lib/demoBusinesses.ts) so the page works out of
+// the box - a configured backend that's empty or erroring returns no
+// businesses rather than fake ones.
 
 // A partner discount surfaced directly on a business's reviews. Populated once a
 // business is matched to a real-world listing (see `placeId`); null for plain
@@ -109,8 +110,20 @@ function byUpvotesThenNew(a: Review, b: Review) {
   return b.upvotes - a.upvotes || b.createdAt.localeCompare(a.createdAt);
 }
 
+// Guide ordering: reward review activity — most reviews first, highest average
+// rating as the tiebreak (then name, so equal listings are stable). This is
+// what makes leaving reviews move a business up the page, which is the whole
+// point of the review-for-discount loop.
+export function byReviewTraffic(a: Business, b: Business) {
+  return (
+    b.reviews.length - a.reviews.length ||
+    averageRating(b.reviews) - averageRating(a.reviews) ||
+    a.name.localeCompare(b.name)
+  );
+}
+
 export async function getBusinesses(): Promise<Business[]> {
-  if (!supabase) return DEMO_BUSINESSES;
+  if (!supabase) return [...DEMO_BUSINESSES].sort(byReviewTraffic);
   try {
     // public_businesses is a view (approved listings, no owner contact info) —
     // fetched separately from reviews rather than via a PostgREST embed, since
@@ -122,7 +135,12 @@ export async function getBusinesses(): Promise<Business[]> {
         "id, slug, name, category, neighborhood, description, image, dog_friendly, phone, website, address, hours, place_id, offer, created_at"
       )
       .order("created_at", { ascending: false });
-    if (error || !businesses || businesses.length === 0) return DEMO_BUSINESSES;
+    if (error) {
+      console.error("getBusinesses: public_businesses query failed:", error.message);
+      return [];
+    }
+    // A configured-but-empty guide is honestly empty — no demo fallback.
+    if (!businesses || businesses.length === 0) return [];
 
     const ids = businesses.map((b) => b.id);
     const { data: reviewRows } = await supabase
@@ -140,10 +158,68 @@ export async function getBusinesses(): Promise<Business[]> {
       reviewsByBusiness.set(businessId, list);
     }
 
-    return businesses.map((b) => mapBusinessRow(b, reviewsByBusiness.get(b.id) ?? []));
+    // Most-reviewed first (rating as tiebreak) — see byReviewTraffic. The
+    // query's created_at order only decides ties between listings with the same
+    // review count and rating.
+    return businesses
+      .map((b) => mapBusinessRow(b, reviewsByBusiness.get(b.id) ?? []))
+      .sort(byReviewTraffic);
+  } catch (err) {
+    // Table/view may not exist yet, network hiccup, etc. Log and show nothing
+    // rather than pretending demo businesses are real listings.
+    console.error("getBusinesses: unexpected failure:", err);
+    return [];
+  }
+}
+
+// A single listing by its stable slug, for the per-business permalink page
+// (/things-to-do/[slug]). Returns null when it isn't found or isn't approved —
+// the view only exposes approved listings. Falls back to the demo seed only
+// when Supabase isn't configured, matching getBusinesses().
+export async function getBusinessBySlug(slug: string): Promise<Business | null> {
+  if (!supabase) return DEMO_BUSINESSES.find((b) => b.slug === slug) ?? null;
+  try {
+    const { data: row, error } = await supabase
+      .from("public_businesses")
+      .select(
+        "id, slug, name, category, neighborhood, description, image, dog_friendly, phone, website, address, hours, place_id, offer, created_at"
+      )
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error || !row) return null;
+
+    const { data: reviewRows } = await supabase
+      .from("reviews")
+      .select(
+        "id, business_id, author, rating, body, upvotes, created_at, review_replies ( id, review_id, author, body, created_at )"
+      )
+      .eq("business_id", row.id);
+
+    return mapBusinessRow(row, reviewRows ?? []);
+  } catch (err) {
+    console.error("getBusinessBySlug: unexpected failure:", err);
+    return null;
+  }
+}
+
+// Lightweight slug list for the sitemap — just approved listings' slugs and
+// created dates, no reviews. Empty (not demo) when Supabase isn't configured,
+// so the sitemap never advertises demo permalinks that 404 in production.
+export async function listBusinessSlugs(): Promise<
+  { slug: string; createdAt: string | null }[]
+> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("public_businesses")
+      .select("slug, created_at");
+    if (error || !data) return [];
+    return data.map((r) => ({
+      slug: r.slug as string,
+      createdAt: (r.created_at as string) ?? null,
+    }));
   } catch {
-    // Table/view may not exist yet, network hiccup, etc. Degrade to the demo seed.
-    return DEMO_BUSINESSES;
+    return [];
   }
 }
 
@@ -201,6 +277,20 @@ export function averageRating(reviews: Review[]): number {
   if (reviews.length === 0) return 0;
   const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
   return Math.round((sum / reviews.length) * 10) / 10;
+}
+
+// The community's current favourite: the highest-rated business, ties broken
+// by review count. Null when there are no businesses at all, so nothing gets
+// "featured" in a configured-but-empty environment. Static pages should read
+// this through lib/topBusiness.ts, which caches the lookup.
+export async function getTopBusiness(): Promise<Business | null> {
+  const businesses = await getBusinesses();
+  if (businesses.length === 0) return null;
+  return [...businesses].sort(
+    (a, b) =>
+      averageRating(b.reviews) - averageRating(a.reviews) ||
+      b.reviews.length - a.reviews.length
+  )[0];
 }
 
 /* -------------------------------------------------------------------------- */

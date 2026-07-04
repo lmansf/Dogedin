@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { StarRating } from "./Stars";
 import ReviewItem from "./ReviewItem";
 import ReviewForm from "./ReviewForm";
@@ -61,13 +62,20 @@ const JS_DAY_TO_KEY: (keyof BusinessHours)[] = [
 export default function BusinessCard({
   business,
   canPersist,
+  defaultOpen = false,
+  // On the standalone /things-to-do/[slug] page the card IS the page, so the
+  // name links nowhere; in the grid it deep-links to that permalink.
+  isPermalink = false,
 }: {
   business: Business;
   canPersist: boolean;
+  defaultOpen?: boolean;
+  isPermalink?: boolean;
 }) {
   const [reviews, setReviews] = useState<Review[]>(business.reviews);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [showHours, setShowHours] = useState(false);
+  const permalink = `/things-to-do/${business.slug}`;
 
   const avg = useMemo(() => averageRating(reviews), [reviews]);
   const todayKey = useMemo(() => JS_DAY_TO_KEY[new Date().getDay()], []);
@@ -111,14 +119,28 @@ export default function BusinessCard({
         </div>
 
         <h3 className="font-display text-2xl font-extrabold leading-tight">
-          {business.name}
+          {isPermalink ? (
+            business.name
+          ) : (
+            <Link href={permalink} className="hover:underline">
+              {business.name}
+            </Link>
+          )}
         </h3>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StarRating rating={avg} showValue={reviews.length > 0} />
           <span className="text-xs font-bold text-black/50">
             {reviews.length} review{reviews.length === 1 ? "" : "s"}
           </span>
+          {/* Stable, shareable link a business can send its audience straight
+              to — the landing spot for "leave us a review". */}
+          <Link
+            href={permalink}
+            className="text-xs font-black uppercase tracking-wide text-[var(--turq)] hover:underline"
+          >
+            🔗 Share
+          </Link>
         </div>
 
         <p className="text-sm leading-relaxed text-black/70">
@@ -234,6 +256,8 @@ export default function BusinessCard({
 
             <ReviewForm
               businessId={business.id}
+              businessName={business.name}
+              offer={business.offer}
               canPersist={canPersist}
               onAdded={addReview}
             />

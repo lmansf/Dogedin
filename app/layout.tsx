@@ -5,7 +5,12 @@ import { CartProvider } from "@/components/cart/CartProvider";
 import CartDrawer from "@/components/cart/CartDrawer";
 import SiteNav from "@/components/SiteNav";
 import ComingSoonLink from "@/components/ComingSoonLink";
+import ContinueExploring from "@/components/ContinueExploring";
 import { Analytics } from "@vercel/analytics/next";
+import JsonLd from "@/components/JsonLd";
+import { getTopBusinessCached } from "@/lib/topBusiness";
+import { organizationJsonLd, webSiteJsonLd } from "@/lib/seo";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -19,23 +24,43 @@ const body = Nunito({
   variable: "--font-body",
 });
 
+// Site-wide metadata defaults. metadataBase makes every relative OG/canonical
+// URL absolute; the default OG card comes from app/opengraph-image.tsx and is
+// picked up automatically, so pages only override what's page-specific.
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Dogedin — Dunedin, FL's club for dog lovers",
     template: "%s · Dogedin",
   },
-  description:
-    "Dunedin's dogs, all in one place: profiles, lost-dog tags, dog-friendly guides and events — plus a wee shop that keeps the lights on. Scotland of the Sunshine State, by way of the Gulf coast.",
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_US",
+    url: "/",
+    title: "Dogedin — Dunedin, FL's club for dog lovers",
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Dogedin — Dunedin, FL's club for dog lovers",
+    description: SITE_DESCRIPTION,
+  },
 };
 
-// Community leads; one shop item earns its keep.
+// Marquee (and any other layout data) revalidates every 5 minutes, matching
+// lib/topBusiness.ts, so a rating change re-crowns the top spot on every page
+// without a redeploy. Pages stay static — this just turns them into ISR.
+export const revalidate = 300;
+
+// Community leads; keep every line factual — no offers we don't run. A live
+// line naming the top-rated business is appended in RootLayout when one exists.
 const MARQUEE = [
-  "🏴 SCOTLAND OF THE SUNSHINE STATE",
   "🐾 REGISTER YOUR GOOD DOG",
   "🚨 FOUND A DOG? LOOK UP THE TAG",
   "🍺 GOOD DOGS · GOOD BREWS",
   "📅 EVENTS CALENDAR — COMING SOON",
-  "🦴 FREE TREATS OVER $50",
 ];
 
 // Footer link columns: every community surface reachable from any page bottom.
@@ -73,14 +98,25 @@ const FOOTER_COLS: {
   },
 ];
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // The current top-rated spot from the local guide (draft copy pending owner
+  // sign-off). Omitted entirely — the marquee still scrolls the static lines —
+  // when there are no businesses to feature.
+  const topBusiness = await getTopBusinessCached();
+  const marquee = topBusiness
+    ? [...MARQUEE, `⭐ TOP OF THE PACK: ${topBusiness.name.toUpperCase()}`]
+    : MARQUEE;
+
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
+        {/* Sitewide structured data: who runs this site and what it is. */}
+        <JsonLd data={organizationJsonLd()} />
+        <JsonLd data={webSiteJsonLd()} />
         <CartProvider>
           {/* Scottish tartan ribbon */}
           <div className="tartan h-2.5" />
@@ -88,7 +124,7 @@ export default function RootLayout({
           {/* Marquee announcement bar */}
           <div className="overflow-hidden border-y-[3px] border-black bg-[var(--navy)] py-2 text-[var(--sand)]">
             <div className="animate-marquee flex w-max gap-10 whitespace-nowrap text-sm font-extrabold uppercase tracking-wide">
-              {[...MARQUEE, ...MARQUEE, ...MARQUEE].map((m, i) => (
+              {[...marquee, ...marquee, ...marquee].map((m, i) => (
                 <span key={i}>{m}</span>
               ))}
             </div>
@@ -110,6 +146,10 @@ export default function RootLayout({
           </header>
 
           <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
+
+          {/* Relevant onward links so no page dead-ends — see ContinueExploring
+              / lib/related.ts. Hidden on admin/recovery/lost-dog flows. */}
+          <ContinueExploring />
 
           {/* Gulf-coast footer */}
           <footer className="mt-16">
@@ -165,7 +205,7 @@ export default function RootLayout({
                   By Dunedin dog people, for extremely good dogs 🐕
                 </p>
                 <p className="mt-1 text-sm font-bold uppercase tracking-widest text-[var(--sand)]/80">
-                  Scotland of the Sunshine State 🏴 · Dunedin, FL 🌴
+                  Dunedin, FL 🌴
                 </p>
               </div>
             </div>

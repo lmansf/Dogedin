@@ -13,6 +13,12 @@ export default function AdminAdsPage() {
         <h1 className="font-display text-4xl font-extrabold">Advertisers</h1>
         <div className="flex gap-3">
           <a
+            href="/admin/inquiries"
+            className="text-xs font-black uppercase tracking-wide text-[var(--turq)] hover:underline"
+          >
+            Inquiries →
+          </a>
+          <a
             href="/admin/businesses"
             className="text-xs font-black uppercase tracking-wide text-[var(--turq)] hover:underline"
           >

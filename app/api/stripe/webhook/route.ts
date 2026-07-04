@@ -28,6 +28,27 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const s = event.data.object as Stripe.Checkout.Session;
+
+        // Ad-slot payment: an admin generated a pay link for an approved ad
+        // (see createAdCheckoutSession), which stamps the advertiser id into
+        // metadata. When the business pays, flip the ad live automatically —
+        // this is the "auto-update once paid" path, no manual toggle needed.
+        const advertiserId = s.metadata?.advertiser_id as string | undefined;
+        if (advertiserId) {
+          await supabaseAdmin
+            .from("advertisers")
+            .update({
+              status: "active",
+              active: true,
+              // Record the payment reference for the console/audit trail.
+              paid_at: new Date().toISOString(),
+              stripe_payment_ref:
+                typeof s.payment_intent === "string" ? s.payment_intent : s.id,
+            })
+            .eq("id", advertiserId);
+          break;
+        }
+
         const userId =
           (s.metadata?.supabase_user_id as string | undefined) ??
           (s.client_reference_id ?? undefined);

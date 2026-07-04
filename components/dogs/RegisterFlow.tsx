@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { DOG_PHOTO_BUCKET } from "@/lib/dogProfiles";
 import { useSupabaseUser, AuthPanel, signOut } from "./auth";
+import PhotoPicker from "@/components/PhotoPicker";
 
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024; // 3 MB
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -77,17 +78,9 @@ function RegistrationForm({
   const [breed, setBreed] = useState("");
   const [bio, setBio] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [lostOptIn, setLostOptIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!photo) return setPreview(null);
-    const url = URL.createObjectURL(photo);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
 
   const pickPhoto = (file: File | null) => {
     setError(null);
@@ -265,26 +258,19 @@ function RegistrationForm({
         </span>
       </Field>
 
-      <Field label="Photo">
-        <div className="flex items-center gap-4">
-          <div className="relative h-20 w-20 shrink-0 overflow-hidden border-2 border-black bg-zinc-100">
-            {preview ? (
-              // Local object URL preview — plain img is correct here (not a
-              // remote/optimizable source).
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="Preview" className="h-full w-full object-cover" />
-            ) : (
-              <span className="flex h-full items-center justify-center text-3xl">🐶</span>
-            )}
-          </div>
-          <input
-            type="file"
-            accept={PHOTO_TYPES.join(",")}
-            onChange={(e) => pickPhoto(e.target.files?.[0] ?? null)}
-            className="text-sm"
-          />
-        </div>
-      </Field>
+      {/* A div, not <Field> — PhotoPicker has its own <label> inside, and
+          labels can't nest. Same visual structure as Field. */}
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-extrabold uppercase tracking-wide text-black/60">
+          Photo
+        </span>
+        <PhotoPicker
+          file={photo}
+          onPick={pickPhoto}
+          accept={PHOTO_TYPES.join(",")}
+          emptyIcon="🐶"
+        />
+      </div>
 
       <label className="flex items-start gap-3 border-2 border-black bg-[var(--sand)] p-3">
         <input

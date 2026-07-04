@@ -3,12 +3,14 @@ import Link from "next/link";
 import BusinessCard from "@/components/spots/BusinessCard";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import AdSlot from "@/components/ads/AdSlot";
+import JsonLd from "@/components/JsonLd";
 import { getBusinesses, persistenceEnabled } from "@/lib/businesses";
+import { thingsToDoJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Things to do in Dunedin",
   description:
-    "Dog-friendly restaurants, breweries, beaches and parks around Dunedin, FL — reviewed by the pack.",
+    "Dog-friendly restaurants, breweries, beaches and parks in Dunedin, Florida, on Tampa Bay's Gulf coast — reviewed by the local pack.",
 };
 
 // Community "things to do" board. Curated Dunedin businesses (from Supabase, or
@@ -19,6 +21,12 @@ export default async function ThingsToDoPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* LocalBusiness structured data — only for real approved listings.
+          Without Supabase the page shows the demo seed, which must never be
+          presented to search engines as real businesses. */}
+      {canPersist && businesses.length > 0 && (
+        <JsonLd data={thingsToDoJsonLd(businesses)} />
+      )}
       <section className="relative overflow-hidden border-[3px] border-black bg-[var(--turq)] p-8 shadow-hard-lg">
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">
@@ -45,17 +53,31 @@ export default async function ThingsToDoPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {businesses.slice(0, 2).map((b) => (
-          <BusinessCard key={b.id} business={b} canPersist={canPersist} />
-        ))}
-        {/* Native local-partner card: same anatomy as the guide's own cards,
-            clearly labelled, placed where readers are choosing where to go. */}
-        <AdSlot slot="ttd_grid" variant="card" label="Local guide partner" />
-        {businesses.slice(2).map((b) => (
-          <BusinessCard key={b.id} business={b} canPersist={canPersist} />
-        ))}
-      </div>
+      {businesses.length === 0 ? (
+        // Honest empty state: a connected-but-empty guide shows no listings
+        // (demo spots only appear when Supabase isn't configured at all).
+        <div className="border-[3px] border-black bg-white p-8 text-center shadow-hard">
+          <h2 className="font-display text-2xl font-extrabold">
+            The guide is just getting started 🐾
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm font-bold text-black/60">
+            No spots are listed yet. As Dunedin&apos;s dog-friendly businesses
+            get listed and approved, they&apos;ll show up right here.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {businesses.slice(0, 2).map((b) => (
+            <BusinessCard key={b.id} business={b} canPersist={canPersist} />
+          ))}
+          {/* Native local-partner card: same anatomy as the guide's own cards,
+              clearly labelled, placed where readers are choosing where to go. */}
+          <AdSlot slot="ttd_grid" variant="card" label="Local guide partner" />
+          {businesses.slice(2).map((b) => (
+            <BusinessCard key={b.id} business={b} canPersist={canPersist} />
+          ))}
+        </div>
+      )}
 
       {/* Club teaser — pre-launch, so no deals are promised here. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-[var(--gold)]/25 p-4">

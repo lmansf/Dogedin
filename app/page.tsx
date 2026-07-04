@@ -5,15 +5,19 @@ import AdSlot from "@/components/ads/AdSlot";
 import InstagramFeed from "@/components/social/InstagramFeed";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import EventsPreview from "@/components/home/EventsPreview";
+import FeaturedBusiness from "@/components/home/FeaturedBusiness";
 import SpotsPreview from "@/components/home/SpotsPreview";
 import { getProducts } from "@/lib/shopify";
 import { listRecentDogs, dogPhotoUrl } from "@/lib/dogProfiles";
 import { PACK_GRADS, type PackDog } from "@/lib/dogs";
+import { HERO_BADGE } from "@/lib/site";
 import { DEMO_DOGS } from "@/lib/demoProducts";
 
 // The front door of Dunedin's dog community: pack first, plans second, shop in
-// support. Refreshes at most hourly so the auto-pulled feeds stay current
-// without a rebuild. (Ads fetch client-side, so they're always live.)
+// support. ISR keeps the auto-pulled feeds current without a rebuild — the
+// root layout's 5-minute revalidate (for the top-rated spot) is the effective
+// cadence, since Next uses the lowest value across layout and page. (Ads
+// fetch client-side, so they're always live.)
 export const revalidate = 3600;
 
 export default async function Home() {
@@ -21,7 +25,10 @@ export default async function Home() {
     getProducts(6),
     listRecentDogs(8),
   ]);
-  const teaserProducts = (shopTeaser.length ? shopTeaser : DEMO_DOGS).slice(0, 6);
+  // Demo products are a dev-only preview — in production an unconfigured or
+  // empty Shopify store hides the teaser row rather than showing fake gear.
+  const demoFallback = process.env.NODE_ENV !== "production" ? DEMO_DOGS : [];
+  const teaserProducts = (shopTeaser.length ? shopTeaser : demoFallback).slice(0, 6);
 
   // Real registered dogs for the carousel; the component falls back to the
   // mascot cast when the pack is still empty.
@@ -45,7 +52,7 @@ export default async function Home() {
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">
           <span className="inline-block -rotate-2 border-[3px] border-black bg-[var(--sand)] px-3 py-1 text-xs font-black uppercase tracking-widest shadow-hard">
-            🏴 Scotland of the Sunshine State · est. Dunedin
+            {HERO_BADGE}
           </span>
           <h1 className="mt-4 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] md:text-7xl">
             Dunedin&apos;s home for
@@ -76,6 +83,10 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Ribbon: a full-width top strip. Only renders a live ad when the admin
+          has an active ribbon campaign; otherwise it's a quiet invitation. */}
+      <AdSlot slot="home_ribbon" placement="ribbon" label="Featured partner" />
+
       {/* The pack: real registered dogs (mascots until the roster fills). */}
       <DogCarousel pack={pack} />
 
@@ -84,29 +95,36 @@ export default async function Home() {
       {/* Local business spotlight — the one ad between community sections. */}
       <AdSlot slot="home_feed" label="Local partner" />
 
+      {/* Editorial, not paid: the top-rated spot in the local guide, crowned
+          by community reviews. Hidden while the guide has no listings. */}
+      <FeaturedBusiness />
+
       <SpotsPreview />
 
-      {/* Shop teaser: one earning row, honestly framed. */}
-      <section>
-        <ProductRow
-          title="From the shop 🛍"
-          badge="Funds the pack"
-          badgeColor="var(--gold)"
-          products={teaserProducts}
-        />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-bold text-black/60">
-            Every purchase keeps Dogedin free — profiles, lost-dog tags and the
-            local guide.
-          </p>
-          <Link
-            href="/shop"
-            className="border-[3px] border-black bg-[var(--gold)] px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
-          >
-            Visit the shop →
-          </Link>
-        </div>
-      </section>
+      {/* Shop teaser: one earning row, honestly framed. Hidden entirely until
+          there are real (or dev-preview) products to show. */}
+      {teaserProducts.length > 0 && (
+        <section>
+          <ProductRow
+            title="From the shop 🛍"
+            badge="Funds the pack"
+            badgeColor="var(--gold)"
+            products={teaserProducts}
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-bold text-black/60">
+              Every purchase keeps Dogedin free — profiles, lost-dog tags and
+              the local guide.
+            </p>
+            <Link
+              href="/shop"
+              className="border-[3px] border-black bg-[var(--gold)] px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+            >
+              Visit the shop →
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Dogedin Club band — teaser only while the Club is pre-launch. No
           perks or price are promised; the tracked link measures interest. */}

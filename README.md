@@ -39,7 +39,7 @@ demo catalog (the two category rows). Add the Shopify vars to pull live products
 
 | Var | Purpose |
 | --- | --- |
-| `SHOPIFY_STORE_DOMAIN` | `your-store.myshopify.com` |
+| `SHOPIFY_STORE_DOMAIN` | e.g. `dogedin-store.myshopify.com` |
 | `SHOPIFY_STOREFRONT_TOKEN` | Storefront API access token |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (optional) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (optional) |

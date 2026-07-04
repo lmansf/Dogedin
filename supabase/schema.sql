@@ -23,6 +23,10 @@ create table if not exists public.app_admins (
   created_at  timestamptz not null default now()
 );
 -- Example: insert into public.app_admins (email) values ('you@example.com');
+-- Seed the initial admin so a fresh deploy always has someone who can sign in
+-- and manage the site. Idempotent — safe to re-run.
+insert into public.app_admins (email) values ('lmansf96@gmail.com')
+  on conflict (email) do nothing;
 alter table public.app_admins enable row level security;
 drop policy if exists "admins read admin list" on public.app_admins;
 create policy "admins read admin list" on public.app_admins
@@ -208,6 +212,31 @@ create policy "admins delete any business photo" on storage.objects
     and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
   );
 
+-- Storage bucket for ad creatives, uploaded via the public /advertise form when
+-- a business applies for a slot (same anonymous-insert trust model as
+-- business-photos: the creative only renders once an admin approves + activates
+-- the ad). The bucket size cap is the largest per-placement spec (150 KB);
+-- validateAdCreative() enforces the exact per-placement dimensions/size/format
+-- client-side, and this is the server-side backstop.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('ad-creatives', 'ad-creatives', true, 153600, array['image/jpeg', 'image/png', 'image/webp'])
+  on conflict (id) do update set
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "ad creatives are public read" on storage.objects;
+create policy "ad creatives are public read" on storage.objects
+  for select using (bucket_id = 'ad-creatives');
+drop policy if exists "anyone can upload an ad creative" on storage.objects;
+create policy "anyone can upload an ad creative" on storage.objects
+  for insert with check (bucket_id = 'ad-creatives');
+drop policy if exists "admins delete any ad creative" on storage.objects;
+create policy "admins delete any ad creative" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'ad-creatives'
+    and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
+  );
+
 -- ============================================================================
 -- 2. DOG PROFILES — registration, public lookup, physical tag / QR lookup
 -- ============================================================================
@@ -355,6 +384,38 @@ alter table public.advertisers add column if not exists tagline  text;
 alter table public.advertisers add column if not exists starts_at date;
 alter table public.advertisers add column if not exists ends_at   date;
 
+-- Placement type + lifecycle state (added for the ad-management console).
+--   placement: which kind of slot a creative fits — banner (primary paid unit),
+--     ribbon (top strip) or generic (300x250 rectangle). A slot only serves ads
+--     of its own placement type.
+--   status:   applied  → a business submitted a creative via /advertise
+--             approved → an admin attests it's approved/paid (not yet live)
+--             active   → renders live in its slot (this is what public_ads sees)
+--             disabled → toggled off. Only 'active' rows in flight ever serve.
+-- The legacy `active` boolean is kept in sync by the app writers, but `status`
+-- is the single source of truth for what renders.
+do $$ begin
+  create type public.ad_placement as enum ('banner', 'ribbon', 'generic');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type public.ad_status as enum ('applied', 'approved', 'active', 'disabled');
+exception when duplicate_object then null; end $$;
+
+alter table public.advertisers add column if not exists placement public.ad_placement not null default 'banner';
+alter table public.advertisers add column if not exists mobile_image_url text;   -- optional banner mobile variant (320x100)
+alter table public.advertisers add column if not exists contact_email text;      -- applicant email for form-submitted ads
+alter table public.advertisers add column if not exists paid_at timestamptz;     -- set by the Stripe webhook when an ad is paid
+alter table public.advertisers add column if not exists stripe_payment_ref text; -- Stripe payment_intent / session id for the payment
+alter table public.advertisers add column if not exists status public.ad_status;
+-- Backfill legacy rows created before the state machine: whatever was live
+-- becomes 'active', the rest 'disabled'. Idempotent — only null-status rows are
+-- touched, so form-submitted 'applied' rows and any set status survive re-runs.
+update public.advertisers
+  set status = case when active then 'active'::public.ad_status else 'disabled'::public.ad_status end
+  where status is null;
+alter table public.advertisers alter column status set default 'applied';
+alter table public.advertisers alter column status set not null;
+
 alter table public.advertisers enable row level security;
 
 -- The public reads ads through the public_ads view below (display columns
@@ -370,6 +431,16 @@ create policy "admins manage ads" on public.advertisers
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
   with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
+-- A business may APPLY for an ad from the public /advertise form (same trust
+-- model as submitting a business listing or an ad inquiry): the insert is
+-- forced to the 'applied' state, so nothing a stranger uploads can ever render
+-- until an admin approves and activates it. Admins still go through the policy
+-- above for everything else.
+drop policy if exists "anyone can apply for an ad" on public.advertisers;
+create policy "anyone can apply for an ad" on public.advertisers
+  for insert to anon, authenticated
+  with check (status = 'applied');
+
 -- Public read surface for ads: in-flight active rows, display columns only (no
 -- counters). Definer view bypasses the base-table RLS; AdSlot reads this.
 -- Dropped first: the column set changed (tagline added) and CREATE OR REPLACE
@@ -377,9 +448,9 @@ create policy "admins manage ads" on public.advertisers
 drop view if exists public.public_ads;
 create view public.public_ads
 with (security_invoker = false) as
-  select id, business_name, tagline, image_url, link_url, weight
+  select id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement
   from public.advertisers
-  where active = true
+  where status = 'active'
     and (starts_at is null or starts_at <= current_date)
     and (ends_at   is null or ends_at   >= current_date);
 grant select on public.public_ads to anon, authenticated;
@@ -413,7 +484,7 @@ declare
   s text := coalesce(nullif(left(regexp_replace(lower(coalesce(p_slot, '')), '[^a-z0-9_-]', '', 'g'), 32), ''), 'unknown');
 begin
   update public.advertisers set impressions = impressions + 1
-   where id = p_ad_id and active;
+   where id = p_ad_id and status = 'active';
   if found then
     insert into public.ad_stats_daily (ad_id, slot, impressions)
       values (p_ad_id, s, 1)
@@ -430,7 +501,7 @@ declare
   target text;
 begin
   update public.advertisers set clicks = clicks + 1
-   where id = p_ad_id and active
+   where id = p_ad_id and status = 'active'
    returning link_url into target;
   if target is not null then
     insert into public.ad_stats_daily (ad_id, slot, clicks)
@@ -492,6 +563,16 @@ alter table public.members enable row level security;
 drop policy if exists "members read own row" on public.members;
 create policy "members read own row" on public.members
   for select to authenticated using (auth.uid() = user_id);
+
+-- The private analytics dashboard reads members (status mix, MRR, new-member
+-- trend) with an admin JWT — same app_admins email check as every other
+-- admins-* policy in this file. Without this, its Revenue page has no path to
+-- the table: the queries still succeed but return zero rows, so member
+-- counts and MRR silently read as 0 there until this policy exists.
+drop policy if exists "admins read members" on public.members;
+create policy "admins read members" on public.members
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
 -- Coming-soon interest: pre-launch features (the Club, the events calendar)
 -- are hidden behind promise-free teasers, and every teaser click lands here so
@@ -637,12 +718,16 @@ create index if not exists dog_friendships_recipient_idx on public.dog_friendshi
 
 alter table public.dog_friendships enable row level security;
 
--- Accepted friendships are part of a dog's public profile (who's in the pack).
--- Pending requests are private to the two owners until responded to.
+-- A dog's friendships are PRIVATE to the two owners involved — who a dog
+-- (and by extension its human) hangs out with is not part of the public
+-- profile. An earlier schema version exposed accepted rows to everyone
+-- ("accepted friendships are public"); the drop below converges databases
+-- created from it. Anonymized analytics keep a data path via
+-- friendship_dates() (§ 7) instead of reading the table directly.
 drop policy if exists "accepted friendships are public" on public.dog_friendships;
-create policy "accepted friendships are public" on public.dog_friendships
-  for select using (status = 'accepted');
 
+-- Both owners see every friendship row involving one of their dogs — pending
+-- requests (to respond to) and accepted rows (their own dog's friends list).
 drop policy if exists "owners see their own requests" on public.dog_friendships;
 create policy "owners see their own requests" on public.dog_friendships
   for select to authenticated
@@ -650,6 +735,12 @@ create policy "owners see their own requests" on public.dog_friendships
     exists (select 1 from public.dog_profiles d where d.id = requester_dog_id and d.user_id = auth.uid())
     or exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid())
   );
+
+-- The private analytics dashboard reads dog_friendships with an admin JWT.
+drop policy if exists "admins read friendships" on public.dog_friendships;
+create policy "admins read friendships" on public.dog_friendships
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
 drop policy if exists "owners send friend requests" on public.dog_friendships;
 create policy "owners send friend requests" on public.dog_friendships
@@ -743,6 +834,15 @@ create policy "admins delete posts" on public.dog_posts
   for delete to authenticated
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
+-- Admins can also SEE every post regardless of status. The /admin/photos
+-- queue lists pending posts, and Postgres applies SELECT policies to the
+-- rows an UPDATE/DELETE reads via its WHERE clause — without this, the two
+-- admin policies above couldn't reach anyone else's pending post at all.
+drop policy if exists "admins read all posts" on public.dog_posts;
+create policy "admins read all posts" on public.dog_posts
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
 create table if not exists public.post_likes (
   post_id     uuid not null references public.dog_posts(id) on delete cascade,
   dog_id      uuid not null references public.dog_profiles(id) on delete cascade,
@@ -766,6 +866,42 @@ drop policy if exists "owners unlike posts" on public.post_likes;
 create policy "owners unlike posts" on public.post_likes
   for delete to authenticated
   using (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
+
+-- Profile-level paws: a signed-in USER paws a dog's PROFILE (one per user per
+-- dog) — separate from post_likes, which paw individual photos and are keyed
+-- by acting dog. user_id defaults to auth.uid() so the client only ever sends
+-- dog_id. SELECT is limited to the giver's own rows (who pawed whom is never
+-- publicly enumerable); the public tally goes through dog_paw_count() below.
+create table if not exists public.dog_paws (
+  dog_id      uuid not null references public.dog_profiles(id) on delete cascade,
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (dog_id, user_id)
+);
+alter table public.dog_paws enable row level security;
+
+drop policy if exists "users see own paws" on public.dog_paws;
+create policy "users see own paws" on public.dog_paws
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "users paw dogs" on public.dog_paws;
+create policy "users paw dogs" on public.dog_paws
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "users unpaw dogs" on public.dog_paws;
+create policy "users unpaw dogs" on public.dog_paws
+  for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- Public per-dog tally without exposing who gave the paws.
+create or replace function public.dog_paw_count(p_dog_id uuid)
+returns bigint
+language sql security definer stable set search_path = public as $$
+  select count(*)::bigint from public.dog_paws where dog_id = p_dog_id;
+$$;
+grant execute on function public.dog_paw_count(uuid) to anon, authenticated;
 
 -- Comments (owner-to-owner communication on posts) were removed from v1 scope
 -- — friends + likes only for now. Drops any table from an earlier schema
@@ -824,6 +960,21 @@ create policy "dog photos are public read" on storage.objects
     )
   );
 
+-- Admins can read pending/rejected post objects through the Storage API too.
+-- The /admin/photos queue shows the photo being approved (the public bucket
+-- already serves any *known* URL, so viewing works regardless — this makes it
+-- explicit), and rejecting from that queue calls storage remove(), which
+-- returns the deleted rows — Postgres applies SELECT policies to that, so
+-- "admins delete any dog photo" (section 2) can't remove a pending object
+-- without this.
+drop policy if exists "admins read any dog photo" on storage.objects;
+create policy "admins read any dog photo" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'dog-photos'
+    and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
+  );
+
 -- "Pawpularity contest" leaderboard: total paws (post_likes) across each
 -- dog's approved posts. Only ever counts likes on posts that are actually
 -- public, so a pending/rejected post's likes (there shouldn't be any, since
@@ -841,3 +992,112 @@ language sql security definer stable set search_path = public as $$
   limit greatest(p_limit, 0);
 $$;
 grant execute on function public.pawpularity_leaderboard(int) to anon, authenticated;
+
+-- ============================================================================
+-- 7. ANALYTICS HELPERS — anonymized aggregates for the public dashboards
+-- ----------------------------------------------------------------------------
+-- SECURITY DEFINER functions exposing counts and dates ONLY — no ids, no
+-- names, no who-knows-whom — so the public analytics dashboard and the media
+-- kit keep a data path after the friendship privacy lockdown in § 6. The
+-- function names and column names below are contracts with those repos —
+-- do not rename them.
+-- ============================================================================
+
+-- created_at of ACCEPTED friendships, nothing else. Feeds the public
+-- dashboard's friendship counts/trends now that dog_friendships rows are
+-- readable only by the owners involved (and admins).
+create or replace function public.friendship_dates()
+returns table (created_at timestamptz)
+language sql security definer stable set search_path = public as $$
+  select f.created_at
+  from public.dog_friendships f
+  where f.status = 'accepted';
+$$;
+grant execute on function public.friendship_dates() to anon, authenticated;
+
+-- Last 12 ISO weeks (Monday-start, oldest first, current week included) of
+-- new dog profiles, newly created APPROVED posts, and new paws (post_likes).
+-- Weeks with no activity still appear, as zero rows.
+create or replace function public.media_kit_weekly()
+returns table (week_start date, new_dogs bigint, new_posts bigint, new_paws bigint)
+language sql security definer stable set search_path = public as $$
+  with weeks as (
+    select gs::date as week_start
+    from generate_series(
+      date_trunc('week', now()) - interval '11 weeks',
+      date_trunc('week', now()),
+      interval '1 week'
+    ) as gs
+  ),
+  dogs as (
+    select date_trunc('week', created_at)::date as wk, count(*)::bigint as n
+    from public.dog_profiles group by 1
+  ),
+  posts as (
+    select date_trunc('week', created_at)::date as wk, count(*)::bigint as n
+    from public.dog_posts where moderation_status = 'approved' group by 1
+  ),
+  paws as (
+    select date_trunc('week', created_at)::date as wk, count(*)::bigint as n
+    from public.post_likes group by 1
+  )
+  select
+    w.week_start,
+    coalesce(dogs.n, 0)  as new_dogs,
+    coalesce(posts.n, 0) as new_posts,
+    coalesce(paws.n, 0)  as new_paws
+  from weeks w
+  left join dogs  on dogs.wk  = w.week_start
+  left join posts on posts.wk = w.week_start
+  left join paws  on paws.wk  = w.week_start
+  order by w.week_start;
+$$;
+grant execute on function public.media_kit_weekly() to anon, authenticated;
+
+-- One-call snapshot for the media kit's headline numbers: community-scale
+-- totals plus per-slot ad delivery for the last 30 days. Counts and slot
+-- totals ONLY — no advertiser identities, no per-campaign numbers, no member
+-- or revenue data. The key names are a contract with the media-kit repo's
+-- lib/stats.ts — do not rename them. avg_rating is null (not 0) when there
+-- are no reviews, and slots is [] when ad_stats_daily has no rows in the
+-- window; ctr_30d is a percentage rounded to 2 decimals, 0 when a slot had
+-- no impressions.
+create or replace function public.media_kit_stats()
+returns jsonb
+language sql security definer stable set search_path = public as $$
+  select jsonb_build_object(
+    'dogs_total',          (select count(*) from public.dog_profiles),
+    'dogs_new_90d',        (select count(*) from public.dog_profiles
+                            where created_at >= now() - interval '90 days'),
+    'posts_30d',           (select count(*) from public.dog_posts
+                            where moderation_status = 'approved'
+                              and created_at >= now() - interval '30 days'),
+    'paws_30d',            (select count(*) from public.post_likes
+                            where created_at >= now() - interval '30 days'),
+    'friendships_total',   (select count(*) from public.dog_friendships
+                            where status = 'accepted'),
+    'businesses_approved', (select count(*) from public.businesses
+                            where status = 'approved'),
+    'reviews_total',       (select count(*) from public.reviews),
+    'avg_rating',          (select round(avg(rating)::numeric, 2) from public.reviews),
+    'slots', coalesce(
+      (select jsonb_agg(jsonb_build_object(
+                'slot',            s.slot,
+                'impressions_30d', s.impressions_30d,
+                'clicks_30d',      s.clicks_30d,
+                'ctr_30d',         case when s.impressions_30d > 0
+                                     then round(100.0 * s.clicks_30d / s.impressions_30d, 2)
+                                     else 0 end
+              ) order by s.impressions_30d desc, s.slot)
+       from (
+         select slot,
+                sum(impressions)::bigint as impressions_30d,
+                sum(clicks)::bigint      as clicks_30d
+         from public.ad_stats_daily
+         where day > current_date - 30
+         group by slot
+       ) s),
+      '[]'::jsonb)
+  );
+$$;
+grant execute on function public.media_kit_stats() to anon, authenticated;

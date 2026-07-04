@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { pickWeighted, type Ad } from "@/lib/ads";
+import { pickWeighted, type Ad, type AdPlacement } from "@/lib/ads";
 
 // A single local-business ad slot. Fetches in-flight advertisers client-side
 // from the public_ads view (so /admin/ads changes are live with no rebuild),
@@ -21,12 +21,19 @@ import { pickWeighted, type Ad } from "@/lib/ads";
 export default function AdSlot({
   slot,
   variant = "banner",
+  placement,
   label = "Local partner",
 }: {
   slot: string;
   variant?: "banner" | "card";
+  // Which placement type this slot serves. Defaults from the visual variant so
+  // existing callers keep working: a "card" slot serves generic rectangles, a
+  // "banner" slot serves banners. Set explicitly for ribbon strips.
+  placement?: AdPlacement;
   label?: string;
 }) {
+  const wantPlacement: AdPlacement =
+    placement ?? (variant === "card" ? "generic" : "banner");
   const [ad, setAd] = useState<Ad | null>(null);
   const [ready, setReady] = useState(false);
   const boxRef = useRef<HTMLElement | null>(null);
@@ -40,7 +47,10 @@ export default function AdSlot({
     }
     supabase
       .from("public_ads")
-      .select("id, business_name, tagline, image_url, link_url, weight")
+      .select(
+        "id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement"
+      )
+      .eq("placement", wantPlacement)
       .then(({ data }) => {
         if (cancelled) return;
         const ads: Ad[] = (data ?? []).map((a) => ({
@@ -48,8 +58,10 @@ export default function AdSlot({
           businessName: a.business_name,
           tagline: a.tagline ?? null,
           imageUrl: a.image_url,
+          mobileImageUrl: a.mobile_image_url ?? null,
           linkUrl: a.link_url,
           weight: a.weight ?? 1,
+          placement: a.placement,
         }));
         setAd(pickWeighted(ads));
         setReady(true);
@@ -57,7 +69,7 @@ export default function AdSlot({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [wantPlacement]);
 
   // Viewability-gated impression: >=50% visible for >=1 continuous second.
   useEffect(() => {
@@ -164,16 +176,23 @@ export default function AdSlot({
         rel="noopener noreferrer sponsored"
         className="block"
       >
-        <div className="relative aspect-[3/1] w-full overflow-hidden border-b-[3px] border-black bg-zinc-100">
-          {/* Advertiser-supplied image (self-hosted /assets or external) — plain
-              img so any host works without next/image remote config. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={ad.imageUrl}
-            alt={ad.businessName}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
+        <div className="w-full overflow-hidden border-b-[3px] border-black bg-white">
+          {/* Advertiser-supplied creative at its exact spec size (validated at
+              upload). Serve the 320x100 mobile variant on small screens when the
+              advertiser supplied one, else the desktop leaderboard scales down.
+              Plain img/picture so any host works without next/image config. */}
+          <picture>
+            {ad.mobileImageUrl && (
+              <source media="(max-width: 640px)" srcSet={ad.mobileImageUrl} />
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={ad.imageUrl}
+              alt={ad.businessName}
+              className="mx-auto block h-auto w-full max-w-full"
+              loading="lazy"
+            />
+          </picture>
         </div>
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           <span className="font-display text-sm font-extrabold">

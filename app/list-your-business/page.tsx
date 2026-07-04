@@ -5,7 +5,7 @@ import BusinessSubmissionForm from "@/components/spots/BusinessSubmissionForm";
 export const metadata: Metadata = {
   title: "List your business",
   description:
-    "Add your Dunedin business to the Things-to-do guide — hours, directions and a card photo, reviewed before it goes live.",
+    "Add your Dunedin, Florida business to the dog-friendly local guide — hours, directions and a card photo, reviewed before it goes live.",
 };
 
 export default function ListYourBusinessPage() {

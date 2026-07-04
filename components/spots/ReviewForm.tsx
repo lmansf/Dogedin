@@ -3,18 +3,28 @@
 import { useState, useTransition } from "react";
 import { StarInput } from "./Stars";
 import { addReview } from "@/app/things-to-do/actions";
-import type { Review } from "@/lib/businesses";
+import type { Review, BusinessOffer } from "@/lib/businesses";
 
 // "Write a review" form for a single business. On submit it calls the addReview
 // server action and hands the created review back up to the card via onAdded so
 // it shows immediately. When persistence is off the review is still added for
 // the session; we surface a small "preview" note so it's clear it won't stick.
+//
+// Review-for-discount (compliant design): when the business offers a deal, we
+// unlock it after ANY honest review — the reward is never conditioned on a
+// positive rating or sentiment (FTC), and it applies only to these first-party
+// Dogedin listings, never to Google/Yelp/etc. The disclosure is shown up front.
+// See docs/review-incentive-compliance.md.
 export default function ReviewForm({
   businessId,
+  businessName,
+  offer,
   canPersist,
   onAdded,
 }: {
   businessId: string;
+  businessName: string;
+  offer: BusinessOffer | null;
   canPersist: boolean;
   onAdded: (review: Review) => void;
 }) {
@@ -22,6 +32,7 @@ export default function ReviewForm({
   const [rating, setRating] = useState(0);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const submit = (e: React.FormEvent) => {
@@ -37,8 +48,34 @@ export default function ReviewForm({
       setAuthor("");
       setRating(0);
       setBody("");
+      // A saved review unlocks the deal. Only when it actually persisted, so a
+      // preview-mode review doesn't hand out a code that isn't recorded.
+      if (offer && res.persisted) setUnlocked(true);
     });
   };
+
+  // After a saved review, reveal the business's thank-you offer. This is the
+  // confirmation that "unlocks" the discount, shown for a review of any rating.
+  if (unlocked && offer) {
+    return (
+      <div className="flex flex-col gap-2 border-[3px] border-black bg-[var(--green)] p-4 text-[var(--sand)] shadow-hard">
+        <p className="font-display text-lg font-extrabold">
+          Thanks for reviewing {businessName}! 🎟
+        </p>
+        <p className="text-sm font-bold">{offer.label}</p>
+        <p className="text-sm">{offer.detail}</p>
+        {offer.code && (
+          <p className="w-fit border-2 border-black bg-[var(--sand)] px-3 py-1 font-mono text-base font-black tracking-widest text-black">
+            {offer.code}
+          </p>
+        )}
+        <p className="text-[11px] font-bold text-[var(--sand)]/80">
+          You earned this by leaving an honest review — reviews of any rating
+          qualify. Show this at {businessName} to redeem.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -49,6 +86,13 @@ export default function ReviewForm({
         <span className="font-display text-lg font-extrabold">Write a review</span>
         <StarInput value={rating} onChange={setRating} />
       </div>
+
+      {offer && (
+        <p className="border-2 border-black bg-[var(--gold)]/40 px-3 py-2 text-xs font-bold">
+          🎟 Leave an honest review — any rating — and {businessName} unlocks a
+          thank-you deal for you. No positive review required.
+        </p>
+      )}
 
       <input
         type="text"

@@ -6,7 +6,7 @@ import { resolveTag } from "@/lib/dogProfiles";
 export const metadata: Metadata = {
   title: "Found a dog?",
   description:
-    "Found a lost dog? Enter the code from its Dogedin tag to reach the owner.",
+    "Found a lost dog in Dunedin, FL? Enter the code from its Dogedin tag to reach the owner.",
 };
 
 // Lost-dog lookup. A physical tag / QR points here as /found?tag=CODE (or the

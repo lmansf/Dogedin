@@ -17,6 +17,7 @@ export type IncomingRequest = {
   photoPath: string | null;
 };
 export type RelationshipStatus = "none" | "pending-outgoing" | "pending-incoming" | "accepted";
+export type FriendshipEdge = { status: RelationshipStatus; friendshipId: string | null };
 
 // Dogs owned by the signed-in caller (RLS restricts to auth.uid() = user_id).
 export async function myDogs(): Promise<MyDog[]> {
@@ -40,6 +41,9 @@ async function hydrateDogs(ids: string[]) {
   return map;
 }
 
+// A dog's accepted friendships. RLS keeps dog_friendships private to the two
+// owners involved (plus admins), so this returns rows only when the caller
+// owns dogId — call it for the owner's own dog, never for visitors.
 export async function listFriends(dogId: string): Promise<Friend[]> {
   if (!supabase || !UUID_RE.test(dogId)) return [];
   const { data, error } = await supabase
@@ -80,23 +84,33 @@ export async function listIncomingRequests(dogId: string): Promise<IncomingReque
 }
 
 // Existing relationship between two dogs (either direction) — decides which
-// button to show: add friend / pending / accept / already friends.
-export async function friendshipStatus(dogA: string, dogB: string): Promise<RelationshipStatus> {
-  if (!supabase || !UUID_RE.test(dogA) || !UUID_RE.test(dogB)) return "none";
+// button to show: add friend / pending / accept / already friends. Also
+// returns the row id so a non-owner viewer can unfriend without needing the
+// (owner-only) friends list. RLS still resolves this for the viewer because
+// they own one of the two dogs on the edge being asked about.
+export async function friendshipBetween(dogA: string, dogB: string): Promise<FriendshipEdge> {
+  if (!supabase || !UUID_RE.test(dogA) || !UUID_RE.test(dogB)) return { status: "none", friendshipId: null };
   // A pair can have more than one historical row (e.g. a declined request
   // followed by a fresh one), so this reads all of them rather than
   // .maybeSingle() — which errors (and was silently swallowed as "none") the
   // moment a second row exists.
   const { data } = await supabase
     .from("dog_friendships")
-    .select("requester_dog_id, status")
+    .select("id, requester_dog_id, status")
     .or(`and(requester_dog_id.eq.${dogA},recipient_dog_id.eq.${dogB}),and(requester_dog_id.eq.${dogB},recipient_dog_id.eq.${dogA})`);
-  if (!data || data.length === 0) return "none";
+  if (!data || data.length === 0) return { status: "none", friendshipId: null };
   const accepted = data.find((f) => f.status === "accepted");
-  if (accepted) return "accepted";
+  if (accepted) return { status: "accepted", friendshipId: accepted.id };
   const pending = data.find((f) => f.status === "pending");
-  if (!pending) return "none";
-  return pending.requester_dog_id === dogA ? "pending-outgoing" : "pending-incoming";
+  if (!pending) return { status: "none", friendshipId: null };
+  return {
+    status: pending.requester_dog_id === dogA ? "pending-outgoing" : "pending-incoming",
+    friendshipId: pending.id,
+  };
+}
+
+export async function friendshipStatus(dogA: string, dogB: string): Promise<RelationshipStatus> {
+  return (await friendshipBetween(dogA, dogB)).status;
 }
 
 export async function sendFriendRequest(fromDogId: string, toDogId: string): Promise<{ error: string | null }> {
