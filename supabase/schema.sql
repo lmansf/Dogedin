@@ -493,6 +493,15 @@ drop policy if exists "members read own row" on public.members;
 create policy "members read own row" on public.members
   for select to authenticated using (auth.uid() = user_id);
 
+-- The private analytics dashboard reads members (status mix, MRR, new-member
+-- trend) with an admin JWT — same app_admins email check as every other
+-- admins-* policy in this file. Without this, its Revenue page has no path to
+-- the table at all and falls back to a "run the latest schema.sql" error.
+drop policy if exists "admins read members" on public.members;
+create policy "admins read members" on public.members
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
 -- Coming-soon interest: pre-launch features (the Club, the events calendar)
 -- are hidden behind promise-free teasers, and every teaser click lands here so
 -- demand is measurable before anything is offered. No PII — a per-feature,
@@ -972,3 +981,51 @@ language sql security definer stable set search_path = public as $$
   order by w.week_start;
 $$;
 grant execute on function public.media_kit_weekly() to anon, authenticated;
+
+-- One-call snapshot for the media kit's headline numbers: community-scale
+-- totals plus per-slot ad delivery for the last 30 days. Counts and slot
+-- totals ONLY — no advertiser identities, no per-campaign numbers, no member
+-- or revenue data. The key names are a contract with the media-kit repo's
+-- lib/stats.ts — do not rename them. avg_rating is null (not 0) when there
+-- are no reviews, and slots is [] when ad_stats_daily has no rows in the
+-- window; ctr_30d is a percentage rounded to 2 decimals, 0 when a slot had
+-- no impressions.
+create or replace function public.media_kit_stats()
+returns jsonb
+language sql security definer stable set search_path = public as $$
+  select jsonb_build_object(
+    'dogs_total',          (select count(*) from public.dog_profiles),
+    'dogs_new_90d',        (select count(*) from public.dog_profiles
+                            where created_at >= now() - interval '90 days'),
+    'posts_30d',           (select count(*) from public.dog_posts
+                            where moderation_status = 'approved'
+                              and created_at >= now() - interval '30 days'),
+    'paws_30d',            (select count(*) from public.post_likes
+                            where created_at >= now() - interval '30 days'),
+    'friendships_total',   (select count(*) from public.dog_friendships
+                            where status = 'accepted'),
+    'businesses_approved', (select count(*) from public.businesses
+                            where status = 'approved'),
+    'reviews_total',       (select count(*) from public.reviews),
+    'avg_rating',          (select round(avg(rating)::numeric, 2) from public.reviews),
+    'slots', coalesce(
+      (select jsonb_agg(jsonb_build_object(
+                'slot',            s.slot,
+                'impressions_30d', s.impressions_30d,
+                'clicks_30d',      s.clicks_30d,
+                'ctr_30d',         case when s.impressions_30d > 0
+                                     then round(100.0 * s.clicks_30d / s.impressions_30d, 2)
+                                     else 0 end
+              ) order by s.impressions_30d desc, s.slot)
+       from (
+         select slot,
+                sum(impressions)::bigint as impressions_30d,
+                sum(clicks)::bigint      as clicks_30d
+         from public.ad_stats_daily
+         where day > current_date - 30
+         group by slot
+       ) s),
+      '[]'::jsonb)
+  );
+$$;
+grant execute on function public.media_kit_stats() to anon, authenticated;
