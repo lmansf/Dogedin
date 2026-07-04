@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { StarRating } from "./Stars";
 import ReviewItem from "./ReviewItem";
@@ -201,34 +200,9 @@ export default function BusinessCard({
           </div>
         )}
 
-        {/* Partner offer banner — the discount we advertise on this business. */}
-        {business.offer && (
-          <div className="mt-1 border-[3px] border-black bg-[var(--gold)]/25 p-3">
-            <p className="font-display text-base font-extrabold">
-              🎟 {business.offer.label}
-            </p>
-            <p className="text-sm font-semibold text-black/70">
-              {business.offer.detail}
-              {business.offer.code && (
-                <>
-                  {" "}
-                  <span className="border border-black bg-white px-1 font-black tracking-wide">
-                    {business.offer.code}
-                  </span>
-                </>
-              )}
-            </p>
-            <p className="mt-1 text-xs font-bold text-black/50">
-              Club member? Show your card.{" "}
-              <Link
-                href="/membership"
-                className="font-black text-[var(--turq)] underline"
-              >
-                Not one yet? →
-              </Link>
-            </p>
-          </div>
-        )}
+        {/* Partner offer banner — a Club member deal. Hidden while the Club
+            is pre-launch: no card exists to show, so displaying the deal
+            would promise a perk nobody can redeem. Restore at launch. */}
 
         <button
           type="button"

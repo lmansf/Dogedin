@@ -4,6 +4,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/cart/CartProvider";
 import CartDrawer from "@/components/cart/CartDrawer";
 import SiteNav from "@/components/SiteNav";
+import ComingSoonLink from "@/components/ComingSoonLink";
 import { Analytics } from "@vercel/analytics/next";
 
 const display = Fraunces({
@@ -33,12 +34,16 @@ const MARQUEE = [
   "🐾 REGISTER YOUR GOOD DOG",
   "🚨 FOUND A DOG? LOOK UP THE TAG",
   "🍺 GOOD DOGS · GOOD BREWS",
-  "📅 SEE WHAT'S ON THIS WEEKEND",
+  "📅 EVENTS CALENDAR — COMING SOON",
   "🦴 FREE TREATS OVER $50",
 ];
 
 // Footer link columns: every community surface reachable from any page bottom.
-const FOOTER_COLS: { title: string; links: { href: string; label: string }[] }[] = [
+// `soon` marks pre-launch destinations — clicks are counted as interest.
+const FOOTER_COLS: {
+  title: string;
+  links: { href: string; label: string; soon?: string }[];
+}[] = [
   {
     title: "The Pack",
     links: [
@@ -53,9 +58,10 @@ const FOOTER_COLS: { title: string; links: { href: string; label: string }[] }[]
     links: [
       { href: "/things-to-do", label: "Local guide" },
       { href: "/list-your-business", label: "List your business" },
-      { href: "/events", label: "Events" },
-      { href: "/membership", label: "Dogedin Club" },
-      { href: "/card", label: "Member card" },
+      { href: "/events", label: "Events", soon: "events" },
+      // The Club is pre-launch: the link stays (clicks are tracked as
+      // interest) but the member-card link is hidden until there are members.
+      { href: "/membership", label: "Dogedin Club", soon: "club" },
     ],
   },
   {
@@ -118,12 +124,23 @@ export default function RootLayout({
                     <ul className="mt-2 flex flex-col gap-1.5">
                       {col.links.map((l) => (
                         <li key={l.href}>
-                          <a
-                            href={l.href}
-                            className="text-sm font-bold text-[var(--sand)]/85 hover:text-[var(--sand)] hover:underline"
-                          >
-                            {l.label}
-                          </a>
+                          {l.soon ? (
+                            <ComingSoonLink
+                              feature={l.soon}
+                              source="footer"
+                              href={l.href}
+                              className="text-sm font-bold text-[var(--sand)]/85 hover:text-[var(--sand)] hover:underline"
+                            >
+                              {l.label}
+                            </ComingSoonLink>
+                          ) : (
+                            <a
+                              href={l.href}
+                              className="text-sm font-bold text-[var(--sand)]/85 hover:text-[var(--sand)] hover:underline"
+                            >
+                              {l.label}
+                            </a>
+                          )}
                         </li>
                       ))}
                       {col.title === "Shop & Support" &&

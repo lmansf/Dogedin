@@ -54,8 +54,8 @@ export default function RegisterFlow() {
     <RegistrationForm
       userId={user.id}
       defaultEmail={user.email ?? ""}
-      // welcome=1 → the profile page greets the new member with next steps
-      // (get the tag & QR, join the Club) instead of dead-ending.
+      // welcome=1 → the profile page greets the new owner with next steps
+      // (get the tag & QR, see events) instead of dead-ending.
       onDone={(slug) => router.push(`/dog/${slug}?welcome=1`)}
     />
   );

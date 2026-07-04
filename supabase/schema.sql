@@ -493,6 +493,38 @@ drop policy if exists "members read own row" on public.members;
 create policy "members read own row" on public.members
   for select to authenticated using (auth.uid() = user_id);
 
+-- Coming-soon interest: pre-launch features (the Club, the events calendar)
+-- are hidden behind promise-free teasers, and every teaser click lands here so
+-- demand is measurable before anything is offered. No PII — a per-feature,
+-- per-source, per-day counter, same shape as ad_stats_daily. Features and
+-- sources are short slugs ('club'/'events', 'nav'/'home'/'footer'/'visit'…).
+-- Read by the private analytics dashboard (admin RLS) to decide what to build.
+create table if not exists public.feature_interest_daily (
+  feature  text not null,
+  source   text not null,
+  day      date not null default current_date,
+  clicks   bigint not null default 0,
+  primary key (feature, source, day)
+);
+alter table public.feature_interest_daily enable row level security;
+drop policy if exists "admins read feature interest" on public.feature_interest_daily;
+create policy "admins read feature interest" on public.feature_interest_daily
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+create or replace function public.record_feature_click(p_feature text, p_source text default 'unknown')
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  f text := coalesce(nullif(left(regexp_replace(lower(coalesce(p_feature, '')), '[^a-z0-9_-]', '', 'g'), 32), ''), 'unknown');
+  s text := coalesce(nullif(left(regexp_replace(lower(coalesce(p_source, '')), '[^a-z0-9_-]', '', 'g'), 32), ''), 'unknown');
+begin
+  insert into public.feature_interest_daily (feature, source, clicks)
+    values (f, s, 1)
+    on conflict (feature, source, day)
+    do update set clicks = public.feature_interest_daily.clicks + 1;
+end $$;
+grant execute on function public.record_feature_click(text, text) to anon, authenticated;
+
 -- ============================================================================
 -- 5. DOG OF THE DAY — Instagram pipeline (see docs/instagram-pipeline.md)
 -- ----------------------------------------------------------------------------

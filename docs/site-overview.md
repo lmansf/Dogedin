@@ -16,7 +16,7 @@ ads from the same Main Street businesses the community already loves.
 | **The Pack (search)** | `/dogs` | Look up any registered dog by their name or their human's. Makes the community visible and browsable. |
 | **Meet the Pack carousel** | Homepage | The newest registered dogs, front and center on the front page — your dog becomes a minor local celebrity the day you sign up. |
 | **Local guide** | `/things-to-do` | The town's dog-friendly spots — breweries, beaches, brunch, parks — reviewed by the community, with upvotes and threaded replies. Answers the #1 question every dog owner has: "where can I take them?" |
-| **Events calendar** | `/events` | Markets, meetups, yappy hours — auto-pulled from a public calendar feed, zero manual upkeep. The town's dog social calendar. |
+| **Events calendar** | `/events` | **Pre-launch.** The page is a promise-free "coming soon" teaser with tracked interest. The auto-pull machinery (public iCal feed → lib/events.ts) is built and waiting; relaunch is a page swap. |
 | **Instagram feed** | Homepage | The community's photos, pulled automatically from the official API. |
 
 **Privacy is a feature:** owner names and contact details are never shown publicly unless
@@ -38,9 +38,12 @@ security + a privilege-gated public view), not just the UI.
 
 1. **The Shop** (`/shop`, Shopify) — tartan toys, beach gear, treats. Framed honestly on
    the site: "every order funds the community."
-2. **The Dogedin Club** (`/membership`, Stripe subscription) — members get a digital
-   discount card (`/card`, a show-to-cashier QR on their phone) good for deals at
-   participating local spots. Members fund free profiles, tags and the events board.
+2. **The Dogedin Club** (`/membership`) — **pre-launch.** The page is a promise-free
+   "coming soon" teaser; every teaser click is counted in `feature_interest_daily`
+   (per feature, per source, per day) to gauge demand before anything is offered —
+   the events calendar teaser feeds the same table. The Stripe
+   subscription flow, digital discount card (`/card`) and business member deals are
+   built and waiting in the codebase, just unlinked until launch.
 3. **Local ads** — see above. Priced flat-monthly (rates are yours to set), sold on
    honest, per-placement numbers.
 
@@ -50,17 +53,18 @@ security + a privilege-gated public view), not just the UI.
 - Registered owners come back for **the guide and the events calendar** — which makes the
   audience valuable to **local businesses**.
 - Businesses buy **ads and honor Club deals** — which makes the **membership** worth
-  paying for.
+  paying for. *(Deals resume when the Club launches.)*
 - Membership and shop revenue **keep the community features free** — which brings in more
   dog owners. Around it goes.
 
-Every page cross-links along this loop: registering ends with "get your tag & join the
-Club"; the guide points at membership; the member card points back at where it works;
-events point at the guide; empty states invite registration.
+Every page cross-links along this loop: registering ends with "get your tag"; the guide
+and homepage tease the Club (clicks tracked as launch-demand signal); events point at
+the guide; empty states invite registration.
 
 ## 5. Operations — what runs itself
 
-- **Events** auto-pull from a public iCal feed (e.g. a Google Calendar you edit).
+- **Events** auto-pull from a public iCal feed (e.g. a Google Calendar you edit) —
+  machinery ready, page currently "coming soon".
 - **Instagram** auto-pulls from the official API.
 - **Ads** are managed at `/admin/ads` — add/pause/expire advertisers, no code or deploys.
 - **The guide, reviews, profiles** are all community-generated.

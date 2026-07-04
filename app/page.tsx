@@ -3,6 +3,7 @@ import DogCarousel from "@/components/DogCarousel";
 import ProductRow from "@/components/ProductRow";
 import AdSlot from "@/components/ads/AdSlot";
 import InstagramFeed from "@/components/social/InstagramFeed";
+import ComingSoonLink from "@/components/ComingSoonLink";
 import EventsPreview from "@/components/home/EventsPreview";
 import SpotsPreview from "@/components/home/SpotsPreview";
 import { getProducts } from "@/lib/shopify";
@@ -107,7 +108,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Dogedin Club band */}
+      {/* Dogedin Club band — teaser only while the Club is pre-launch. No
+          perks or price are promised; the tracked link measures interest. */}
       <section className="relative overflow-hidden border-[3px] border-black bg-[var(--green)] p-6 shadow-hard-lg md:p-8">
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative flex flex-wrap items-center justify-between gap-4">
@@ -116,16 +118,18 @@ export default async function Home() {
               The Dogedin Club 🎟
             </h2>
             <p className="mt-1 max-w-lg font-bold text-[var(--sand)]/90">
-              Member deals at the places you already love — and every membership
-              keeps profiles, tags and the events board free for the whole pack.
+              Something for the pack is in the works. That&apos;s all we can say
+              for now.
             </p>
           </div>
-          <Link
+          <ComingSoonLink
+            feature="club"
+            source="home"
             href="/membership"
             className="shrink-0 border-[3px] border-black bg-[var(--gold)] px-5 py-2.5 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
           >
-            Join the Club →
-          </Link>
+            Coming soon →
+          </ComingSoonLink>
         </div>
       </section>
 

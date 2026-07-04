@@ -22,9 +22,9 @@ const SLOTS = [
   },
   {
     emoji: "📅",
-    name: "Events week sponsor",
-    where: "A banner under the town's dog events calendar",
-    why: "Reaches people building their weekend plans.",
+    name: "Events week sponsor (coming soon)",
+    where: "A banner under the town's dog events calendar, once it launches",
+    why: "Reaches people building their weekend plans. Not for sale until the calendar is live.",
   },
 ];
 

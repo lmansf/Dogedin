@@ -1,27 +1,8 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import DiscountCard from "@/components/membership/DiscountCard";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "My member card",
-  robots: { index: false, follow: false },
-};
-
+// The member card is a Club perk, and the Club is paused pre-launch — there
+// are no cards to show. Send anyone who lands here to the "coming soon" page.
+// DiscountCard survives in components/membership for the relaunch.
 export default function CardPage() {
-  return (
-    <div className="mx-auto flex max-w-md flex-col gap-6">
-      <h1 className="text-center font-display text-3xl font-extrabold">
-        Your member card
-      </h1>
-      <DiscountCard />
-      <p className="text-center text-sm font-bold text-black/60">
-        <Link
-          href="/things-to-do"
-          className="font-black text-[var(--turq)] underline"
-        >
-          Where your card works →
-        </Link>
-      </p>
-    </div>
-  );
+  redirect("/membership");
 }

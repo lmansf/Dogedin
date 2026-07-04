@@ -7,7 +7,8 @@
 // AD PLACEMENT POLICY (the published promise on /advertise — keep in sync):
 //   Slots that exist:   home_feed (homepage banner between community sections),
 //                       ttd_grid (native card inside the /things-to-do grid),
-//                       events_feed (banner under the /events calendar).
+//                       events_feed (banner under the /events calendar —
+//                       dormant while events is "coming soon"; nothing renders it).
 //   Permanently ad-free: /found and /dog/[slug] (the lost-dog flow — a scared
 //   finder or worried owner must never see an ad), /card (a member's own
 //   pocket), /register and /account (people handing us their details).

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BusinessCard from "@/components/spots/BusinessCard";
+import ComingSoonLink from "@/components/ComingSoonLink";
 import AdSlot from "@/components/ads/AdSlot";
 import { getBusinesses, persistenceEnabled } from "@/lib/businesses";
 
@@ -56,18 +57,20 @@ export default async function ThingsToDoPage() {
         ))}
       </div>
 
-      {/* The guide is where member value is visible — close the loop. */}
+      {/* Club teaser — pre-launch, so no deals are promised here. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-[var(--gold)]/25 p-4">
         <p className="text-sm font-bold">
-          🎟 Get member deals at spots like these — and keep the guide free for
-          the whole pack.
+          🎟 The Dogedin Club is in the works — that&apos;s all we can say for
+          now.
         </p>
-        <Link
+        <ComingSoonLink
+          feature="club"
+          source="guide"
           href="/membership"
           className="shrink-0 border-[3px] border-black bg-[var(--turq)] px-4 py-2 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5"
         >
-          Join the Club →
-        </Link>
+          Coming soon →
+        </ComingSoonLink>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
