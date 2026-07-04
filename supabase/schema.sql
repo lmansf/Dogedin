@@ -637,12 +637,16 @@ create index if not exists dog_friendships_recipient_idx on public.dog_friendshi
 
 alter table public.dog_friendships enable row level security;
 
--- Accepted friendships are part of a dog's public profile (who's in the pack).
--- Pending requests are private to the two owners until responded to.
+-- A dog's friendships are PRIVATE to the two owners involved — who a dog
+-- (and by extension its human) hangs out with is not part of the public
+-- profile. An earlier schema version exposed accepted rows to everyone
+-- ("accepted friendships are public"); the drop below converges databases
+-- created from it. Anonymized analytics keep a data path via
+-- friendship_dates() (§ 7) instead of reading the table directly.
 drop policy if exists "accepted friendships are public" on public.dog_friendships;
-create policy "accepted friendships are public" on public.dog_friendships
-  for select using (status = 'accepted');
 
+-- Both owners see every friendship row involving one of their dogs — pending
+-- requests (to respond to) and accepted rows (their own dog's friends list).
 drop policy if exists "owners see their own requests" on public.dog_friendships;
 create policy "owners see their own requests" on public.dog_friendships
   for select to authenticated
@@ -650,6 +654,12 @@ create policy "owners see their own requests" on public.dog_friendships
     exists (select 1 from public.dog_profiles d where d.id = requester_dog_id and d.user_id = auth.uid())
     or exists (select 1 from public.dog_profiles d where d.id = recipient_dog_id and d.user_id = auth.uid())
   );
+
+-- The private analytics dashboard reads dog_friendships with an admin JWT.
+drop policy if exists "admins read friendships" on public.dog_friendships;
+create policy "admins read friendships" on public.dog_friendships
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
 drop policy if exists "owners send friend requests" on public.dog_friendships;
 create policy "owners send friend requests" on public.dog_friendships
@@ -767,6 +777,42 @@ create policy "owners unlike posts" on public.post_likes
   for delete to authenticated
   using (exists (select 1 from public.dog_profiles d where d.id = dog_id and d.user_id = auth.uid()));
 
+-- Profile-level paws: a signed-in USER paws a dog's PROFILE (one per user per
+-- dog) — separate from post_likes, which paw individual photos and are keyed
+-- by acting dog. user_id defaults to auth.uid() so the client only ever sends
+-- dog_id. SELECT is limited to the giver's own rows (who pawed whom is never
+-- publicly enumerable); the public tally goes through dog_paw_count() below.
+create table if not exists public.dog_paws (
+  dog_id      uuid not null references public.dog_profiles(id) on delete cascade,
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (dog_id, user_id)
+);
+alter table public.dog_paws enable row level security;
+
+drop policy if exists "users see own paws" on public.dog_paws;
+create policy "users see own paws" on public.dog_paws
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "users paw dogs" on public.dog_paws;
+create policy "users paw dogs" on public.dog_paws
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "users unpaw dogs" on public.dog_paws;
+create policy "users unpaw dogs" on public.dog_paws
+  for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- Public per-dog tally without exposing who gave the paws.
+create or replace function public.dog_paw_count(p_dog_id uuid)
+returns bigint
+language sql security definer stable set search_path = public as $$
+  select count(*)::bigint from public.dog_paws where dog_id = p_dog_id;
+$$;
+grant execute on function public.dog_paw_count(uuid) to anon, authenticated;
+
 -- Comments (owner-to-owner communication on posts) were removed from v1 scope
 -- — friends + likes only for now. Drops any table from an earlier schema
 -- version so re-running this file converges even on a database that already
@@ -841,3 +887,64 @@ language sql security definer stable set search_path = public as $$
   limit greatest(p_limit, 0);
 $$;
 grant execute on function public.pawpularity_leaderboard(int) to anon, authenticated;
+
+-- ============================================================================
+-- 7. ANALYTICS HELPERS — anonymized aggregates for the public dashboards
+-- ----------------------------------------------------------------------------
+-- SECURITY DEFINER functions exposing counts and dates ONLY — no ids, no
+-- names, no who-knows-whom — so the public analytics dashboard and the media
+-- kit keep a data path after the friendship privacy lockdown in § 6. The
+-- function names and column names below are contracts with those repos —
+-- do not rename them.
+-- ============================================================================
+
+-- created_at of ACCEPTED friendships, nothing else. Feeds the public
+-- dashboard's friendship counts/trends now that dog_friendships rows are
+-- readable only by the owners involved (and admins).
+create or replace function public.friendship_dates()
+returns table (created_at timestamptz)
+language sql security definer stable set search_path = public as $$
+  select f.created_at
+  from public.dog_friendships f
+  where f.status = 'accepted';
+$$;
+grant execute on function public.friendship_dates() to anon, authenticated;
+
+-- Last 12 ISO weeks (Monday-start, oldest first, current week included) of
+-- new dog profiles, newly created APPROVED posts, and new paws (post_likes).
+-- Weeks with no activity still appear, as zero rows.
+create or replace function public.media_kit_weekly()
+returns table (week_start date, new_dogs bigint, new_posts bigint, new_paws bigint)
+language sql security definer stable set search_path = public as $$
+  with weeks as (
+    select gs::date as week_start
+    from generate_series(
+      date_trunc('week', now()) - interval '11 weeks',
+      date_trunc('week', now()),
+      interval '1 week'
+    ) as gs
+  ),
+  dogs as (
+    select date_trunc('week', created_at)::date as wk, count(*)::bigint as n
+    from public.dog_profiles group by 1
+  ),
+  posts as (
+    select date_trunc('week', created_at)::date as wk, count(*)::bigint as n
+    from public.dog_posts where moderation_status = 'approved' group by 1
+  ),
+  paws as (
+    select date_trunc('week', created_at)::date as wk, count(*)::bigint as n
+    from public.post_likes group by 1
+  )
+  select
+    w.week_start,
+    coalesce(dogs.n, 0)  as new_dogs,
+    coalesce(posts.n, 0) as new_posts,
+    coalesce(paws.n, 0)  as new_paws
+  from weeks w
+  left join dogs  on dogs.wk  = w.week_start
+  left join posts on posts.wk = w.week_start
+  left join paws  on paws.wk  = w.week_start
+  order by w.week_start;
+$$;
+grant execute on function public.media_kit_weekly() to anon, authenticated;
