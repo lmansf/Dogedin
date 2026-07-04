@@ -33,12 +33,14 @@ export async function signOut() {
   await supabase?.auth.signOut();
 }
 
-// Email + password sign-in / sign-up panel. On success, onAuthStateChange in
-// useSupabaseUser flips the surrounding page to its signed-in view. If the
-// project has email confirmation enabled, sign-up returns no session and we
-// prompt the user to check their inbox.
+// Email + password sign-in / sign-up panel with a "forgot password" path. On
+// sign-in/up success, onAuthStateChange in useSupabaseUser flips the
+// surrounding page to its signed-in view. If the project has email
+// confirmation enabled, sign-up returns no session and we prompt the user to
+// check their inbox. In "reset" mode we email a recovery link that lands on
+// /reset-password (see ResetPasswordFlow) where the new password is chosen.
 export function AuthPanel({ intro }: { intro?: string }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -54,6 +56,12 @@ export function AuthPanel({ intro }: { intro?: string }) {
     );
   }
 
+  const switchMode = (next: "signin" | "signup" | "reset") => {
+    setMode(next);
+    setError(null);
+    setMessage(null);
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -61,6 +69,18 @@ export function AuthPanel({ intro }: { intro?: string }) {
     const client = supabase;
     if (!client) return;
     startTransition(async () => {
+      if (mode === "reset") {
+        // Supabase always returns success here (even for unknown emails) so we
+        // never reveal whether an address has an account. The link returns to
+        // /reset-password to finish setting the new password.
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) return setError(error.message);
+        return setMessage(
+          "If that email has an account, we've sent a reset link. Check your inbox (and spam)."
+        );
+      }
       if (mode === "signup") {
         const { data, error } = await client.auth.signUp({ email, password });
         if (error) return setError(error.message);
@@ -73,15 +93,25 @@ export function AuthPanel({ intro }: { intro?: string }) {
     });
   };
 
+  const title =
+    mode === "signup"
+      ? "Create an account"
+      : mode === "reset"
+        ? "Reset your password"
+        : "Sign in";
+
   return (
     <form
       onSubmit={submit}
       className="flex flex-col gap-3 border-[3px] border-black bg-white p-5 shadow-hard"
     >
-      <h2 className="font-display text-xl font-extrabold">
-        {mode === "signup" ? "Create an account" : "Sign in"}
-      </h2>
-      {intro && <p className="text-sm text-black/60">{intro}</p>}
+      <h2 className="font-display text-xl font-extrabold">{title}</h2>
+      {intro && mode !== "reset" && <p className="text-sm text-black/60">{intro}</p>}
+      {mode === "reset" && (
+        <p className="text-sm text-black/60">
+          Enter your email and we&apos;ll send you a link to choose a new password.
+        </p>
+      )}
 
       <input
         type="email"
@@ -92,16 +122,18 @@ export function AuthPanel({ intro }: { intro?: string }) {
         placeholder="Email"
         className="border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--turq)]"
       />
-      <input
-        type="password"
-        required
-        minLength={6}
-        autoComplete={mode === "signup" ? "new-password" : "current-password"}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Password (min 6 characters)"
-        className="border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--turq)]"
-      />
+      {mode !== "reset" && (
+        <input
+          type="password"
+          required
+          minLength={6}
+          autoComplete={mode === "signup" ? "new-password" : "current-password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password (min 6 characters)"
+          className="border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--turq)]"
+        />
+      )}
 
       {error && <p className="text-sm font-bold text-[var(--red)]">{error}</p>}
       {message && <p className="text-sm font-bold text-[var(--green)]">{message}</p>}
@@ -111,21 +143,39 @@ export function AuthPanel({ intro }: { intro?: string }) {
         disabled={pending}
         className="border-[3px] border-black bg-[var(--turq)] px-4 py-2 text-sm font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none disabled:opacity-50"
       >
-        {pending ? "…" : mode === "signup" ? "Sign up" : "Sign in"}
+        {pending
+          ? "…"
+          : mode === "signup"
+            ? "Sign up"
+            : mode === "reset"
+              ? "Send reset link"
+              : "Sign in"}
       </button>
+
+      {mode === "signin" && (
+        <button
+          type="button"
+          onClick={() => switchMode("reset")}
+          className="self-start text-xs font-bold uppercase tracking-wide text-black/60 hover:underline"
+        >
+          Forgot your password?
+        </button>
+      )}
 
       <button
         type="button"
-        onClick={() => {
-          setMode((m) => (m === "signup" ? "signin" : "signup"));
-          setError(null);
-          setMessage(null);
-        }}
+        onClick={() =>
+          switchMode(
+            mode === "reset" ? "signin" : mode === "signup" ? "signin" : "signup"
+          )
+        }
         className="text-xs font-bold uppercase tracking-wide text-black/60 hover:underline"
       >
         {mode === "signup"
           ? "Already have an account? Sign in"
-          : "Need an account? Sign up"}
+          : mode === "reset"
+            ? "Back to sign in"
+            : "Need an account? Sign up"}
       </button>
     </form>
   );
