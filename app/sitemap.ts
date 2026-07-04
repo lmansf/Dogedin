@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 import { listDogSlugs } from "@/lib/dogProfiles";
+import { listBusinessSlugs } from "@/lib/businesses";
 import { SITE_URL } from "@/lib/site";
 
-// /sitemap.xml. Static routes always; public dog profiles when Supabase is
-// configured (gracefully absent otherwise). Businesses have no detail pages —
-// they live on /things-to-do, which is listed here. Excluded on purpose:
-// /account (personal, sign-in gated), /card (redirects to /membership),
-// /admin/* and /api/* (disallowed in robots).
+// /sitemap.xml. Static routes always; public dog profiles and per-business
+// listing permalinks when Supabase is configured (gracefully absent otherwise).
+// Excluded on purpose: /account (personal, sign-in gated), /card (redirects to
+// /membership), /admin/* and /api/* (disallowed in robots).
 export const revalidate = 3600;
 
 const STATIC_ROUTES: { path: string; priority: number }[] = [
@@ -37,5 +37,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...staticEntries, ...dogEntries];
+  const businesses = await listBusinessSlugs();
+  const businessEntries: MetadataRoute.Sitemap = businesses.map((b) => ({
+    url: `${SITE_URL}/things-to-do/${b.slug}`,
+    lastModified: b.createdAt ? new Date(b.createdAt) : undefined,
+    changeFrequency: "weekly",
+    priority: 0.6,
+  }));
+
+  return [...staticEntries, ...dogEntries, ...businessEntries];
 }

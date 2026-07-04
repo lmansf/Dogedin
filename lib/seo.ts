@@ -105,6 +105,13 @@ function localBusinessJsonLd(b: Business): JsonLdObject {
   };
 }
 
+// One approved listing as a standalone LocalBusiness document, for its
+// permalink page (/things-to-do/[slug]). Same gating rule: only emit for real,
+// persisted listings, never the demo seed.
+export function businessJsonLd(b: Business): JsonLdObject {
+  return { "@context": "https://schema.org", ...localBusinessJsonLd(b) };
+}
+
 // The /things-to-do guide as an ItemList of LocalBusiness. Callers must gate
 // on live data (persistenceEnabled()) so demo seeds never reach search engines.
 export function thingsToDoJsonLd(businesses: Business[]): JsonLdObject {
