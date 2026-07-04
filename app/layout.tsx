@@ -5,6 +5,7 @@ import { CartProvider } from "@/components/cart/CartProvider";
 import CartDrawer from "@/components/cart/CartDrawer";
 import SiteNav from "@/components/SiteNav";
 import ComingSoonLink from "@/components/ComingSoonLink";
+import ContinueExploring from "@/components/ContinueExploring";
 import { Analytics } from "@vercel/analytics/next";
 import JsonLd from "@/components/JsonLd";
 import { getTopBusinessCached } from "@/lib/topBusiness";
@@ -145,6 +146,10 @@ export default async function RootLayout({
           </header>
 
           <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
+
+          {/* Relevant onward links so no page dead-ends — see ContinueExploring
+              / lib/related.ts. Hidden on admin/recovery/lost-dog flows. */}
+          <ContinueExploring />
 
           {/* Gulf-coast footer */}
           <footer className="mt-16">
