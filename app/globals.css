@@ -57,6 +57,13 @@ h3,
 .animate-marquee {
   animation: marquee 24s linear infinite;
 }
+/* Respect reduced-motion: the bar becomes a static strip (the first copy of
+   the tripled list stays readable; the clones just sit off-screen). */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+}
 
 /* Dotted texture for section backgrounds. */
 .dots {

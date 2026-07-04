@@ -4,7 +4,7 @@ import AdInquiryForm from "@/components/ads/AdInquiryForm";
 export const metadata: Metadata = {
   title: "Advertise with Dogedin",
   description:
-    "Put your Dunedin business in front of the town's dog people — tasteful, clearly labelled spots with honest monthly reporting.",
+    "Put your Dunedin, FL business in front of the town's dog people — tasteful, clearly labelled spots with honest monthly reporting.",
 };
 
 const SLOTS = [

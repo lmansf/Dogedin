@@ -7,7 +7,7 @@ import { DEMO_DOGS, DEMO_HUMANS } from "@/lib/demoProducts";
 export const metadata: Metadata = {
   title: "The Shop",
   description:
-    "Tartan toys, beach beds, leashes and treats for extremely good dogs — every order funds the Dogedin community.",
+    "Tartan toys, beach beds, leashes and treats for extremely good dogs — every order funds Dogedin, Dunedin, Florida's dog community.",
 };
 
 export const revalidate = 3600;

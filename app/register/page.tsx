@@ -4,7 +4,7 @@ import RegisterFlow from "@/components/dogs/RegisterFlow";
 export const metadata: Metadata = {
   title: "Add your dog",
   description:
-    "Create a dog profile with a public page and a lost-dog contact option — part of the Dogedin community.",
+    "Create a free profile for your dog — a public page plus an optional lost-dog contact — and join Dunedin, Florida's dog community.",
 };
 
 export default function RegisterPage() {

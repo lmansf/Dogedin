@@ -4,6 +4,7 @@ import AccountDogs from "@/components/dogs/AccountDogs";
 
 export const metadata: Metadata = {
   title: "My dogs",
+  description: "Manage your Dogedin dog profiles, tags and QR codes.",
 };
 
 export default function AccountPage() {

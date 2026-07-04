@@ -188,7 +188,7 @@ export default function DogSocial({
 
       {amOwner && incoming.length > 0 && (
         <div className="border-[3px] border-black bg-[var(--gold)]/20 p-4 shadow-hard">
-          <h3 className="font-display text-lg font-extrabold">Friend requests</h3>
+          <h2 className="font-display text-lg font-extrabold">Friend requests</h2>
           <div className="mt-2 flex flex-col gap-2">
             {incoming.map((r) => (
               <div key={r.id} className="flex items-center justify-between gap-3">
@@ -238,7 +238,7 @@ export default function DogSocial({
 
       {amOwner && ownPosts.some((p) => p.status !== "approved") && (
         <div className="flex flex-col gap-2">
-          <h3 className="font-display text-lg font-extrabold">Your posts under review</h3>
+          <h2 className="font-display text-lg font-extrabold">Your posts under review</h2>
           {ownPosts
             .filter((p) => p.status !== "approved")
             .map((p) => (
@@ -271,7 +271,7 @@ export default function DogSocial({
         </div>
       )}
 
-      <PhotoFeed posts={posts} likes={likes} myLikedIds={myLikedIds} canAct={!!actingDogId} onLike={doToggleLike} actingDogId={actingDogId} />
+      <PhotoFeed posts={posts} dogName={dogName} likes={likes} myLikedIds={myLikedIds} canAct={!!actingDogId} onLike={doToggleLike} actingDogId={actingDogId} />
     </div>
   );
 }
@@ -282,9 +282,9 @@ function FriendsPanel({ friends }: { friends: Friend[] }) {
   return (
     <div className="border-[3px] border-black bg-white p-4 shadow-hard">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-display text-lg font-extrabold">
+        <h2 className="font-display text-lg font-extrabold">
           Friends {friends.length > 0 && `(${friends.length})`}
-        </h3>
+        </h2>
         <span className="text-[10px] font-black uppercase tracking-wide text-black/40">
           🔒 Only you see this
         </span>
@@ -331,7 +331,7 @@ function FriendActions({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
-      <h3 className="font-display text-lg font-extrabold">Friends</h3>
+      <h2 className="font-display text-lg font-extrabold">Friends</h2>
       {relationship === "none" && (
         <button
           type="button"
@@ -387,7 +387,7 @@ function ProfilePawPanel({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
       <div className="min-w-0">
-        <h3 className="font-display text-lg font-extrabold">Profile paws</h3>
+        <h2 className="font-display text-lg font-extrabold">Profile paws</h2>
         <p className="mt-0.5 text-xs text-black/50">
           {signedOut
             ? `Sign in below to give ${dogName} a paw.`
@@ -434,7 +434,7 @@ function UploadPanel({ userId, dogId, onDone }: { userId: string; dogId: string;
 
   return (
     <div className="border-[3px] border-black bg-white p-4 shadow-hard">
-      <h3 className="font-display text-lg font-extrabold">Share a photo</h3>
+      <h2 className="font-display text-lg font-extrabold">Share a photo</h2>
       <p className="mt-1 text-xs text-black/50">
         Photos are reviewed automatically before they go public.
       </p>
@@ -472,6 +472,7 @@ function UploadPanel({ userId, dogId, onDone }: { userId: string; dogId: string;
 
 function PhotoFeed({
   posts,
+  dogName,
   likes,
   myLikedIds,
   canAct,
@@ -479,6 +480,7 @@ function PhotoFeed({
   onLike,
 }: {
   posts: DogPost[];
+  dogName: string;
   likes: Record<string, number>;
   myLikedIds: Set<string>;
   canAct: boolean;
@@ -498,6 +500,7 @@ function PhotoFeed({
         <PostCard
           key={post.id}
           post={post}
+          dogName={dogName}
           likeCount={likes[post.id] ?? 0}
           liked={actingDogId ? myLikedIds.has(post.id) : false}
           canAct={canAct}
@@ -511,6 +514,7 @@ function PhotoFeed({
 
 function PostCard({
   post,
+  dogName,
   likeCount,
   liked,
   canAct,
@@ -518,6 +522,7 @@ function PostCard({
   onLike,
 }: {
   post: DogPost;
+  dogName: string;
   likeCount: number;
   liked: boolean;
   canAct: boolean;
@@ -540,7 +545,7 @@ function PostCard({
     <div className="flex flex-col overflow-hidden border-[3px] border-black bg-white shadow-hard">
       {post.photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={post.photoUrl} alt={post.caption ?? ""} className="aspect-square w-full object-cover" />
+        <img src={post.photoUrl} alt={post.caption || `Photo of ${dogName}`} className="aspect-square w-full object-cover" />
       )}
       <div className="flex flex-col gap-2 p-3">
         {post.caption && <p className="text-sm">{post.caption}</p>}

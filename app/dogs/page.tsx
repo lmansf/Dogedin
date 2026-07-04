@@ -8,7 +8,7 @@ import PawpularityLeaderboard from "@/components/dogs/PawpularityLeaderboard";
 export const metadata: Metadata = {
   title: "Find a dog",
   description:
-    "Look up any registered Dunedin dog by their name — or their human's.",
+    "Look up any dog registered in Dunedin, Florida by their name — or their human's.",
 };
 
 // Search page. Uses a plain GET form (name=q) so it works with no JS —
