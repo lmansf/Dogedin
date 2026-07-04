@@ -496,7 +496,8 @@ create policy "members read own row" on public.members
 -- The private analytics dashboard reads members (status mix, MRR, new-member
 -- trend) with an admin JWT — same app_admins email check as every other
 -- admins-* policy in this file. Without this, its Revenue page has no path to
--- the table at all and falls back to a "run the latest schema.sql" error.
+-- the table: the queries still succeed but return zero rows, so member
+-- counts and MRR silently read as 0 there until this policy exists.
 drop policy if exists "admins read members" on public.members;
 create policy "admins read members" on public.members
   for select to authenticated
