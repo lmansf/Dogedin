@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   BUSINESS_CATEGORIES,
   DAYS_OF_WEEK,
@@ -10,6 +10,7 @@ import {
   type BusinessHours,
 } from "@/lib/businesses";
 import { supabase } from "@/lib/supabase";
+import PhotoPicker from "@/components/PhotoPicker";
 
 const DAY_LABELS: Record<(typeof DAYS_OF_WEEK)[number], string> = {
   monday: "Monday",
@@ -34,17 +35,9 @@ export default function BusinessSubmissionForm() {
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!photo) return setPreview(null);
-    const url = URL.createObjectURL(photo);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
 
   const pickPhoto = (file: File | null) => {
     setError(null);
@@ -264,25 +257,20 @@ export default function BusinessSubmissionForm() {
         ))}
       </fieldset>
 
-      <Field label="Photo for your card" required>
-        <div className="flex items-center gap-4">
-          <div className="relative h-20 w-28 shrink-0 overflow-hidden border-2 border-black bg-zinc-100">
-            {preview ? (
-              // Local object URL preview — plain img is correct here.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="Preview" className="h-full w-full object-cover" />
-            ) : (
-              <span className="flex h-full items-center justify-center text-3xl">🏪</span>
-            )}
-          </div>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => pickPhoto(e.target.files?.[0] ?? null)}
-            className="text-sm"
-          />
-        </div>
-      </Field>
+      {/* A div, not <Field> — PhotoPicker has its own <label> inside, and
+          labels can't nest. Same visual structure as Field. */}
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-extrabold uppercase tracking-wide text-black/60">
+          Photo for your card<span className="text-[var(--red)]"> *</span>
+        </span>
+        <PhotoPicker
+          file={photo}
+          onPick={pickPhoto}
+          accept="image/jpeg,image/png,image/webp"
+          emptyIcon="🏪"
+          previewClassName="h-20 w-28"
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 border-t-2 border-black/10 pt-4 sm:grid-cols-2">
         <Field label="Your name" required hint="Not shown publicly — for our follow-up only.">

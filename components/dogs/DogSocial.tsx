@@ -29,6 +29,7 @@ import {
   type DogPost,
 } from "@/lib/dogPosts";
 import { getDogPawCount, hasPawedDog, toggleDogPaw } from "@/lib/dogPaws";
+import PhotoPicker from "@/components/PhotoPicker";
 
 // Friends + paws + photo feed for a dog's public profile. Anonymous visitors
 // see approved photos and paw tallies only — the friends LIST is private to
@@ -437,12 +438,15 @@ function UploadPanel({ userId, dogId, onDone }: { userId: string; dogId: string;
       <p className="mt-1 text-xs text-black/50">
         Photos are reviewed automatically before they go public.
       </p>
-      <div className="mt-3 flex flex-col gap-2">
-        <input
-          type="file"
+      <div className="mt-3 flex flex-col gap-3">
+        <PhotoPicker
+          file={file}
+          onPick={(f) => {
+            setError(null);
+            setFile(f);
+          }}
           accept="image/jpeg,image/png,image/webp"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="text-sm"
+          emptyIcon="🐾"
         />
         <input
           type="text"
