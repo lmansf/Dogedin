@@ -23,9 +23,11 @@ create table if not exists public.app_admins (
   created_at  timestamptz not null default now()
 );
 -- Example: insert into public.app_admins (email) values ('you@example.com');
--- Seed the initial admin so a fresh deploy always has someone who can sign in
+-- Seed the initial admins so a fresh deploy always has someone who can sign in
 -- and manage the site. Idempotent — safe to re-run.
-insert into public.app_admins (email) values ('lmansf96@gmail.com')
+insert into public.app_admins (email) values
+    ('lmansf96@gmail.com'),
+    ('rosemiller.info@gmail.com')
   on conflict (email) do nothing;
 alter table public.app_admins enable row level security;
 drop policy if exists "admins read admin list" on public.app_admins;

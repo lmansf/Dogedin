@@ -10,6 +10,10 @@ import { getTopBusiness } from "@/lib/businesses";
 // while every route rendered within a window shares a single Supabase fetch.
 // The root layout's matching `revalidate = 300` is what re-renders the
 // otherwise-static pages that bake this value into their HTML.
+// Tagged "businesses" so an admin approve/deny can bust it on demand
+// (revalidateTag) instead of waiting out the 5-minute window — see
+// app/admin/businesses/actions.ts.
 export const getTopBusinessCached = unstable_cache(getTopBusiness, ["top-business"], {
   revalidate: 300,
+  tags: ["businesses"],
 });

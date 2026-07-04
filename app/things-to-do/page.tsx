@@ -13,6 +13,12 @@ export const metadata: Metadata = {
     "Dog-friendly restaurants, breweries, beaches and parks in Dunedin, Florida, on Tampa Bay's Gulf coast — reviewed by the local pack.",
 };
 
+// Re-render at most every 5 minutes so a newly approved (or removed) listing
+// appears without a redeploy, matching the layout/top-business cadence. Admin
+// approvals also bust this on demand via refreshBusinessSurfaces(), so the
+// change is usually instant; this is the safety net for any other write path.
+export const revalidate = 300;
+
 // Community "things to do" board. Curated Dunedin businesses (from Supabase, or
 // the demo seed as a fallback) that customers can review, upvote, and reply to.
 export default async function ThingsToDoPage() {

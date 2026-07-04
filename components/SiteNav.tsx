@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import CartButton from "@/components/cart/CartButton";
 import { recordFeatureClick } from "@/lib/featureInterest";
+import { useIsAdmin } from "@/components/dogs/auth";
 
 // Primary site navigation, community first. Inline links on desktop; a
 // hamburger-toggled drawer on mobile (the drawer positions itself under the
@@ -23,6 +24,9 @@ const LINKS: { href: string; label: string; soon?: string }[] = [
 
 export default function SiteNav() {
   const [open, setOpen] = useState(false);
+  // Only true once an admin is signed in; otherwise the admin chip/link never
+  // render, so nothing about the console is exposed to regular visitors.
+  const { isAdmin } = useIsAdmin();
 
   return (
     <div className="flex items-center gap-2 sm:gap-3">
@@ -39,6 +43,19 @@ export default function SiteNav() {
           </Link>
         ))}
       </nav>
+
+      {/* Admin chip — visible only to signed-in admins, at every screen size, so
+          the console is one tap away from anywhere on the site. */}
+      {isAdmin && (
+        <Link
+          href="/admin"
+          aria-label="Open the admin console"
+          className="flex items-center gap-1 border-[3px] border-black bg-[var(--gold)] px-2 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+        >
+          <span aria-hidden>⚙️</span>
+          <span className="hidden sm:inline">Admin</span>
+        </Link>
+      )}
 
       {/* Emergency chip — always visible, icon-only on the smallest screens. */}
       <Link
@@ -80,7 +97,11 @@ export default function SiteNav() {
             className="absolute inset-x-0 top-full z-50 border-b-[3px] border-black bg-[var(--sand)] shadow-hard-lg lg:hidden"
           >
             <ul className="mx-auto flex max-w-6xl flex-col px-4 py-2">
-              {[...LINKS, { href: "/register", label: "Register your dog" }].map(
+              {[
+                ...LINKS,
+                { href: "/register", label: "Register your dog" },
+                ...(isAdmin ? [{ href: "/admin", label: "⚙️ Admin console" }] : []),
+              ].map(
                 (l) => (
                   <li
                     key={l.href}
