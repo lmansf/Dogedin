@@ -236,7 +236,10 @@ function DogCard({
             <h3 className="font-display text-2xl font-extrabold leading-tight sm:text-3xl">
               Meet {dog.name}
             </h3>
-            <p className="text-sm leading-relaxed text-black/70 sm:text-base">
+            <p
+              className="line-clamp-4 text-sm leading-relaxed text-black/70 sm:line-clamp-5 sm:text-base"
+              title={dog.about}
+            >
               {dog.about}
             </p>
             {dog.href && (
