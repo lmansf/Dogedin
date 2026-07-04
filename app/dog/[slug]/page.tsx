@@ -13,8 +13,33 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const dog = await getPublicDog(slug);
+  if (!dog) {
+    return { title: "Dog not found", robots: { index: false } };
+  }
+
+  // Description from the public profile fields only (breed + bio — both
+  // already rendered on the page); the OG image is the dog's public photo.
+  const intro = dog.breed
+    ? `${dog.dogName} is a ${dog.breed} in the Dogedin pack — Dunedin, FL's dog community.`
+    : `${dog.dogName} is part of the Dogedin pack — Dunedin, FL's dog community.`;
+  const description = dog.bio ? `${intro} “${dog.bio}”` : intro;
+  const photo = dogPhotoUrl(dog.photoPath);
+
   return {
-    title: dog ? dog.dogName : "Dog not found",
+    title: dog.dogName,
+    description,
+    openGraph: {
+      title: `${dog.dogName} · Dogedin`,
+      description,
+      url: `/dog/${dog.slug}`,
+      ...(photo ? { images: [{ url: photo, alt: dog.dogName }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${dog.dogName} · Dogedin`,
+      description,
+      ...(photo ? { images: [photo] } : {}),
+    },
   };
 }
 

@@ -6,7 +6,10 @@ import CartDrawer from "@/components/cart/CartDrawer";
 import SiteNav from "@/components/SiteNav";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import { Analytics } from "@vercel/analytics/next";
+import JsonLd from "@/components/JsonLd";
 import { getTopBusinessCached } from "@/lib/topBusiness";
+import { organizationJsonLd, webSiteJsonLd } from "@/lib/seo";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -20,13 +23,29 @@ const body = Nunito({
   variable: "--font-body",
 });
 
+// Site-wide metadata defaults. metadataBase makes every relative OG/canonical
+// URL absolute; the default OG card comes from app/opengraph-image.tsx and is
+// picked up automatically, so pages only override what's page-specific.
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Dogedin — Dunedin, FL's club for dog lovers",
     template: "%s · Dogedin",
   },
-  description:
-    "The dog-owner community of Dunedin, Florida: dog profiles, lost-dog tags, a dog-friendly local guide and events on the Gulf coast — plus a wee shop that keeps the lights on.",
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_US",
+    url: "/",
+    title: "Dogedin — Dunedin, FL's club for dog lovers",
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Dogedin — Dunedin, FL's club for dog lovers",
+    description: SITE_DESCRIPTION,
+  },
 };
 
 // Marquee (and any other layout data) revalidates every 5 minutes, matching
@@ -94,6 +113,9 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
+        {/* Sitewide structured data: who runs this site and what it is. */}
+        <JsonLd data={organizationJsonLd()} />
+        <JsonLd data={webSiteJsonLd()} />
         <CartProvider>
           {/* Scottish tartan ribbon */}
           <div className="tartan h-2.5" />

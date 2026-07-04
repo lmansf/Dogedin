@@ -3,12 +3,14 @@ import Link from "next/link";
 import BusinessCard from "@/components/spots/BusinessCard";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import AdSlot from "@/components/ads/AdSlot";
+import JsonLd from "@/components/JsonLd";
 import { getBusinesses, persistenceEnabled } from "@/lib/businesses";
+import { thingsToDoJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Things to do in Dunedin",
   description:
-    "Dog-friendly restaurants, breweries, beaches and parks around Dunedin, FL — reviewed by the pack.",
+    "Dog-friendly restaurants, breweries, beaches and parks in Dunedin, Florida, on Tampa Bay's Gulf coast — reviewed by the local pack.",
 };
 
 // Community "things to do" board. Curated Dunedin businesses (from Supabase, or
@@ -19,6 +21,12 @@ export default async function ThingsToDoPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* LocalBusiness structured data — only for real approved listings.
+          Without Supabase the page shows the demo seed, which must never be
+          presented to search engines as real businesses. */}
+      {canPersist && businesses.length > 0 && (
+        <JsonLd data={thingsToDoJsonLd(businesses)} />
+      )}
       <section className="relative overflow-hidden border-[3px] border-black bg-[var(--turq)] p-8 shadow-hard-lg">
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">

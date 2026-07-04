@@ -91,6 +91,26 @@ export async function listRecentDogs(
   }
 }
 
+// Every public profile slug, for the sitemap. Reads the same public view as
+// the profile page (approved public data only). [] when Supabase is absent or
+// anything fails — the sitemap then simply lists the static routes.
+export async function listDogSlugs(
+  limit = 5000
+): Promise<{ slug: string; createdAt: string }[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("public_dog_profiles")
+      .select("slug, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    return data.map((d) => ({ slug: d.slug, createdAt: d.created_at }));
+  } catch {
+    return [];
+  }
+}
+
 // Resolve a physical tag code (typed in, or read from a QR that points at
 // /found?tag=CODE) to a profile slug. Returns null if no dog carries that code.
 export async function resolveTag(code: string): Promise<string | null> {
