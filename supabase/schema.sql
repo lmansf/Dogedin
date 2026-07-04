@@ -23,6 +23,10 @@ create table if not exists public.app_admins (
   created_at  timestamptz not null default now()
 );
 -- Example: insert into public.app_admins (email) values ('you@example.com');
+-- Seed the initial admin so a fresh deploy always has someone who can sign in
+-- and manage the site. Idempotent — safe to re-run.
+insert into public.app_admins (email) values ('lmansf96@gmail.com')
+  on conflict (email) do nothing;
 alter table public.app_admins enable row level security;
 drop policy if exists "admins read admin list" on public.app_admins;
 create policy "admins read admin list" on public.app_admins
@@ -400,6 +404,8 @@ exception when duplicate_object then null; end $$;
 alter table public.advertisers add column if not exists placement public.ad_placement not null default 'banner';
 alter table public.advertisers add column if not exists mobile_image_url text;   -- optional banner mobile variant (320x100)
 alter table public.advertisers add column if not exists contact_email text;      -- applicant email for form-submitted ads
+alter table public.advertisers add column if not exists paid_at timestamptz;     -- set by the Stripe webhook when an ad is paid
+alter table public.advertisers add column if not exists stripe_payment_ref text; -- Stripe payment_intent / session id for the payment
 alter table public.advertisers add column if not exists status public.ad_status;
 -- Backfill legacy rows created before the state machine: whatever was live
 -- becomes 'active', the rest 'disabled'. Idempotent — only null-status rows are

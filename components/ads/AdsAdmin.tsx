@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseUser, AuthPanel, signOut } from "@/components/dogs/auth";
 import { AD_SPECS, type AdPlacement, type AdStatus } from "@/lib/ads";
+import { createAdCheckoutSession } from "@/app/admin/ads/actions";
 
 type Row = {
   id: string;
@@ -17,6 +18,8 @@ type Row = {
   status: AdStatus;
   contact_email: string | null;
   active: boolean;
+  paid_at: string | null;
+  stripe_payment_ref: string | null;
   starts_at: string | null;
   ends_at: string | null;
   impressions: number;
@@ -86,7 +89,7 @@ export default function AdsAdmin() {
       supabase
         .from("advertisers")
         .select(
-          "id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement, status, contact_email, active, starts_at, ends_at, impressions, clicks"
+          "id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement, status, contact_email, active, paid_at, stripe_payment_ref, starts_at, ends_at, impressions, clicks"
         )
         .order("created_at", { ascending: false }),
       supabase
@@ -374,6 +377,17 @@ export default function AdsAdmin() {
                 </div>
               </div>
 
+              {/* Stripe pay link: generate one for an approved ad; paying it
+                  auto-activates the ad via the webhook. Shows a paid marker once
+                  Stripe has confirmed payment. */}
+              {r.paid_at ? (
+                <p className="border-t-2 border-dashed border-black/15 pt-2 text-xs font-black uppercase tracking-wide text-[var(--green)]">
+                  💳 Paid {r.paid_at.slice(0, 10)}
+                </p>
+              ) : (
+                r.status === "approved" && <AdPayLink advertiserId={r.id} />
+              )}
+
               {/* 30-day per-slot breakdown — the renewal conversation. */}
               {slots.length > 0 && (
                 <div className="flex flex-wrap gap-2 border-t-2 border-dashed border-black/15 pt-2">
@@ -396,6 +410,87 @@ export default function AdsAdmin() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// Per-ad Stripe pay-link generator, shown for approved ads. The admin enters
+// the agreed amount; we mint a Checkout link (verified admin-side) they can
+// send to the business. When it's paid, the webhook flips the ad to active.
+function AdPayLink({ advertiserId }: { advertiserId: string }) {
+  const [dollars, setDollars] = useState("");
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const generate = async () => {
+    setError(null);
+    setUrl(null);
+    const amountCents = Math.round(parseFloat(dollars) * 100);
+    if (!(amountCents >= 100)) return setError("Enter an amount of at least $1.");
+    if (!supabase) return setError("Supabase isn't configured.");
+    setBusy(true);
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) {
+      setBusy(false);
+      return setError("Session expired — sign in again.");
+    }
+    const res = await createAdCheckoutSession({
+      accessToken: token,
+      advertiserId,
+      amountCents,
+    });
+    setBusy(false);
+    if ("error" in res) return setError(res.error);
+    setUrl(res.url);
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border-t-2 border-dashed border-black/15 pt-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-black uppercase tracking-wide text-black/50">
+          💳 Pay link $
+        </span>
+        <input
+          type="number"
+          min={1}
+          step="0.01"
+          inputMode="decimal"
+          placeholder="e.g. 50"
+          value={dollars}
+          onChange={(e) => setDollars(e.target.value)}
+          className="w-24 border-2 border-black px-2 py-1 text-xs"
+        />
+        <button
+          type="button"
+          onClick={generate}
+          disabled={busy}
+          className={`${actionBtn} disabled:opacity-50`}
+        >
+          {busy ? "…" : "Create"}
+        </button>
+      </div>
+      {error && <p className="text-xs font-bold text-[var(--red)]">{error}</p>}
+      {url && (
+        <div className="flex flex-col gap-1">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-xs font-bold text-[var(--turq)] underline"
+          >
+            {url}
+          </a>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard?.writeText(url)}
+            className="w-fit text-[10px] font-black uppercase tracking-wide text-black/50 hover:underline"
+          >
+            Copy link
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,13 +13,27 @@ new **/admin** console. **Action:** tell us which email(s) should be admin (or
 add them to `app_admins` yourself). This is the same table the private
 analytics dashboard already uses, so if you set that up, you may be done.
 
-## 2. Payment model for ads `[Workstream A5]`
+## 2. Payment model for ads `[Workstream A5 — updated: Stripe auto-activation shipped]`
 
-**Default shipped: offline-attested.** A business applies (with its creative),
-you confirm payment however you like, then flip the ad's toggle in the console:
-`applied → approve/paid → activate`. No payment integration was built. **Action:**
-confirm offline is right, or tell us you want an integrated payment flow (we'd
-scope that separately).
+Two paths now work, and they coexist:
+
+- **Offline-attested (default):** a business applies (with its creative), you
+  confirm payment however you like, then flip the toggle: `applied → approve →
+  activate`.
+- **Stripe auto-activation (new, per your request):** on an **approved** ad the
+  console shows a **"💳 Pay link"** field — enter the agreed amount and it mints
+  a Stripe Checkout link (the price rides in the session, so there's nothing to
+  pre-configure per campaign). Send it to the business; **when they pay, the ad
+  flips to `active` automatically** — the same Stripe webhook that already runs
+  your memberships now also stamps `paid_at` on the ad and takes it live. No
+  manual toggle needed.
+
+**To enable the Stripe path** (offline path needs none of this): the Stripe env
+you already use for membership must be set — `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_SITE_URL`, and a service-role key
+(`SUPABASE_SERVICE_ROLE_KEY`) so the webhook can write. If those are present,
+pay links work out of the box. **Action:** none required unless you want to turn
+the Stripe path on — then just confirm those env vars are set in Vercel.
 
 ## 3. Ad dimension/size specs `[Workstream A3]`
 
