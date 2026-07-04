@@ -211,6 +211,20 @@ export function averageRating(reviews: Review[]): number {
   return Math.round((sum / reviews.length) * 10) / 10;
 }
 
+// The community's current favourite: the highest-rated business, ties broken
+// by review count. Null when there are no businesses at all, so nothing gets
+// "featured" in a configured-but-empty environment. Static pages should read
+// this through lib/topBusiness.ts, which caches the lookup.
+export async function getTopBusiness(): Promise<Business | null> {
+  const businesses = await getBusinesses();
+  if (businesses.length === 0) return null;
+  return [...businesses].sort(
+    (a, b) =>
+      averageRating(b.reviews) - averageRating(a.reviews) ||
+      b.reviews.length - a.reviews.length
+  )[0];
+}
+
 /* -------------------------------------------------------------------------- */
 /* Self-service submission (/list-your-business)                              */
 /* -------------------------------------------------------------------------- */

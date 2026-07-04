@@ -6,6 +6,7 @@ import CartDrawer from "@/components/cart/CartDrawer";
 import SiteNav from "@/components/SiteNav";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import { Analytics } from "@vercel/analytics/next";
+import { getTopBusinessCached } from "@/lib/topBusiness";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -28,7 +29,13 @@ export const metadata: Metadata = {
     "The dog-owner community of Dunedin, Florida: dog profiles, lost-dog tags, a dog-friendly local guide and events on the Gulf coast — plus a wee shop that keeps the lights on.",
 };
 
-// Community leads; keep every line factual — no offers we don't run.
+// Marquee (and any other layout data) revalidates every 5 minutes, matching
+// lib/topBusiness.ts, so a rating change re-crowns the top spot on every page
+// without a redeploy. Pages stay static — this just turns them into ISR.
+export const revalidate = 300;
+
+// Community leads; keep every line factual — no offers we don't run. A live
+// line naming the top-rated business is appended in RootLayout when one exists.
 const MARQUEE = [
   "🐾 REGISTER YOUR GOOD DOG",
   "🚨 FOUND A DOG? LOOK UP THE TAG",
@@ -71,11 +78,19 @@ const FOOTER_COLS: {
   },
 ];
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // The current top-rated spot from the local guide (draft copy pending owner
+  // sign-off). Omitted entirely — the marquee still scrolls the static lines —
+  // when there are no businesses to feature.
+  const topBusiness = await getTopBusinessCached();
+  const marquee = topBusiness
+    ? [...MARQUEE, `⭐ TOP OF THE PACK: ${topBusiness.name.toUpperCase()}`]
+    : MARQUEE;
+
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
@@ -86,7 +101,7 @@ export default function RootLayout({
           {/* Marquee announcement bar */}
           <div className="overflow-hidden border-y-[3px] border-black bg-[var(--navy)] py-2 text-[var(--sand)]">
             <div className="animate-marquee flex w-max gap-10 whitespace-nowrap text-sm font-extrabold uppercase tracking-wide">
-              {[...MARQUEE, ...MARQUEE, ...MARQUEE].map((m, i) => (
+              {[...marquee, ...marquee, ...marquee].map((m, i) => (
                 <span key={i}>{m}</span>
               ))}
             </div>

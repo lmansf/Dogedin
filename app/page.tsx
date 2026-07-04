@@ -5,6 +5,7 @@ import AdSlot from "@/components/ads/AdSlot";
 import InstagramFeed from "@/components/social/InstagramFeed";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import EventsPreview from "@/components/home/EventsPreview";
+import FeaturedBusiness from "@/components/home/FeaturedBusiness";
 import SpotsPreview from "@/components/home/SpotsPreview";
 import { getProducts } from "@/lib/shopify";
 import { listRecentDogs, dogPhotoUrl } from "@/lib/dogProfiles";
@@ -13,8 +14,10 @@ import { HERO_BADGE } from "@/lib/site";
 import { DEMO_DOGS } from "@/lib/demoProducts";
 
 // The front door of Dunedin's dog community: pack first, plans second, shop in
-// support. Refreshes at most hourly so the auto-pulled feeds stay current
-// without a rebuild. (Ads fetch client-side, so they're always live.)
+// support. ISR keeps the auto-pulled feeds current without a rebuild — the
+// root layout's 5-minute revalidate (for the top-rated spot) is the effective
+// cadence, since Next uses the lowest value across layout and page. (Ads
+// fetch client-side, so they're always live.)
 export const revalidate = 3600;
 
 export default async function Home() {
@@ -87,6 +90,10 @@ export default async function Home() {
 
       {/* Local business spotlight — the one ad between community sections. */}
       <AdSlot slot="home_feed" label="Local partner" />
+
+      {/* Editorial, not paid: the top-rated spot in the local guide, crowned
+          by community reviews. Hidden while the guide has no listings. */}
+      <FeaturedBusiness />
 
       <SpotsPreview />
 
