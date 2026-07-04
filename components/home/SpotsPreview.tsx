@@ -3,7 +3,7 @@ import Image from "next/image";
 import { getBusinesses, averageRating } from "@/lib/businesses";
 
 // Homepage digest of the local guide: the three best-loved dog-friendly spots
-// (by rating, then review count), with any member deal surfaced.
+// (by rating, then review count).
 export default async function SpotsPreview() {
   const businesses = await getBusinesses();
   if (businesses.length === 0) return null;
@@ -46,11 +46,8 @@ export default async function SpotsPreview() {
                   sizes="(max-width: 640px) 100vw, 340px"
                   className="object-cover"
                 />
-                {b.offer && (
-                  <span className="absolute -right-2 -top-2 rotate-3 border-[3px] border-black bg-[var(--coral)] px-2 py-1 text-xs font-black text-white shadow-hard">
-                    🎟 Deal
-                  </span>
-                )}
+                {/* "🎟 Deal" badge hidden while the Club is pre-launch —
+                    deals are member perks and there are no members yet. */}
               </div>
               <div className="flex flex-1 flex-col gap-1 p-3">
                 <span className="w-fit border-2 border-black bg-[var(--turq)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--sand)]">

@@ -3,17 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import CartButton from "@/components/cart/CartButton";
+import { recordFeatureClick } from "@/lib/featureInterest";
 
 // Primary site navigation, community first. Inline links on desktop; a
 // hamburger-toggled drawer on mobile (the drawer positions itself under the
 // header bar, which is `relative`). Two things stay visible at every size:
 // the cart, and the coral "Found a dog?" chip — the lost-dog lookup is an
 // emergency utility and must never hide behind a menu.
-const LINKS = [
+// `soon` marks pre-launch destinations: the link stays visible, and clicks
+// are counted as interest (feature_interest_daily) rather than hidden.
+const LINKS: { href: string; label: string; soon?: string }[] = [
   { href: "/things-to-do", label: "Local Guide" },
-  { href: "/events", label: "Events" },
+  { href: "/events", label: "Events", soon: "events" },
   { href: "/dogs", label: "The Pack" },
-  { href: "/membership", label: "Club" },
+  { href: "/membership", label: "Club", soon: "club" },
   { href: "/shop", label: "Shop" },
   { href: "/account", label: "My dogs" },
 ];
@@ -26,7 +29,12 @@ export default function SiteNav() {
       {/* Desktop links */}
       <nav className="hidden items-center gap-4 text-sm font-extrabold uppercase lg:flex">
         {LINKS.map((l) => (
-          <Link key={l.href} href={l.href} className="hover:underline">
+          <Link
+            key={l.href}
+            href={l.href}
+            className="hover:underline"
+            onClick={l.soon ? () => recordFeatureClick(l.soon!, "nav") : undefined}
+          >
             {l.label}
           </Link>
         ))}
@@ -80,7 +88,10 @@ export default function SiteNav() {
                   >
                     <Link
                       href={l.href}
-                      onClick={() => setOpen(false)}
+                      onClick={() => {
+                        if (l.soon) recordFeatureClick(l.soon, "nav");
+                        setOpen(false);
+                      }}
                       className="block py-3 text-sm font-extrabold uppercase tracking-wide hover:underline"
                     >
                       {l.label}

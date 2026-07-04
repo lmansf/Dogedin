@@ -1,114 +1,53 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import AdSlot from "@/components/ads/AdSlot";
-import { getUpcomingEvents, formatEventDate } from "@/lib/events";
+import InterestButton from "@/components/InterestButton";
+import TrackVisit from "@/components/TrackVisit";
 
 export const metadata: Metadata = {
-  title: "Dog events in Dunedin",
+  title: "Events — coming soon",
   description:
-    "Upcoming dog-friendly events around Dunedin, FL — markets, meetups and yappy hours on the town's dog calendar.",
+    "A dog-friendly events calendar for Dunedin, FL is in the works.",
 };
 
-// Auto-refreshing (ISR) — the page is regenerated at most once an hour so new
-// calendar entries appear with no manual work.
-export const revalidate = 3600;
-
-export default async function EventsPage() {
-  const events = await getUpcomingEvents();
-  const configured = Boolean(process.env.EVENTS_ICS_URL);
-
+// The events calendar is paused pre-launch, same treatment as the Club: a
+// promise-free teaser whose only job is to register interest. The calendar
+// machinery (lib/events.ts ICS pull, EventsPreview, the events_feed ad slot)
+// stays in the codebase, just unlinked, so relaunching is a page swap.
+export default function EventsPage() {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <TrackVisit feature="events" />
       <section className="border-[3px] border-black bg-[var(--green)] p-6 shadow-hard-lg md:p-8">
-        <h1 className="font-display text-4xl font-extrabold leading-tight text-[var(--sand)] md:text-6xl">
-          What&apos;s on
+        <p className="w-fit -rotate-2 border-2 border-black bg-[var(--gold)] px-2 py-0.5 text-xs font-black uppercase tracking-wide text-[var(--ink)]">
+          Coming soon
+        </p>
+        <h1 className="mt-3 font-display text-4xl font-extrabold leading-tight text-[var(--sand)] md:text-6xl">
+          What&apos;s on 📅
         </h1>
         <p className="mt-3 max-w-xl font-bold text-[var(--sand)]/90">
-          Markets, meetups and yappy hours around Dunedin — the town&apos;s dog
-          calendar, always up to date.
+          A dog-friendly events calendar for Dunedin is in the works. Nothing
+          on the board yet — we&apos;ll open it when there&apos;s something
+          worth showing up for.
         </p>
       </section>
 
-      <p className="text-sm font-bold text-black/60">
-        Make a day of it —{" "}
+      <div className="flex flex-col gap-3 border-[3px] border-black bg-white p-6 shadow-hard">
+        <p className="text-sm font-bold text-black/70">
+          Want a town calendar of markets, meetups and yappy hours? Give us a
+          paw so we know to build it. No email, no sign-up — just a tally.
+        </p>
+        <InterestButton feature="events" />
+      </div>
+
+      <p className="text-center text-sm font-bold text-black/60">
+        In the meantime —{" "}
         <Link
           href="/things-to-do"
           className="font-black text-[var(--turq)] underline"
         >
           the pack&apos;s favourite dog-friendly spots →
-        </Link>{" "}
-        · Club members get early access to meetups —{" "}
-        <Link
-          href="/membership"
-          className="font-black text-[var(--turq)] underline"
-        >
-          join →
         </Link>
       </p>
-
-      {!configured ? (
-        <p className="border-[3px] border-black bg-[var(--gold)]/30 px-4 py-3 text-sm font-bold">
-          📅 No calendar connected yet — set{" "}
-          <code className="border border-black bg-white px-1">EVENTS_ICS_URL</code>{" "}
-          to a public iCal feed (e.g. a Google Calendar&apos;s public iCal
-          address) and events will appear here automatically.
-        </p>
-      ) : events.length === 0 ? (
-        <p className="border-[3px] border-black bg-white px-4 py-6 text-sm font-bold shadow-hard">
-          No upcoming events on the calendar right now — check back soon!
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-4">
-          {events.map((ev) => {
-            const body = (
-              <>
-                <div className="shrink-0 border-[3px] border-black bg-[var(--gold)] px-3 py-2 text-center">
-                  <p className="font-display text-sm font-black uppercase leading-tight">
-                    {formatEventDate(ev)}
-                  </p>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-display text-xl font-extrabold leading-tight">
-                    {ev.title}
-                  </p>
-                  {ev.location && (
-                    <p className="mt-1 text-sm font-bold text-black/50">
-                      📍 {ev.location}
-                    </p>
-                  )}
-                  {ev.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-black/60">
-                      {ev.description}
-                    </p>
-                  )}
-                </div>
-              </>
-            );
-            return (
-              <li key={ev.id}>
-                {ev.url ? (
-                  <a
-                    href={ev.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-4 border-[3px] border-black bg-white p-4 shadow-hard transition-transform hover:-translate-y-1"
-                  >
-                    {body}
-                  </a>
-                ) : (
-                  <div className="flex items-center gap-4 border-[3px] border-black bg-white p-4 shadow-hard">
-                    {body}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {/* Week sponsor — people planning outings are a local business's best
-          audience. One slot, clearly labelled, under the calendar. */}
-      <AdSlot slot="events_feed" label="Event sponsor" />
     </div>
   );
 }

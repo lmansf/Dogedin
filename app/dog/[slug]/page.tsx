@@ -67,10 +67,10 @@ export default async function DogProfilePage({
               Get your tag &amp; QR code →
             </Link>
             <Link
-              href="/membership"
+              href="/dogs"
               className="border-2 border-black bg-[var(--sand)] px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5"
             >
-              Join the Dogedin Club →
+              Meet the pack →
             </Link>
           </div>
         </div>
