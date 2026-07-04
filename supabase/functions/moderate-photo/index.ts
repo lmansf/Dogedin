@@ -10,6 +10,7 @@
 import {
   corsHeaders,
   json,
+  requireAdmin,
   requireUser,
   serviceClient,
 } from "../_shared/mod.ts";
@@ -62,7 +63,10 @@ Deno.serve(async (req) => {
       .select("user_id")
       .eq("id", post.dog_id)
       .maybeSingle();
-    if (!dog || dog.user_id !== caller) {
+    const isOwner = Boolean(dog && dog.user_id === caller);
+    // Admins can re-run moderation on anyone's stuck post (the "Retry
+    // auto-moderation" button on /admin/photos).
+    if (!isOwner && !(await requireAdmin(req, service))) {
       return json(403, { error: "Not your post" });
     }
   }

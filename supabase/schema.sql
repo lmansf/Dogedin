@@ -753,6 +753,15 @@ create policy "admins delete posts" on public.dog_posts
   for delete to authenticated
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
+-- Admins can also SEE every post regardless of status. The /admin/photos
+-- queue lists pending posts, and Postgres applies SELECT policies to the
+-- rows an UPDATE/DELETE reads via its WHERE clause — without this, the two
+-- admin policies above couldn't reach anyone else's pending post at all.
+drop policy if exists "admins read all posts" on public.dog_posts;
+create policy "admins read all posts" on public.dog_posts
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
 create table if not exists public.post_likes (
   post_id     uuid not null references public.dog_posts(id) on delete cascade,
   dog_id      uuid not null references public.dog_profiles(id) on delete cascade,
@@ -868,6 +877,21 @@ create policy "dog photos are public read" on storage.objects
         where p.photo_path = name and p.moderation_status = 'approved'
       )
     )
+  );
+
+-- Admins can read pending/rejected post objects through the Storage API too.
+-- The /admin/photos queue shows the photo being approved (the public bucket
+-- already serves any *known* URL, so viewing works regardless — this makes it
+-- explicit), and rejecting from that queue calls storage remove(), which
+-- returns the deleted rows — Postgres applies SELECT policies to that, so
+-- "admins delete any dog photo" (section 2) can't remove a pending object
+-- without this.
+drop policy if exists "admins read any dog photo" on storage.objects;
+create policy "admins read any dog photo" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'dog-photos'
+    and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
   );
 
 -- "Pawpularity contest" leaderboard: total paws (post_likes) across each
