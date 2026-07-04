@@ -33,6 +33,36 @@ export async function signOut() {
   await supabase?.auth.signOut();
 }
 
+// Admin-role check, shared by every admin surface (ad console, business/photo
+// queues, etc.). Returns isAdmin: null while unknown (not signed in or still
+// checking), true/false once the current user's app_admins membership is known.
+// The real enforcement is RLS — this only decides what UI to show.
+export function useIsAdmin() {
+  const { user, loading, configured } = useSupabaseUser();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!supabase || !user) {
+      setIsAdmin(null);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("app_admins")
+      .select("email")
+      .eq("email", user.email ?? "")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setIsAdmin(Boolean(data));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  return { user, loading, configured, isAdmin };
+}
+
 // Email + password sign-in / sign-up panel with a "forgot password" path. On
 // sign-in/up success, onAuthStateChange in useSupabaseUser flips the
 // surrounding page to its signed-in view. If the project has email

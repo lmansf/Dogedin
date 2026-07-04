@@ -3,19 +3,39 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseUser, AuthPanel, signOut } from "@/components/dogs/auth";
+import { AD_SPECS, type AdPlacement, type AdStatus } from "@/lib/ads";
 
 type Row = {
   id: string;
   business_name: string;
   tagline: string | null;
   image_url: string;
+  mobile_image_url: string | null;
   link_url: string;
   weight: number;
+  placement: AdPlacement;
+  status: AdStatus;
+  contact_email: string | null;
   active: boolean;
   starts_at: string | null;
   ends_at: string | null;
   impressions: number;
   clicks: number;
+};
+
+// Lifecycle order used to sort the console: things needing a decision first.
+const STATUS_ORDER: Record<AdStatus, number> = {
+  applied: 0,
+  approved: 1,
+  active: 2,
+  disabled: 3,
+};
+
+const STATUS_STYLE: Record<AdStatus, string> = {
+  applied: "bg-[var(--gold)]",
+  approved: "bg-[var(--turq)] text-[var(--sand)]",
+  active: "bg-[var(--green)] text-[var(--sand)]",
+  disabled: "bg-zinc-200 text-black/60",
 };
 
 // slot → {impressions, clicks} aggregated over the last 30 days, per ad.
@@ -40,6 +60,7 @@ export default function AdsAdmin() {
     tagline: "",
     image_url: "",
     link_url: "",
+    placement: "banner" as AdPlacement,
     weight: 1,
     starts_at: "",
     ends_at: "",
@@ -65,7 +86,7 @@ export default function AdsAdmin() {
       supabase
         .from("advertisers")
         .select(
-          "id, business_name, tagline, image_url, link_url, weight, active, starts_at, ends_at, impressions, clicks"
+          "id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement, status, contact_email, active, starts_at, ends_at, impressions, clicks"
         )
         .order("created_at", { ascending: false }),
       supabase
@@ -73,7 +94,10 @@ export default function AdsAdmin() {
         .select("ad_id, slot, impressions, clicks")
         .gte("day", since),
     ]);
-    setRows((adsRes.data as Row[]) ?? []);
+    const loaded = (adsRes.data as Row[]) ?? [];
+    // Surface anything needing a decision (applied/approved) at the top.
+    loaded.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+    setRows(loaded);
 
     const agg: SlotStats = {};
     for (const s of statsRes.data ?? []) {
@@ -95,12 +119,17 @@ export default function AdsAdmin() {
     if (!supabase) return;
     if (!form.business_name.trim() || !form.image_url.trim() || !form.link_url.trim())
       return setError("Business name, image URL and link URL are required.");
+    // Admin-created ads go live immediately (status active) — that matches how
+    // the console worked before the state machine existed.
     const { error } = await supabase.from("advertisers").insert({
       business_name: form.business_name.trim(),
       tagline: form.tagline.trim() || null,
       image_url: form.image_url.trim(),
       link_url: form.link_url.trim(),
+      placement: form.placement,
       weight: Number(form.weight) || 1,
+      status: "active",
+      active: true,
       starts_at: form.starts_at || null,
       ends_at: form.ends_at || null,
     });
@@ -110,6 +139,7 @@ export default function AdsAdmin() {
       tagline: "",
       image_url: "",
       link_url: "",
+      placement: "banner",
       weight: 1,
       starts_at: "",
       ends_at: "",
@@ -122,6 +152,11 @@ export default function AdsAdmin() {
     await supabase.from("advertisers").update(changes).eq("id", id);
     load();
   };
+
+  // Move an ad to a new lifecycle state, keeping the legacy `active` boolean in
+  // sync so anything still reading it agrees with `status`.
+  const setStatus = (id: string, status: AdStatus) =>
+    patch(id, { status, active: status === "active" });
 
   const remove = async (id: string) => {
     if (!supabase) return;
@@ -182,6 +217,22 @@ export default function AdsAdmin() {
           value={form.link_url}
           onChange={(e) => setForm({ ...form, link_url: e.target.value })}
         />
+        <label className="flex items-center gap-2 text-sm font-bold">
+          Placement
+          <select
+            className={input}
+            value={form.placement}
+            onChange={(e) =>
+              setForm({ ...form, placement: e.target.value as AdPlacement })
+            }
+          >
+            {(Object.keys(AD_SPECS) as AdPlacement[]).map((p) => (
+              <option key={p} value={p}>
+                {AD_SPECS[p].label} ({AD_SPECS[p].width}×{AD_SPECS[p].height})
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm font-bold">
             Weight
@@ -244,8 +295,23 @@ export default function AdsAdmin() {
                   className="h-12 w-24 border-2 border-black object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="font-display font-extrabold">{r.business_name}</p>
+                  <p className="flex flex-wrap items-center gap-2 font-display font-extrabold">
+                    {r.business_name}
+                    <span
+                      className={`border-2 border-black px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${STATUS_STYLE[r.status]}`}
+                    >
+                      {r.status}
+                    </span>
+                    <span className="border-2 border-black bg-white px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-black/60">
+                      {AD_SPECS[r.placement].label}
+                    </span>
+                  </p>
                   <p className="truncate text-xs text-black/50">{r.link_url}</p>
+                  {r.contact_email && (
+                    <p className="truncate text-xs font-bold text-black/60">
+                      ✉️ {r.contact_email}
+                    </p>
+                  )}
                   <p className="text-xs font-bold text-black/60">
                     Lifetime: 👁 {r.impressions} · 👆 {r.clicks}
                     {(r.starts_at || r.ends_at) && (
@@ -267,22 +333,45 @@ export default function AdsAdmin() {
                     className="w-16 border-2 border-black px-2 py-1"
                   />
                 </label>
-                <label className="flex items-center gap-1 text-xs font-bold">
-                  <input
-                    type="checkbox"
-                    checked={r.active}
-                    onChange={(e) => patch(r.id, { active: e.target.checked })}
-                    className="h-4 w-4 accent-[var(--turq)]"
-                  />
-                  Active
-                </label>
-                <button
-                  type="button"
-                  onClick={() => remove(r.id)}
-                  className="text-xs font-bold uppercase tracking-wide text-[var(--red)] hover:underline"
-                >
-                  Delete
-                </button>
+                {/* State machine: applied → approved → active ⇄ disabled. The
+                    activate/disable pair is the "simple toggle" that puts a
+                    paid ad live or takes it down. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {r.status === "applied" && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(r.id, "approved")}
+                      className={actionBtn}
+                    >
+                      Approve / paid
+                    </button>
+                  )}
+                  {(r.status === "approved" || r.status === "disabled") && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(r.id, "active")}
+                      className={`${actionBtn} bg-[var(--green)] text-[var(--sand)]`}
+                    >
+                      Activate ▶
+                    </button>
+                  )}
+                  {r.status === "active" && (
+                    <button
+                      type="button"
+                      onClick={() => setStatus(r.id, "disabled")}
+                      className={actionBtn}
+                    >
+                      Disable ⏸
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => remove(r.id)}
+                    className="text-xs font-bold uppercase tracking-wide text-[var(--red)] hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
 
               {/* 30-day per-slot breakdown — the renewal conversation. */}
@@ -313,3 +402,6 @@ export default function AdsAdmin() {
 
 const input =
   "border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--turq)]";
+
+const actionBtn =
+  "border-2 border-black bg-white px-2 py-1 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none";

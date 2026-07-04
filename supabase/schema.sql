@@ -208,6 +208,31 @@ create policy "admins delete any business photo" on storage.objects
     and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
   );
 
+-- Storage bucket for ad creatives, uploaded via the public /advertise form when
+-- a business applies for a slot (same anonymous-insert trust model as
+-- business-photos: the creative only renders once an admin approves + activates
+-- the ad). The bucket size cap is the largest per-placement spec (150 KB);
+-- validateAdCreative() enforces the exact per-placement dimensions/size/format
+-- client-side, and this is the server-side backstop.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('ad-creatives', 'ad-creatives', true, 153600, array['image/jpeg', 'image/png', 'image/webp'])
+  on conflict (id) do update set
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "ad creatives are public read" on storage.objects;
+create policy "ad creatives are public read" on storage.objects
+  for select using (bucket_id = 'ad-creatives');
+drop policy if exists "anyone can upload an ad creative" on storage.objects;
+create policy "anyone can upload an ad creative" on storage.objects
+  for insert with check (bucket_id = 'ad-creatives');
+drop policy if exists "admins delete any ad creative" on storage.objects;
+create policy "admins delete any ad creative" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'ad-creatives'
+    and exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email'))
+  );
+
 -- ============================================================================
 -- 2. DOG PROFILES — registration, public lookup, physical tag / QR lookup
 -- ============================================================================
@@ -355,6 +380,36 @@ alter table public.advertisers add column if not exists tagline  text;
 alter table public.advertisers add column if not exists starts_at date;
 alter table public.advertisers add column if not exists ends_at   date;
 
+-- Placement type + lifecycle state (added for the ad-management console).
+--   placement: which kind of slot a creative fits — banner (primary paid unit),
+--     ribbon (top strip) or generic (300x250 rectangle). A slot only serves ads
+--     of its own placement type.
+--   status:   applied  → a business submitted a creative via /advertise
+--             approved → an admin attests it's approved/paid (not yet live)
+--             active   → renders live in its slot (this is what public_ads sees)
+--             disabled → toggled off. Only 'active' rows in flight ever serve.
+-- The legacy `active` boolean is kept in sync by the app writers, but `status`
+-- is the single source of truth for what renders.
+do $$ begin
+  create type public.ad_placement as enum ('banner', 'ribbon', 'generic');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type public.ad_status as enum ('applied', 'approved', 'active', 'disabled');
+exception when duplicate_object then null; end $$;
+
+alter table public.advertisers add column if not exists placement public.ad_placement not null default 'banner';
+alter table public.advertisers add column if not exists mobile_image_url text;   -- optional banner mobile variant (320x100)
+alter table public.advertisers add column if not exists contact_email text;      -- applicant email for form-submitted ads
+alter table public.advertisers add column if not exists status public.ad_status;
+-- Backfill legacy rows created before the state machine: whatever was live
+-- becomes 'active', the rest 'disabled'. Idempotent — only null-status rows are
+-- touched, so form-submitted 'applied' rows and any set status survive re-runs.
+update public.advertisers
+  set status = case when active then 'active'::public.ad_status else 'disabled'::public.ad_status end
+  where status is null;
+alter table public.advertisers alter column status set default 'applied';
+alter table public.advertisers alter column status set not null;
+
 alter table public.advertisers enable row level security;
 
 -- The public reads ads through the public_ads view below (display columns
@@ -370,6 +425,16 @@ create policy "admins manage ads" on public.advertisers
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')))
   with check (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
+-- A business may APPLY for an ad from the public /advertise form (same trust
+-- model as submitting a business listing or an ad inquiry): the insert is
+-- forced to the 'applied' state, so nothing a stranger uploads can ever render
+-- until an admin approves and activates it. Admins still go through the policy
+-- above for everything else.
+drop policy if exists "anyone can apply for an ad" on public.advertisers;
+create policy "anyone can apply for an ad" on public.advertisers
+  for insert to anon, authenticated
+  with check (status = 'applied');
+
 -- Public read surface for ads: in-flight active rows, display columns only (no
 -- counters). Definer view bypasses the base-table RLS; AdSlot reads this.
 -- Dropped first: the column set changed (tagline added) and CREATE OR REPLACE
@@ -377,9 +442,9 @@ create policy "admins manage ads" on public.advertisers
 drop view if exists public.public_ads;
 create view public.public_ads
 with (security_invoker = false) as
-  select id, business_name, tagline, image_url, link_url, weight
+  select id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement
   from public.advertisers
-  where active = true
+  where status = 'active'
     and (starts_at is null or starts_at <= current_date)
     and (ends_at   is null or ends_at   >= current_date);
 grant select on public.public_ads to anon, authenticated;
@@ -413,7 +478,7 @@ declare
   s text := coalesce(nullif(left(regexp_replace(lower(coalesce(p_slot, '')), '[^a-z0-9_-]', '', 'g'), 32), ''), 'unknown');
 begin
   update public.advertisers set impressions = impressions + 1
-   where id = p_ad_id and active;
+   where id = p_ad_id and status = 'active';
   if found then
     insert into public.ad_stats_daily (ad_id, slot, impressions)
       values (p_ad_id, s, 1)
@@ -430,7 +495,7 @@ declare
   target text;
 begin
   update public.advertisers set clicks = clicks + 1
-   where id = p_ad_id and active
+   where id = p_ad_id and status = 'active'
    returning link_url into target;
   if target is not null then
     insert into public.ad_stats_daily (ad_id, slot, clicks)

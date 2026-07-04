@@ -83,6 +83,10 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Ribbon: a full-width top strip. Only renders a live ad when the admin
+          has an active ribbon campaign; otherwise it's a quiet invitation. */}
+      <AdSlot slot="home_ribbon" placement="ribbon" label="Featured partner" />
+
       {/* The pack: real registered dogs (mascots until the roster fills). */}
       <DogCarousel pack={pack} />
 
