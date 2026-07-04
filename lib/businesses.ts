@@ -4,9 +4,10 @@ import { DEMO_BUSINESSES } from "@/lib/demoBusinesses";
 // "Things to do in Dunedin" domain model. A curated set of local businesses
 // (restaurants, breweries, parks, beaches) that customers can review, upvote,
 // and reply to. Businesses live in the `businesses` Supabase table; reviews and
-// their replies hang off it. When Supabase isn't configured we fall back to the
-// demo seed (lib/demoBusinesses.ts) so the page works out of the box - same
-// pattern as the Shopify/demo-catalog split on the storefront.
+// their replies hang off it. ONLY when Supabase isn't configured at all do we
+// fall back to the demo seed (lib/demoBusinesses.ts) so the page works out of
+// the box - a configured backend that's empty or erroring returns no
+// businesses rather than fake ones.
 
 // A partner discount surfaced directly on a business's reviews. Populated once a
 // business is matched to a real-world listing (see `placeId`); null for plain
@@ -122,7 +123,12 @@ export async function getBusinesses(): Promise<Business[]> {
         "id, slug, name, category, neighborhood, description, image, dog_friendly, phone, website, address, hours, place_id, offer, created_at"
       )
       .order("created_at", { ascending: false });
-    if (error || !businesses || businesses.length === 0) return DEMO_BUSINESSES;
+    if (error) {
+      console.error("getBusinesses: public_businesses query failed:", error.message);
+      return [];
+    }
+    // A configured-but-empty guide is honestly empty — no demo fallback.
+    if (!businesses || businesses.length === 0) return [];
 
     const ids = businesses.map((b) => b.id);
     const { data: reviewRows } = await supabase
@@ -141,9 +147,11 @@ export async function getBusinesses(): Promise<Business[]> {
     }
 
     return businesses.map((b) => mapBusinessRow(b, reviewsByBusiness.get(b.id) ?? []));
-  } catch {
-    // Table/view may not exist yet, network hiccup, etc. Degrade to the demo seed.
-    return DEMO_BUSINESSES;
+  } catch (err) {
+    // Table/view may not exist yet, network hiccup, etc. Log and show nothing
+    // rather than pretending demo businesses are real listings.
+    console.error("getBusinesses: unexpected failure:", err);
+    return [];
   }
 }
 

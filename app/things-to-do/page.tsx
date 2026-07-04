@@ -45,17 +45,31 @@ export default async function ThingsToDoPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {businesses.slice(0, 2).map((b) => (
-          <BusinessCard key={b.id} business={b} canPersist={canPersist} />
-        ))}
-        {/* Native local-partner card: same anatomy as the guide's own cards,
-            clearly labelled, placed where readers are choosing where to go. */}
-        <AdSlot slot="ttd_grid" variant="card" label="Local guide partner" />
-        {businesses.slice(2).map((b) => (
-          <BusinessCard key={b.id} business={b} canPersist={canPersist} />
-        ))}
-      </div>
+      {businesses.length === 0 ? (
+        // Honest empty state: a connected-but-empty guide shows no listings
+        // (demo spots only appear when Supabase isn't configured at all).
+        <div className="border-[3px] border-black bg-white p-8 text-center shadow-hard">
+          <h2 className="font-display text-2xl font-extrabold">
+            The guide is just getting started 🐾
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm font-bold text-black/60">
+            No spots are listed yet. As Dunedin&apos;s dog-friendly businesses
+            get listed and approved, they&apos;ll show up right here.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {businesses.slice(0, 2).map((b) => (
+            <BusinessCard key={b.id} business={b} canPersist={canPersist} />
+          ))}
+          {/* Native local-partner card: same anatomy as the guide's own cards,
+              clearly labelled, placed where readers are choosing where to go. */}
+          <AdSlot slot="ttd_grid" variant="card" label="Local guide partner" />
+          {businesses.slice(2).map((b) => (
+            <BusinessCard key={b.id} business={b} canPersist={canPersist} />
+          ))}
+        </div>
+      )}
 
       {/* Club teaser — pre-launch, so no deals are promised here. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-[var(--gold)]/25 p-4">
