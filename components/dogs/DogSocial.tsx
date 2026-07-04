@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSupabaseUser, AuthPanel } from "./auth";
 import {
-  friendshipStatus,
+  friendshipBetween,
   listFriends,
   listIncomingRequests,
   myDogs,
@@ -28,14 +28,19 @@ import {
   validatePhoto,
   type DogPost,
 } from "@/lib/dogPosts";
+import { getDogPawCount, hasPawedDog, toggleDogPaw } from "@/lib/dogPaws";
 
-// Friends + photo feed for a dog's public profile. Read-only for anonymous
-// visitors (friends list, approved photos, paw counts). Signed-in owners of
-// ANY dog get an "acting as {dog}" identity to friend/paw with; the
-// profile's own owner additionally gets the upload form, their
+// Friends + paws + photo feed for a dog's public profile. Anonymous visitors
+// see approved photos and paw tallies only — the friends LIST is private to
+// the dog's owner (RLS hides dog_friendships from everyone else, so it isn't
+// even fetched for other viewers). Signed-in owners of ANY dog get an
+// "acting as {dog}" identity to friend/photo-paw with; the profile's own
+// owner additionally gets the friends list, the upload form, their
 // pending/rejected posts, and incoming friend requests. No commenting/DMs —
-// friend + paw only for now. "Paw" is UI language for a like — internal
-// code (post_likes, toggleLike, likeCounts) keeps its existing names.
+// friend + paw only for now. Two paw systems: post_likes paw individual
+// PHOTOS (per acting dog), dog_paws paw the PROFILE (one per signed-in
+// user). "Paw" is UI language for a like — internal code (post_likes,
+// toggleLike, likeCounts) keeps its existing names.
 export default function DogSocial({
   dogId,
   dogName,
@@ -49,33 +54,53 @@ export default function DogSocial({
   const [friends, setFriends] = useState<Friend[]>([]);
   const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
   const [relationship, setRelationship] = useState<RelationshipStatus>("none");
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [posts, setPosts] = useState<DogPost[]>([]);
   const [ownPosts, setOwnPosts] = useState<DogPost[]>([]);
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [myLikedIds, setMyLikedIds] = useState<Set<string>>(new Set());
+  const [pawCount, setPawCount] = useState(0);
+  const [pawed, setPawed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const amOwner = mine.some((d) => d.id === dogId);
 
   const load = useCallback(async () => {
-    const [f, approved] = await Promise.all([listFriends(dogId), listApprovedPosts(dogId)]);
-    setFriends(f);
+    const [approved, paws] = await Promise.all([listApprovedPosts(dogId), getDogPawCount(dogId)]);
     setPosts(approved);
+    setPawCount(paws);
     setLikes(await likeCounts(approved.map((p) => p.id)));
 
-    if (!user) return;
+    if (!user) {
+      setMine([]);
+      setFriends([]);
+      setPawed(false);
+      return;
+    }
+    setPawed(await hasPawedDog(dogId));
     const dogs = await myDogs();
     setMine(dogs);
     setActingDogId((prev) => prev ?? dogs.find((d) => d.id !== dogId)?.id ?? dogs[0]?.id ?? null);
 
     if (dogs.some((d) => d.id === dogId)) {
-      const [reqs, own] = await Promise.all([listIncomingRequests(dogId), listOwnPosts(dogId)]);
+      // Owner-only: the friends list is private (see lib/dogFriends.ts), so
+      // it's never fetched for other viewers.
+      const [f, reqs, own] = await Promise.all([
+        listFriends(dogId),
+        listIncomingRequests(dogId),
+        listOwnPosts(dogId),
+      ]);
+      setFriends(f);
       setIncoming(reqs);
       setOwnPosts(own);
+    } else {
+      setFriends([]);
     }
     const acting = dogs.find((d) => d.id !== dogId);
     if (acting) {
-      setRelationship(await friendshipStatus(acting.id, dogId));
+      const edge = await friendshipBetween(acting.id, dogId);
+      setRelationship(edge.status);
+      setFriendshipId(edge.friendshipId);
       setMyLikedIds(await myLikes(acting.id, approved.map((p) => p.id)));
     }
   }, [dogId, user]);
@@ -101,12 +126,27 @@ export default function DogSocial({
     load();
   };
 
-  const doUnfriend = async (friendshipId: string) => {
+  const doUnfriend = async (id: string) => {
     setNotice(null);
-    const { error } = await removeFriendship(friendshipId);
+    const { error } = await removeFriendship(id);
     if (error) return setNotice(`Couldn't remove: ${error}`);
     setRelationship("none");
+    setFriendshipId(null);
     load();
+  };
+
+  // Optimistic profile-paw toggle (one per signed-in user; see lib/dogPaws.ts).
+  const doTogglePaw = async () => {
+    if (!user) return;
+    const was = pawed;
+    setPawed(!was);
+    setPawCount((c) => Math.max(0, c + (was ? -1 : 1)));
+    const { error } = await toggleDogPaw(dogId, was);
+    if (error) {
+      setPawed(was);
+      setPawCount((c) => Math.max(0, c + (was ? 1 : -1)));
+      setNotice(`Couldn't update paw: ${error}`);
+    }
   };
 
   const doToggleLike = async (post: DogPost) => {
@@ -125,12 +165,25 @@ export default function DogSocial({
 
   return (
     <div className="flex flex-col gap-6">
-      <FriendsPanel
-        friends={friends}
-        canAct={configured && !!user && !amOwner && !!actingDogId}
-        relationship={relationship}
-        onAdd={doFriendRequest}
+      <ProfilePawPanel
+        dogName={dogName}
+        count={pawCount}
+        pawed={pawed}
+        canPaw={configured && !!user}
+        signedOut={configured && !user}
+        onToggle={doTogglePaw}
       />
+
+      {/* The friends LIST is private to the dog's owner. Signed-in visitors
+          still get friend-request actions for their own edge with this dog. */}
+      {amOwner && <FriendsPanel friends={friends} />}
+      {!amOwner && configured && !!user && !!actingDogId && (
+        <FriendActions
+          relationship={relationship}
+          onAdd={doFriendRequest}
+          onUnfriend={friendshipId ? () => doUnfriend(friendshipId) : undefined}
+        />
+      )}
 
       {amOwner && incoming.length > 0 && (
         <div className="border-[3px] border-black bg-[var(--gold)]/20 p-4 shadow-hard">
@@ -161,10 +214,6 @@ export default function DogSocial({
             ))}
           </div>
         </div>
-      )}
-
-      {relationship === "accepted" && !amOwner && friends.length > 0 && (
-        <UnfriendControl friends={friends} actingDogId={actingDogId} onUnfriend={doUnfriend} />
       )}
 
       {notice && (
@@ -226,41 +275,23 @@ export default function DogSocial({
   );
 }
 
-function FriendsPanel({
-  friends,
-  canAct,
-  relationship,
-  onAdd,
-}: {
-  friends: Friend[];
-  canAct: boolean;
-  relationship: RelationshipStatus;
-  onAdd: () => void;
-}) {
+// Owner-only: the friends list never renders for other viewers (and RLS means
+// it couldn't be fetched anyway).
+function FriendsPanel({ friends }: { friends: Friend[] }) {
   return (
     <div className="border-[3px] border-black bg-white p-4 shadow-hard">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-display text-lg font-extrabold">
           Friends {friends.length > 0 && `(${friends.length})`}
         </h3>
-        {canAct && relationship === "none" && (
-          <button
-            type="button"
-            onClick={onAdd}
-            className="border-2 border-black bg-[var(--turq)] px-3 py-1.5 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5"
-          >
-            + Add friend
-          </button>
-        )}
-        {canAct && relationship === "pending-outgoing" && (
-          <span className="text-xs font-bold text-black/50">Request sent</span>
-        )}
-        {canAct && relationship === "accepted" && (
-          <span className="text-xs font-black uppercase text-[var(--green)]">Friends ✓</span>
-        )}
+        <span className="text-[10px] font-black uppercase tracking-wide text-black/40">
+          🔒 Only you see this
+        </span>
       </div>
       {friends.length === 0 ? (
-        <p className="mt-2 text-sm text-black/50">No friends yet — be the first!</p>
+        <p className="mt-2 text-sm text-black/50">
+          No friends yet — requests you accept show up here.
+        </p>
       ) : (
         <div className="mt-3 flex flex-wrap gap-3">
           {friends.map((f) => (
@@ -286,25 +317,97 @@ function FriendsPanel({
   );
 }
 
-function UnfriendControl({
-  friends,
-  actingDogId,
+// Signed-in non-owner with an acting dog: their own friendship edge with this
+// dog (add / sent / friends + unfriend) — no list of anyone else's friends.
+function FriendActions({
+  relationship,
+  onAdd,
   onUnfriend,
 }: {
-  friends: Friend[];
-  actingDogId: string | null;
-  onUnfriend: (id: string) => void;
+  relationship: RelationshipStatus;
+  onAdd: () => void;
+  onUnfriend?: () => void;
 }) {
-  const mine = friends.find((f) => f.dogId === actingDogId);
-  if (!mine) return null;
   return (
-    <button
-      type="button"
-      onClick={() => onUnfriend(mine.friendshipId)}
-      className="w-fit text-xs font-bold text-black/50 hover:underline"
-    >
-      Unfriend
-    </button>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
+      <h3 className="font-display text-lg font-extrabold">Friends</h3>
+      {relationship === "none" && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="border-2 border-black bg-[var(--turq)] px-3 py-1.5 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5"
+        >
+          + Add friend
+        </button>
+      )}
+      {relationship === "pending-outgoing" && (
+        <span className="text-xs font-bold text-black/50">Request sent</span>
+      )}
+      {relationship === "pending-incoming" && (
+        <span className="text-xs font-bold text-black/50">
+          Sent your dog a request — respond from their page
+        </span>
+      )}
+      {relationship === "accepted" && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-black uppercase text-[var(--green)]">Friends ✓</span>
+          {onUnfriend && (
+            <button
+              type="button"
+              onClick={onUnfriend}
+              className="text-xs font-bold text-black/50 hover:underline"
+            >
+              Unfriend
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Profile-level paw tally (dog_paws): one per signed-in user, clearly
+// separate from the per-photo paws on each PostCard below.
+function ProfilePawPanel({
+  dogName,
+  count,
+  pawed,
+  canPaw,
+  signedOut,
+  onToggle,
+}: {
+  dogName: string;
+  count: number;
+  pawed: boolean;
+  canPaw: boolean;
+  signedOut: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
+      <div className="min-w-0">
+        <h3 className="font-display text-lg font-extrabold">Profile paws</h3>
+        <p className="mt-0.5 text-xs text-black/50">
+          {signedOut
+            ? `Sign in below to give ${dogName} a paw.`
+            : "One per person — photo paws count separately."}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={!canPaw}
+        aria-pressed={pawed}
+        aria-label={
+          pawed ? `Remove your paw from ${dogName}'s profile` : `Give ${dogName}'s profile a paw`
+        }
+        className={`border-[3px] border-black px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-40 ${
+          pawed ? "bg-[var(--coral)] text-white" : "bg-white text-black/60"
+        }`}
+      >
+        🐾 {count}
+      </button>
+    </div>
   );
 }
 
