@@ -21,6 +21,29 @@ export default function ResetPasswordFlow() {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Inline "send me a new link" so an expired/used link is one click to fix,
+  // instead of navigating away to find the forgot-password form again.
+  const [resendEmail, setResendEmail] = useState("");
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
+  const [resending, startResend] = useTransition();
+
+  const sendNewLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    setResendMsg(null);
+    if (!supabase) return;
+    const client = supabase;
+    startResend(async () => {
+      const { error } = await client.auth.resetPasswordForEmail(resendEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      setResendMsg(
+        error
+          ? error.message
+          : "If that email has an account, a fresh link is on its way. Open it soon — the link expires and can only be used once."
+      );
+    });
+  };
+
   useEffect(() => {
     if (!supabase) {
       setPhase("invalid");
@@ -84,19 +107,38 @@ export default function ResetPasswordFlow() {
 
   if (phase === "invalid") {
     return (
-      <div className="flex flex-col gap-3 border-[3px] border-black bg-white p-5 shadow-hard">
+      <form
+        onSubmit={sendNewLink}
+        className="flex flex-col gap-3 border-[3px] border-black bg-white p-5 shadow-hard"
+      >
         <h2 className="font-display text-xl font-extrabold">Reset link problem</h2>
         <p className="text-sm text-black/70">
           {error ||
             "This reset link is invalid or has expired. Reset links can only be used once and time out for security."}
         </p>
-        <Link
-          href="/register"
-          className="w-fit border-[3px] border-black bg-[var(--turq)] px-4 py-2 text-sm font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+        <p className="text-sm font-bold text-black/70">
+          Enter your email and we&apos;ll send a fresh one:
+        </p>
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          value={resendEmail}
+          onChange={(e) => setResendEmail(e.target.value)}
+          placeholder="Email"
+          className="border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--turq)]"
+        />
+        {resendMsg && (
+          <p className="text-sm font-bold text-[var(--green)]">{resendMsg}</p>
+        )}
+        <button
+          type="submit"
+          disabled={resending}
+          className="w-fit border-[3px] border-black bg-[var(--turq)] px-4 py-2 text-sm font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none disabled:opacity-50"
         >
-          Request a new link
-        </Link>
-      </div>
+          {resending ? "Sending…" : "Send a new link"}
+        </button>
+      </form>
     );
   }
 

@@ -6,6 +6,7 @@ import CartDrawer from "@/components/cart/CartDrawer";
 import SiteNav from "@/components/SiteNav";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import ContinueExploring from "@/components/ContinueExploring";
+import AuthRecoveryRedirect from "@/components/dogs/AuthRecoveryRedirect";
 import { Analytics } from "@vercel/analytics/next";
 import JsonLd from "@/components/JsonLd";
 import { getTopBusinessCached } from "@/lib/topBusiness";
@@ -118,6 +119,10 @@ export default async function RootLayout({
         <JsonLd data={organizationJsonLd()} />
         <JsonLd data={webSiteJsonLd()} />
         <CartProvider>
+          {/* Forwards a password-recovery landing (even on the homepage) to the
+              reset page, so recovery works before the redirect allow-list is set. */}
+          <AuthRecoveryRedirect />
+
           {/* Scottish tartan ribbon */}
           <div className="tartan h-2.5" />
 
