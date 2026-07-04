@@ -809,3 +809,63 @@ language sql security definer stable set search_path = public as $$
   limit greatest(p_limit, 0);
 $$;
 grant execute on function public.pawpularity_leaderboard(int) to anon, authenticated;
+
+-- ============================================================================
+-- 7. ANALYTICS HELPERS — read surfaces for the dashboard apps
+-- ----------------------------------------------------------------------------
+-- The dashboards live in separate repos (dogedin-private-analytics for the
+-- admin "Mission Control", dogedin-media-kit for the advertiser-facing pitch
+-- page). Everything they need that isn't already publicly readable is granted
+-- here: two admin read policies, and one anonymized public aggregate function.
+-- ============================================================================
+
+-- Admins can read membership rows for revenue/funnel reporting. Writes still
+-- happen only in the Stripe webhook via the service role; members themselves
+-- still see only their own row.
+drop policy if exists "admins read members" on public.members;
+create policy "admins read members" on public.members
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- Admins can read every dog post regardless of moderation status, so
+-- moderation health (pending backlog, rejection rate) is measurable. The
+-- public still sees approved posts only; admins could already update/delete
+-- any post, so this exposes nothing they couldn't act on blind before.
+drop policy if exists "admins read all posts" on public.dog_posts;
+create policy "admins read all posts" on public.dog_posts
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- Anonymized aggregates for the advertiser-facing media kit. Deliberately
+-- exposes ONLY community-scale numbers and slot-level ad totals — no
+-- advertiser identities, no per-campaign numbers, no member/revenue data —
+-- so the page can be public and shared freely with prospective advertisers.
+create or replace function public.media_kit_stats()
+returns jsonb language sql security definer stable set search_path = public as $$
+  select jsonb_build_object(
+    'dogs_total',          (select count(*) from dog_profiles),
+    'dogs_new_90d',        (select count(*) from dog_profiles where created_at > now() - interval '90 days'),
+    'posts_30d',           (select count(*) from dog_posts where moderation_status = 'approved' and created_at > now() - interval '30 days'),
+    'paws_30d',            (select count(*) from post_likes where created_at > now() - interval '30 days'),
+    'friendships_total',   (select count(*) from dog_friendships where status = 'accepted'),
+    'businesses_approved', (select count(*) from businesses where status = 'approved'),
+    'reviews_total',       (select count(*) from reviews),
+    'avg_rating',          (select round(avg(rating)::numeric, 1) from reviews),
+    'slots', (
+      select coalesce(jsonb_agg(s.stat order by s.slot), '[]'::jsonb)
+      from (
+        select slot, jsonb_build_object(
+          'slot', slot,
+          'impressions_30d', sum(impressions),
+          'clicks_30d', sum(clicks),
+          'ctr_30d', case when sum(impressions) > 0
+            then round(100.0 * sum(clicks) / sum(impressions), 2) else 0 end
+        ) as stat
+        from ad_stats_daily
+        where day > current_date - 30
+        group by slot
+      ) s
+    )
+  );
+$$;
+grant execute on function public.media_kit_stats() to anon, authenticated;
