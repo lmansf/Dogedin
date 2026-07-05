@@ -171,11 +171,22 @@
         "padding_top": 52,
         "padding_bottom": 52
       }
+    },
+    "ad_spotlight": {
+      "type": "ad-spotlight",
+      "settings": {
+        "placement": "home_feed",
+        "label": "Local partner",
+        "color_scheme": "scheme-2",
+        "padding_top": 36,
+        "padding_bottom": 8
+      }
     }
   },
   "order": [
     "hero",
     "featured_collection",
+    "ad_spotlight",
     "brand_story",
     "registry_callout"
   ]

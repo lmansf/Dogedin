@@ -1,0 +1,116 @@
+{%- comment -%}
+  Ad spotlight — Liquid port of the dogedin.com AdSlot.
+  Reads ad_campaign metaobjects and renders the first ACTIVE campaign whose
+  placement matches this section and whose flight window includes today.
+  Campaigns self-expire when ends_at passes; pause one by setting its
+  metaobject status to Draft in Shopify admin. Links carry rel="sponsored".
+{%- endcomment -%}
+{%- liquid
+  assign placement = section.settings.placement
+  assign now_s = 'now' | date: '%s' | times: 1
+  assign chosen = null
+  for ad in shop.metaobjects.ad_campaign.values
+    if ad.placement.value != placement
+      continue
+    endif
+    assign in_window = true
+    if ad.starts_at.value
+      assign s = ad.starts_at.value | date: '%s' | times: 1
+      if s > now_s
+        assign in_window = false
+      endif
+    endif
+    if ad.ends_at.value
+      assign e = ad.ends_at.value | date: '%s' | times: 1
+      if e < now_s
+        assign in_window = false
+      endif
+    endif
+    if in_window and chosen == null
+      assign chosen = ad
+    endif
+  endfor
+-%}
+{%- if chosen -%}
+<div class="color-{{ section.settings.color_scheme }} gradient">
+  <div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+    <a
+      href="{{ chosen.link.value }}"
+      target="_blank"
+      rel="noopener sponsored"
+      style="display: block; text-decoration: none; color: rgb(var(--color-foreground)); border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); padding: 2rem 2.4rem; background: rgb(var(--color-background));"
+    >
+      <p class="caption-with-letter-spacing" style="margin: 0 0 0.6rem; text-transform: uppercase; font-size: 1.1rem; letter-spacing: 0.13rem; opacity: 0.75;">
+        Ad &middot; {{ section.settings.label | escape }}
+      </p>
+      {%- if chosen.image.value -%}
+        <img
+          src="{{ chosen.image.value | image_url: width: 600 }}"
+          alt="{{ chosen.name.value | escape }}"
+          loading="lazy"
+          width="300"
+          style="max-width: 30rem; height: auto; margin-bottom: 1rem;"
+        >
+      {%- endif -%}
+      <h3 class="h2" style="margin: 0 0 0.4rem;">{{ chosen.name.value | escape }}</h3>
+      {%- if chosen.tagline.value -%}
+        <p style="margin: 0 0 0.8rem;">{{ chosen.tagline.value | escape }}</p>
+      {%- endif -%}
+      <span class="link underlined-link">Visit {{ chosen.name.value | escape }} &rarr;</span>
+    </a>
+  </div>
+</div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Ad spotlight",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "placement",
+      "label": "Placement",
+      "options": [
+        { "value": "home_ribbon", "label": "Home ribbon" },
+        { "value": "home_feed", "label": "Home feed" }
+      ],
+      "default": "home_feed"
+    },
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Disclosure label",
+      "default": "Local partner"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-2"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [{ "name": "Ad spotlight" }]
+}
+{% endschema %}
