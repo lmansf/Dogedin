@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import AdInquiryForm from "@/components/ads/AdInquiryForm";
-import { AD_LOCATIONS, AD_SPECS, AD_CREATIVE_TYPES } from "@/lib/ads";
+import { AD_LOCATIONS, AD_SPECS, AD_CREATIVE_TYPES, formatUsd } from "@/lib/ads";
 
 export const metadata: Metadata = {
   title: "Advertise with Dogedin",
@@ -78,8 +78,15 @@ export default function AdvertisePage() {
               <span className="text-3xl" aria-hidden>
                 {pitch?.emoji ?? "📢"}
               </span>
-              <div className="min-w-0">
-                <h3 className="font-display text-lg font-extrabold">{loc.name}</h3>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h3 className="font-display text-lg font-extrabold">{loc.name}</h3>
+                  {/* Per-type daily price, priced by prominence. */}
+                  <span className="shrink-0 -rotate-1 border-2 border-black bg-[var(--gold)] px-2 py-0.5 text-sm font-black shadow-hard">
+                    {formatUsd(spec.dailyCents)}
+                    <span className="text-xs font-bold">/day</span>
+                  </span>
+                </div>
                 <p className="text-sm font-semibold text-black/70">{loc.where}</p>
                 {pitch?.why && (
                   <p className="mt-1 text-sm text-black/60">{pitch.why}</p>
@@ -126,10 +133,11 @@ export default function AdvertisePage() {
         </div>
 
         <p className="border-2 border-black bg-[var(--gold)]/25 px-3 py-2 text-sm font-bold">
-          Simple flat monthly pricing, one advertiser per spot at a time, and an
-          honest monthly report: how many neighbours actually saw your ad (we
-          only count an impression once it&apos;s truly on screen), how many
-          tapped through, per placement.
+          Simple daily pricing — pick your dates and pay only for the days you
+          run (a week, a weekend, or a whole month). One advertiser per spot at a
+          time, and an honest report: how many neighbours actually saw your ad
+          (we only count an impression once it&apos;s truly on screen) and how
+          many tapped through, per placement.
         </p>
       </section>
 

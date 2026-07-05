@@ -46,6 +46,7 @@ export const AD_SPECS: Record<
     height: number;
     maxBytes: number;
     mobile?: { width: number; height: number };
+    dailyCents: number; // fair daily rate for this placement (see AD PRICING)
   }
 > = {
   banner: {
@@ -55,6 +56,7 @@ export const AD_SPECS: Record<
     height: 90,
     maxBytes: 150 * 1024,
     mobile: { width: 320, height: 100 },
+    dailyCents: 400,
   },
   ribbon: {
     label: "Ribbon",
@@ -62,6 +64,7 @@ export const AD_SPECS: Record<
     width: 1200,
     height: 120,
     maxBytes: 120 * 1024,
+    dailyCents: 600,
   },
   generic: {
     label: "Generic slot",
@@ -69,8 +72,49 @@ export const AD_SPECS: Record<
     width: 300,
     height: 250,
     maxBytes: 120 * 1024,
+    dailyCents: 300,
   },
 };
+
+// AD PRICING — a per-placement DAILY fee, so a business pays only for the days
+// they run and each spot is priced by its prominence. Rates live on AD_SPECS
+// above; change a number there and it flows to the marketing page, the
+// application estimate, and the admin pay link (single source of truth).
+//
+// Why these numbers: hyperlocal placements for a targeted small-town audience
+// benchmark around $50–$250 per placement. At these daily rates a full month
+// lands in the accessible end of that band — Ribbon ≈ $180/mo (most prominent,
+// full-width, top of the homepage), Homepage banner ≈ $120/mo (broad homepage
+// reach), Local-guide card ≈ $90/mo (fewer eyes but the highest intent — shown
+// to people actively choosing where to take their dog). A single day is cheap
+// enough for a one-off event push. Owner adjusts as the audience grows.
+export function adDailyCents(placement: AdPlacement): number {
+  return AD_SPECS[placement].dailyCents;
+}
+
+// Inclusive whole-day count between two YYYY-MM-DD dates (same day = 1). Parsed
+// at UTC midnight so a viewer's timezone can't shift the count. Returns 0 when
+// a date is missing or the range is backwards, so callers can prompt for dates.
+export function adRunDays(
+  startISO?: string | null,
+  endISO?: string | null
+): number {
+  if (!startISO || !endISO) return 0;
+  const start = Date.parse(`${startISO.slice(0, 10)}T00:00:00Z`);
+  const end = Date.parse(`${endISO.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 0;
+  return Math.round((end - start) / 86_400_000) + 1;
+}
+
+// Total price for a run of `days` at this placement's daily rate.
+export function adTotalCents(placement: AdPlacement, days: number): number {
+  return adDailyCents(placement) * Math.max(0, days);
+}
+
+// "$6", "$4.50" — drops a trailing .00 so whole-dollar amounts read cleanly.
+export function formatUsd(cents: number): string {
+  return `$${(cents / 100).toFixed(2).replace(/\.00$/, "")}`;
+}
 
 // The named, purchasable ad locations a business actually chooses between on
 // /advertise — each maps 1:1 to a placement type (which carries the spec) and
