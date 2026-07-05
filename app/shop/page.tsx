@@ -45,7 +45,7 @@ export default async function ShopPage() {
             Gulf coast.
           </p>
           <p className="mt-3 max-w-xl text-sm font-bold text-[var(--ink)]/60">
-            Every order funds the Dogedin community: free dog profiles, lost-dog
+            Every order funds the Dogedin community: dog profiles, lost-dog
             tags, and the local guide.
           </p>
         </div>
@@ -65,7 +65,7 @@ export default async function ShopPage() {
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm font-bold text-black/60">
             We&apos;re stocking the shelves. Check back shortly — in the
-            meantime, the rest of Dogedin is free and open to every good dog.
+            meantime, the rest of Dogedin is open to every good dog.
           </p>
         </section>
       )}

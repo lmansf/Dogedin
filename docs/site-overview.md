@@ -1,7 +1,7 @@
 # Dogedin — What's on the site and why it matters
 
 **The one-liner:** Dogedin is Dunedin, FL's home for dog people — every local dog gets a
-free profile and a lost-dog tag, the town's dog-friendly spots and events live in one
+profile and a lost-dog tag, the town's dog-friendly spots and events live in one
 place, and the whole thing is paid for by a small shop, a membership club, and tasteful
 ads from the same Main Street businesses the community already loves.
 
@@ -11,7 +11,7 @@ ads from the same Main Street businesses the community already loves.
 
 | Feature | Where | What it achieves |
 |---|---|---|
-| **Dog profiles** | `/register`, `/dog/{name}` | Every Dunedin dog gets a free public page (photo, breed, story). This is the membership roll of the community — and the hook that brings people in. |
+| **Dog profiles** | `/register`, `/dog/{name}` | Every Dunedin dog gets a public page (photo, breed, story). This is the membership roll of the community — and the hook that brings people in. |
 | **Lost-dog tags & lookup** | `/found`, tag & QR on `/account` | Each registered dog gets a unique tag code and QR. A finder scans the tag or types the code and instantly reaches the owner — *only* if the owner opted in to sharing contact info. This is the feature with real emotional weight: the site can genuinely bring a lost dog home. |
 | **The Pack (search)** | `/dogs` | Look up any registered dog by their name or their human's. Makes the community visible and browsable. |
 | **Meet the Pack carousel** | Homepage | The newest registered dogs, front and center on the front page — your dog becomes a minor local celebrity the day you sign up. |
@@ -49,12 +49,12 @@ security + a privilege-gated public view), not just the UI.
 
 ## 4. The flywheel — why the pieces reinforce each other
 
-- Dog owners register **because profiles and lost-dog tags are free and genuinely useful**.
+- Dog owners register **because profiles and lost-dog tags are genuinely useful**.
 - Registered owners come back for **the guide and the events calendar** — which makes the
   audience valuable to **local businesses**.
 - Businesses buy **ads and honor Club deals** — which makes the **membership** worth
   paying for. *(Deals resume when the Club launches.)*
-- Membership and shop revenue **keep the community features free** — which brings in more
+- Membership and shop revenue **fund the community features** — which brings in more
   dog owners. Around it goes.
 
 Every page cross-links along this loop: registering ends with "get your tag"; the guide
@@ -87,8 +87,8 @@ Shopify collections fill).
 
 ## Pitch lines to steal
 
-- *"Every dog in Dunedin gets a free page — and a tag that can bring them home."*
+- *"Every dog in Dunedin gets a page — and a tag that can bring them home."*
 - *"One place for everything dog in Dunedin: the spots, the events, the pack."*
 - *"Ads that act like community content, measured honestly — you'll know exactly how many
   neighbours saw you, and where."*
-- *"The shop and the Club don't just sell things — they keep the whole thing free."*
+- *"The shop and the Club don't just sell things — they keep the whole thing running."*

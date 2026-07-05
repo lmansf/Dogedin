@@ -120,7 +120,7 @@ export default async function Home() {
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-bold text-black/60">
-              Every purchase keeps Dogedin free — profiles, lost-dog tags and
+              Every purchase funds Dogedin — profiles, lost-dog tags and
               the local guide.
             </p>
             <Link
