@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { getPublicDog, dogPhotoUrl } from "@/lib/dogProfiles";
+import { getDogPawCount } from "@/lib/dogPaws";
 import DogSocial from "@/components/dogs/DogSocial";
+import PawButton from "@/components/dogs/PawButton";
 
 // Public dog profile. This is the URL a physical tag / QR code will point to in
 // Phase 2 (/dog/{slug}). Contact details render only when the owner opted in.
@@ -75,6 +77,8 @@ export default async function DogProfilePage({
 
   const img = dogPhotoUrl(dog.photoPath);
   const hasContact = dog.lostContactOptIn && (dog.ownerPhone || dog.ownerEmail);
+  // Live profile-paw tally for the hero button (real, one-per-person count).
+  const pawCount = await getDogPawCount(dog.id);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -127,6 +131,23 @@ export default async function DogProfilePage({
         {dog.breed && (
           <p className="text-lg font-bold text-black/60">{dog.breed}</p>
         )}
+
+        {/* The paw, front and centre. Signed-out visitors are pointed at the
+            sign-in panel below (#join); one paw per person keeps it honest. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <PawButton
+            dogId={dog.id}
+            slug={dog.slug}
+            dogName={dog.dogName}
+            initialCount={pawCount}
+            size="lg"
+            signInHref="#join"
+          />
+          <span className="text-xs font-bold text-black/50">
+            One paw per person — your way to say “good dog.”
+          </span>
+        </div>
+
         {dog.bio && (
           <p className="text-base italic leading-relaxed text-black/70">
             “{dog.bio}”

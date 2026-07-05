@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { mascotsAsPack, type PackDog } from "@/lib/dogs";
+import PawButton from "@/components/dogs/PawButton";
 
 // "Meet the pack" carousel. A Netflix-style horizontal, snap-scrolling row of
 // dog cards. Whichever card is nearest the centre of the track is "active" and
@@ -225,6 +226,13 @@ function DogCard({
               {dog.name}
             </span>
           )}
+          {/* Popularity at a glance on the collapsed cards (real dogs only —
+              tap the card to expand it and give a paw). */}
+          {!active && dog.dogId && (
+            <span className="absolute right-2 top-2 inline-flex items-center gap-1 border-2 border-black bg-white/95 px-1.5 py-0.5 text-[11px] font-black shadow-hard">
+              🐾 {dog.pawCount}
+            </span>
+          )}
         </div>
 
         {/* About panel - only rendered for the active landscape card. */}
@@ -237,19 +245,32 @@ function DogCard({
               Meet {dog.name}
             </h3>
             <p
-              className="line-clamp-4 text-sm leading-relaxed text-black/70 sm:line-clamp-5 sm:text-base"
+              className="line-clamp-3 text-sm leading-relaxed text-black/70 sm:line-clamp-4 sm:text-base"
               title={dog.about}
             >
               {dog.about}
             </p>
-            {dog.href && (
-              <Link
-                href={dog.href}
-                className="w-fit border-2 border-black bg-[var(--gold)] px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5"
-              >
-                Visit {dog.name}&apos;s page →
-              </Link>
-            )}
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {/* Paw right here — the centred card is one tap away, so this is
+                  the easy "like this dog" the pack lives on. */}
+              {dog.dogId && (
+                <PawButton
+                  dogId={dog.dogId}
+                  slug={dog.id}
+                  dogName={dog.name}
+                  initialCount={dog.pawCount}
+                  size="md"
+                />
+              )}
+              {dog.href && (
+                <Link
+                  href={dog.href}
+                  className="border-2 border-black bg-[var(--gold)] px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5"
+                >
+                  Visit {dog.name}&apos;s page →
+                </Link>
+              )}
+            </div>
           </div>
         )}
       </div>

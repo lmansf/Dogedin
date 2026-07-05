@@ -15,7 +15,9 @@ export type Dog = {
 
 // Unified card shape for the "Meet the pack" carousel: either a mascot (below)
 // or a real registered dog from the community. href links a real dog to their
-// profile page; mascots have no page (yet), so href is null.
+// profile page; mascots have no page (yet), so href is null. dogId is the real
+// profile UUID (null for mascots) — present dogs are pawable; pawCount is the
+// current profile-paw tally shown on the card.
 export type PackDog = {
   id: string;
   name: string;
@@ -25,6 +27,8 @@ export type PackDog = {
   emoji: string;
   grad: string;
   href: string | null;
+  dogId: string | null;
+  pawCount: number;
 };
 
 // Rotating accent gradients for real community dogs (mascots carry their own).
@@ -37,7 +41,9 @@ export const PACK_GRADS = [
 ];
 
 export function mascotsAsPack(): PackDog[] {
-  return DOGS.map((d) => ({ ...d, href: null }));
+  // Mascots are the empty-roster fallback — not real dogs, so no profile to
+  // paw (dogId null) and no tally.
+  return DOGS.map((d) => ({ ...d, href: null, dogId: null, pawCount: 0 }));
 }
 
 export const DOGS: Dog[] = [

@@ -7,6 +7,7 @@ import ComingSoonLink from "@/components/ComingSoonLink";
 import EventsPreview from "@/components/home/EventsPreview";
 import FeaturedBusiness from "@/components/home/FeaturedBusiness";
 import SpotsPreview from "@/components/home/SpotsPreview";
+import TopDogs from "@/components/home/TopDogs";
 import { getProducts } from "@/lib/shopify";
 import { listRecentDogs, dogPhotoUrl } from "@/lib/dogProfiles";
 import { PACK_GRADS, type PackDog } from "@/lib/dogs";
@@ -43,6 +44,8 @@ export default async function Home() {
     emoji: "🐶",
     grad: PACK_GRADS[i % PACK_GRADS.length],
     href: `/dog/${d.slug}`,
+    dogId: d.id,
+    pawCount: d.pawCount,
   }));
 
   return (
@@ -89,6 +92,10 @@ export default async function Home() {
 
       {/* The pack: real registered dogs (mascots until the roster fills). */}
       <DogCarousel pack={pack} />
+
+      {/* Most-pawed dogs — the front page is itself a place to add a paw.
+          Hidden until the pack has a registered dog. */}
+      <TopDogs />
 
       <EventsPreview />
 
