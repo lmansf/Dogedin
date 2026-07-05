@@ -45,7 +45,7 @@ export default function MembershipPage() {
           href="/register"
           className="font-black text-[var(--turq)] underline"
         >
-          register your dog free →
+          register your dog →
         </Link>{" "}
         or{" "}
         <Link

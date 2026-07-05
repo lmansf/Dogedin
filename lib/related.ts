@@ -52,7 +52,7 @@ const DESTINATIONS: Destination[] = [
   {
     href: "/register",
     label: "Register your dog",
-    blurb: "A free profile and a lost-dog tag",
+    blurb: "A profile and a lost-dog tag",
     commerce: false,
     topics: ["dogs", "community"],
   },
