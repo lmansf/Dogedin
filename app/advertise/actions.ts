@@ -123,7 +123,9 @@ export async function submitPaidAd(input: {
       customer_email: input.email.trim() || undefined,
       // The webhook keys off this to activate the right ad on payment.
       metadata: { advertiser_id: row.id },
-      success_url: `${base}/advertise?paid=1`,
+      // session_id lets the return page confirm payment + activate directly,
+      // so the ad goes live even if the webhook is slow or misconfigured.
+      success_url: `${base}/advertise?paid=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/advertise?canceled=1`,
     });
     if (!session.url) return { error: "Stripe didn't return a checkout URL." };
