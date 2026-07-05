@@ -39,6 +39,10 @@ export default function AdInquiryForm() {
   const [endsAt, setEndsAt] = useState("");
   const [creativeError, setCreativeError] = useState<string | null>(null);
 
+  // Which path the business is on: "instant" = upload a banner, pay, and go
+  // live automatically (skips approval); "inquiry" = send a note for a human to
+  // review and follow up. Chosen via the two tiles at the top of the form.
+  const [mode, setMode] = useState<"instant" | "inquiry">("instant");
   const [sent, setSent] = useState(false);
   const [queued, setQueued] = useState(false); // paid path fell back to manual review
   const [error, setError] = useState<string | null>(null);
@@ -105,10 +109,14 @@ export default function AdInquiryForm() {
     if (!client) return;
     if (!businessName.trim() || !contactName.trim() || !email.trim())
       return setError("Business, contact name and email are required.");
-    // ---- Self-serve paid ad: a creative is attached. Upload it, then hand off
-    // to the server, which moderates it and (if clean) returns a Stripe
-    // Checkout link. Paying makes it live automatically — no admin approval. ----
-    if (creative) {
+    // ---- Instant self-serve path: upload the banner, hand off to the server
+    // which moderates it and (if clean) returns a Stripe Checkout link. Paying
+    // makes it live automatically — no admin approval. ----
+    if (mode === "instant") {
+      if (!creative)
+        return setError(
+          "Upload your banner to advertise now — or switch to “Send an inquiry” above."
+        );
       if (!/^https?:\/\/\S+/i.test(linkUrl.trim()))
         return setError(
           "Add the destination link (https://…) your ad should click through to."
@@ -196,7 +204,66 @@ export default function AdInquiryForm() {
       onSubmit={submit}
       className="flex flex-col gap-3 border-[3px] border-black bg-white p-5 shadow-hard"
     >
-      <h2 className="font-display text-xl font-extrabold">Get in touch</h2>
+      <div>
+        <h2 className="font-display text-xl font-extrabold">Advertise with us</h2>
+        <p className="mt-1 text-sm font-bold text-black/60">
+          Two ways to run your ad — pick one:
+        </p>
+      </div>
+
+      {/* Path chooser. The whole point: a ready banner skips approval entirely
+          and goes live on payment; otherwise a person reviews an inquiry. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setMode("instant")}
+          aria-pressed={mode === "instant"}
+          className={`flex flex-col gap-1 border-[3px] border-black p-3 text-left shadow-hard transition-transform hover:-translate-y-0.5 ${
+            mode === "instant" ? "bg-[var(--green)]" : "bg-white"
+          }`}
+        >
+          <span
+            className={`text-sm font-black uppercase tracking-wide ${
+              mode === "instant" ? "text-[var(--sand)]" : ""
+            }`}
+          >
+            ⚡ I&apos;m ready to advertise now
+          </span>
+          <span
+            className={`text-xs font-bold ${
+              mode === "instant" ? "text-[var(--sand)]/90" : "text-black/60"
+            }`}
+          >
+            Upload your finished banner, pick your dates and pay. It clears an
+            automatic content check and goes live right away — no approval wait.
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("inquiry")}
+          aria-pressed={mode === "inquiry"}
+          className={`flex flex-col gap-1 border-[3px] border-black p-3 text-left shadow-hard transition-transform hover:-translate-y-0.5 ${
+            mode === "inquiry" ? "bg-[var(--turq)]" : "bg-white"
+          }`}
+        >
+          <span
+            className={`text-sm font-black uppercase tracking-wide ${
+              mode === "inquiry" ? "text-[var(--sand)]" : ""
+            }`}
+          >
+            💬 Send an inquiry
+          </span>
+          <span
+            className={`text-xs font-bold ${
+              mode === "inquiry" ? "text-[var(--sand)]/90" : "text-black/60"
+            }`}
+          >
+            No artwork yet, or want to ask first? Send a note — a real person
+            reviews it and follows up with next steps.
+          </span>
+        </button>
+      </div>
+
       <input
         className={input}
         placeholder="Business name"
@@ -221,20 +288,23 @@ export default function AdInquiryForm() {
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
-      <textarea
-        className={`${input} resize-y`}
-        rows={3}
-        maxLength={2000}
-        placeholder="Anything we should know? (which slot, when, what you'd like to promote)"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-      />
+      {mode === "inquiry" && (
+        <textarea
+          className={`${input} resize-y`}
+          rows={3}
+          maxLength={2000}
+          placeholder="Anything we should know? (which slot, when, what you'd like to promote)"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+      )}
 
-      {/* Optional: apply with a ready creative so it lands straight in the ad
-          console. Fully skippable — leave it blank to just say hello. */}
-      <fieldset className="flex flex-col gap-3 border-2 border-dashed border-black/30 p-3">
-        <legend className="px-1 text-xs font-black uppercase tracking-wide text-black/60">
-          Have your ad ready? (optional)
+      {/* The instant self-serve builder: pick a spot, upload the banner, set
+          dates + link, and pay — moderated automatically, live on payment. */}
+      {mode === "instant" && (
+      <fieldset className="flex flex-col gap-3 border-2 border-dashed border-[var(--green)]/60 bg-[var(--green)]/5 p-3">
+        <legend className="px-1 text-xs font-black uppercase tracking-wide text-[var(--green)]">
+          ⚡ Set up your ad
         </legend>
 
         <label className="flex flex-col gap-1 text-xs font-extrabold uppercase tracking-wide text-black/60">
@@ -349,6 +419,7 @@ export default function AdInquiryForm() {
           <p className="text-sm font-bold text-[var(--red)]">{creativeError}</p>
         )}
       </fieldset>
+      )}
 
       {error && <p className="text-sm font-bold text-[var(--red)]">{error}</p>}
       <button
@@ -358,7 +429,7 @@ export default function AdInquiryForm() {
       >
         {pending
           ? "One sec…"
-          : creative
+          : mode === "instant"
             ? runDays > 0
               ? `Pay & go live · ${formatUsd(estimateCents)}`
               : "Continue to payment"
