@@ -9,6 +9,7 @@ import {
   adTotalCents,
   type AdPlacement,
 } from "@/lib/ads";
+import { moderateAdImage } from "@/lib/adModeration";
 
 const AD_CREATIVE_BUCKET = "ad-creatives";
 
@@ -63,17 +64,9 @@ export async function submitPaidAd(input: {
   const mobilePaths = [input.mobileImagePath].filter(Boolean) as string[];
 
   try {
-  // 1. Moderate the creative. Fails closed to manual review (never auto-live).
-  let verdict: string | null = null;
-  try {
-    const { data, error } = await supabaseAdmin.functions.invoke("moderate-ad", {
-      body: { image_path: input.imagePath },
-    });
-    if (error) throw error;
-    verdict = (data as { verdict?: string } | null)?.verdict ?? null;
-  } catch {
-    verdict = null; // unavailable → manual fallback below
-  }
+  // 1. Moderate the creative in-process with Claude vision (no edge function /
+  // gateway auth to get wrong). Fails closed to manual review, never auto-live.
+  const verdict = await moderateAdImage(input.imageUrl);
 
   if (verdict === "rejected") {
     // Don't keep an inappropriate creative in the public bucket; nothing charged.
