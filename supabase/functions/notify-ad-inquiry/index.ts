@@ -38,7 +38,10 @@ Deno.serve(async (req) => {
   // Already emailed (e.g. a retried/duplicate call) — no-op.
   if (inquiry.notified_at) return json(200, { status: "already notified" });
 
-  const to = Deno.env.get("AD_INQUIRY_NOTIFY_EMAIL") || "dogedin.com@gmail.com";
+  // No hardcoded fallback inbox — without an explicitly configured
+  // destination this no-ops (the inquiry is already safe in ad_inquiries).
+  const to = Deno.env.get("AD_INQUIRY_NOTIFY_EMAIL");
+  if (!to) return json(200, { skipped: "AD_INQUIRY_NOTIFY_EMAIL not configured" });
   const from = Deno.env.get("AD_INQUIRY_FROM_EMAIL") || "Dogedin <onboarding@resend.dev>";
 
   const res = await fetch(RESEND_API, {
