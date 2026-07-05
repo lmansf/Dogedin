@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import AdInquiryForm from "@/components/ads/AdInquiryForm";
 import { AD_LOCATIONS, AD_SPECS, AD_CREATIVE_TYPES, formatUsd } from "@/lib/ads";
+import { confirmAdPaymentBySession } from "@/lib/confirmAdPayment";
 
 export const metadata: Metadata = {
   title: "Advertise with Dogedin",
@@ -40,9 +41,14 @@ const AD_FREE = [
 export default async function AdvertisePage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string; canceled?: string }>;
+  searchParams: Promise<{ paid?: string; canceled?: string; session_id?: string }>;
 }) {
-  const { paid, canceled } = await searchParams;
+  const { paid, canceled, session_id } = await searchParams;
+  // Returning from a successful Checkout: verify the payment with Stripe and
+  // flip the ad live right now, so it doesn't depend on the webhook firing.
+  if (paid === "1" && session_id) {
+    await confirmAdPaymentBySession(session_id);
+  }
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-8">
       {paid === "1" && (
