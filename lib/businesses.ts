@@ -352,8 +352,12 @@ export type BusinessSubmission = {
 
 // Uploads the card photo, then inserts the listing as 'pending' (RLS enforces
 // that status regardless of what's sent — see supabase/schema.sql). Retries
-// on a slug collision the same way dog registration does.
-export async function submitBusiness(input: BusinessSubmission): Promise<{ error: string | null }> {
+// on a slug collision the same way dog registration does. Returns the new
+// listing's id (minted client-side — the anon insert policy can't read the row
+// back) so the form can trigger the welcome-business email.
+export async function submitBusiness(
+  input: BusinessSubmission
+): Promise<{ error: string | null; businessId?: string }> {
   if (!supabase) return { error: "Supabase isn't configured." };
   const bad = validateBusinessPhoto(input.photo);
   if (bad) return { error: bad };
@@ -375,7 +379,9 @@ export async function submitBusiness(input: BusinessSubmission): Promise<{ error
   }
 
   const stem = slugStem(input.name);
+  const businessId = crypto.randomUUID();
   const base = {
+    id: businessId,
     name: input.name.trim(),
     category: input.category,
     neighborhood: input.neighborhood.trim() || null,
@@ -394,7 +400,7 @@ export async function submitBusiness(input: BusinessSubmission): Promise<{ error
   for (let attempt = 0; attempt < 4; attempt++) {
     const slug = `${stem}-${randomSuffix()}`;
     const { error: insErr } = await supabase.from("businesses").insert({ ...base, slug });
-    if (!insErr) return { error: null };
+    if (!insErr) return { error: null, businessId };
     if (insErr.code !== "23505") {
       await cleanupPhoto();
       return { error: `Couldn't submit: ${insErr.message}` };

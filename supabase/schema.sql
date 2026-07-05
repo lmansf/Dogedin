@@ -64,6 +64,9 @@ alter table public.businesses add column if not exists address    text;
 -- open/close null when closed. Built from an actual per-day form, not a
 -- single "hours" free-text field, so /things-to-do can show real hours today.
 alter table public.businesses add column if not exists hours      jsonb;
+-- Stamped by the welcome-business Edge Function after it emails the submitter
+-- their portal link, so retries/duplicate invocations can never double-send.
+alter table public.businesses add column if not exists welcome_sent_at timestamptz;
 
 -- Moderation gate: submissions land 'pending' and only show on the site once
 -- an admin flips them to 'approved' ('denied' keeps them hidden for good).
@@ -1334,16 +1337,18 @@ begin
 end $$;
 grant execute on function public.business_team(uuid) to authenticated;
 
--- The businesses the signed-in caller may see in the portal: approved listings
--- where they are the owner (owner_email) or a redeemed team member. Admins see
--- every approved listing (preview mode — demo the product without paying).
--- Dropped first: the return signature gained is_owner, and CREATE OR REPLACE
--- can't change a function's OUT columns.
+-- The businesses the signed-in caller may see in the portal: listings where
+-- they are the owner (owner_email) or a redeemed team member. Owners also see
+-- their own PENDING submission (the welcome email links here immediately, so
+-- the portal must have something to show pre-approval); members and admins see
+-- approved listings only. status is returned so the portal can render the
+-- "under review" state. Dropped first: the return signature has changed, and
+-- CREATE OR REPLACE can't change a function's OUT columns.
 drop function if exists public.my_portal_businesses();
 create function public.my_portal_businesses()
 returns table (
   id uuid, slug text, name text, category text, neighborhood text,
-  insights_active boolean, is_owner boolean, is_admin boolean
+  status text, insights_active boolean, is_owner boolean, is_admin boolean
 )
 language sql security definer stable set search_path = public as $$
   with me as (
@@ -1354,6 +1359,7 @@ language sql security definer stable set search_path = public as $$
     ) as is_admin
   )
   select b.id, b.slug, b.name, b.category, b.neighborhood,
+         b.status::text,
          (coalesce(s.status, '') = 'active') as insights_active,
          (me.email <> '' and lower(coalesce(b.owner_email, '')) = me.email) as is_owner,
          adm.is_admin
@@ -1361,12 +1367,16 @@ language sql security definer stable set search_path = public as $$
   cross join me
   cross join adm
   left join public.business_insights_subs s on s.business_id = b.id
-  where b.status = 'approved'
-    and (
-      adm.is_admin
-      or (me.email <> '' and lower(coalesce(b.owner_email, '')) = me.email)
-      or exists (select 1 from public.business_members m
-                 where m.business_id = b.id and m.email = me.email)
+  where
+    (adm.is_admin and b.status = 'approved')
+    or (
+      me.email <> '' and lower(coalesce(b.owner_email, '')) = me.email
+      and b.status in ('pending', 'approved')
+    )
+    or (
+      b.status = 'approved'
+      and exists (select 1 from public.business_members m
+                  where m.business_id = b.id and m.email = me.email)
     )
   order by b.name;
 $$;
