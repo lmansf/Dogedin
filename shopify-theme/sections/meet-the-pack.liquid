@@ -1,0 +1,78 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<h2 class="h1" style="margin:0 0 0.4rem;">Meet the pack 🐕</h2>
+<p style="margin:0 0 1.6rem;">The newest registered dogs of Dunedin — live from the community.</p>
+<div id="dgd-pack" style="display:flex;gap:1.6rem;overflow-x:auto;padding-bottom:1rem;scroll-snap-type:x mandatory;"></div>
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var mount = document.getElementById("dgd-pack");
+    D.rpc("pack_dogs", { p_sort: "recent", p_limit: {{ section.settings.limit }} }).then(function (rows) {
+      if (!rows || !rows.length) { mount.parentElement.style.display = "none"; return; }
+      mount.innerHTML = rows.map(function (d) {
+        var img = d.photo_path ? '<img src="' + esc(D.photoUrl(d.photo_path)) + '" alt="' + esc(d.dog_name) + '" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-bottom:0.25rem solid rgb(var(--color-foreground));">' : '<div style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:4rem;border-bottom:0.25rem solid rgb(var(--color-foreground));">🐶</div>';
+        return '<a href="https://dogedin.com/dog/' + encodeURIComponent(d.slug) + '" target="_blank" rel="noopener" style="scroll-snap-align:start;flex:0 0 22rem;text-decoration:none;color:rgb(var(--color-foreground));border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));">' + img +
+          '<div style="padding:1rem 1.2rem;"><h3 style="margin:0;font-size:1.7rem;">' + esc(d.dog_name) + "</h3>" +
+          '<p style="margin:0.2rem 0 0;opacity:0.75;">' + esc(d.breed || "Very good dog") + "</p>" +
+          '<p style="margin:0.4rem 0 0;font-weight:800;">🐾 ' + (Number(d.paw_count) || 0) + "</p></div></a>";
+      }).join("");
+    }).catch(function () { mount.parentElement.style.display = "none"; });
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Meet the pack (Supabase)",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "range",
+      "id": "limit",
+      "min": 4,
+      "max": 16,
+      "step": 1,
+      "label": "Dogs to show",
+      "default": 8
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Meet the pack (Supabase)"
+    }
+  ]
+}
+{% endschema %}

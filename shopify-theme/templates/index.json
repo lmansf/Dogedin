@@ -172,10 +172,20 @@
         "padding_bottom": 52
       }
     },
-    "ad_spotlight": {
-      "type": "ad-spotlight",
+    "meet_the_pack": {
+      "type": "meet-the-pack",
       "settings": {
-        "placement": "home_feed",
+        "limit": 8,
+        "color_scheme": "scheme-1",
+        "padding_top": 36,
+        "padding_bottom": 12
+      }
+    },
+    "ad_live": {
+      "type": "ad-slot-live",
+      "settings": {
+        "slot": "shop_home_feed",
+        "placement": "banner",
         "label": "Local partner",
         "color_scheme": "scheme-2",
         "padding_top": 36,
@@ -185,8 +195,9 @@
   },
   "order": [
     "hero",
+    "meet_the_pack",
     "featured_collection",
-    "ad_spotlight",
+    "ad_live",
     "brand_story",
     "registry_callout"
   ]

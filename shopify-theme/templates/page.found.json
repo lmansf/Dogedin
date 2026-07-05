@@ -7,17 +7,17 @@
         "padding_bottom": 4
       }
     },
-    "inquiry": {
-      "type": "ad-inquiry",
+    "lookup": {
+      "type": "lost-dog-lookup",
       "settings": {
         "color_scheme": "scheme-1",
-        "padding_top": 8,
+        "padding_top": 12,
         "padding_bottom": 48
       }
     }
   },
   "order": [
     "main",
-    "inquiry"
+    "lookup"
   ]
 }
