@@ -48,11 +48,13 @@ export default async function AdvertisePage({
       {paid === "1" && (
         <div className="border-[3px] border-black bg-[var(--green)] p-4 text-center shadow-hard">
           <p className="font-display text-xl font-extrabold text-[var(--sand)]">
-            🎉 Payment received — your ad is live!
+            🎉 Payment received — hang tight!
           </p>
           <p className="mt-1 text-sm font-bold text-[var(--sand)]/90">
-            It starts showing on its first booked day and stops after the last —
-            no further action needed. Thanks for supporting the pack!
+            Your ad goes live within a minute — it takes a moment for the payment
+            to confirm — or on your first booked day if you scheduled it ahead. It
+            then runs through your last day and switches off on its own. Nothing
+            more to do — thanks for supporting the pack! 🐾
           </p>
         </div>
       )}
