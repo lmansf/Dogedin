@@ -408,6 +408,8 @@ alter table public.advertisers add column if not exists mobile_image_url text;  
 alter table public.advertisers add column if not exists contact_email text;      -- applicant email for form-submitted ads
 alter table public.advertisers add column if not exists paid_at timestamptz;     -- set by the Stripe webhook when an ad is paid
 alter table public.advertisers add column if not exists stripe_payment_ref text; -- Stripe payment_intent / session id for the payment
+alter table public.advertisers add column if not exists moderation_status text;  -- 'approved' when a self-serve creative passed Claude auto-moderation (/advertise)
+alter table public.advertisers add column if not exists refunded_at timestamptz; -- set when an admin refunds a paid ad from /admin/ads
 alter table public.advertisers add column if not exists status public.ad_status;
 -- Backfill legacy rows created before the state machine: whatever was live
 -- becomes 'active', the rest 'disabled'. Idempotent — only null-status rows are

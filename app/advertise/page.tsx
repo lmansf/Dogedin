@@ -37,9 +37,33 @@ const AD_FREE = [
   { path: "Registration & account pages", why: "people trusting us with their details" },
 ];
 
-export default function AdvertisePage() {
+export default async function AdvertisePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ paid?: string; canceled?: string }>;
+}) {
+  const { paid, canceled } = await searchParams;
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-8">
+      {paid === "1" && (
+        <div className="border-[3px] border-black bg-[var(--green)] p-4 text-center shadow-hard">
+          <p className="font-display text-xl font-extrabold text-[var(--sand)]">
+            🎉 Payment received — your ad is live!
+          </p>
+          <p className="mt-1 text-sm font-bold text-[var(--sand)]/90">
+            It starts showing on its first booked day and stops after the last —
+            no further action needed. Thanks for supporting the pack!
+          </p>
+        </div>
+      )}
+      {canceled === "1" && (
+        <div className="border-[3px] border-black bg-[var(--gold)]/30 p-4 text-center shadow-hard">
+          <p className="text-sm font-black uppercase tracking-wide">
+            Checkout canceled — your ad hasn&apos;t run and you weren&apos;t
+            charged. Finish the form below whenever you&apos;re ready.
+          </p>
+        </div>
+      )}
       <section className="relative overflow-hidden border-[3px] border-black bg-[var(--navy)] p-6 shadow-hard-lg md:p-8">
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">
