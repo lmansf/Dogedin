@@ -33,7 +33,7 @@ Until then, production now shows a "shop opening soon" state instead of fake ite
 ## 4. Destination email for business/ad applications + email delivery
 
 Submissions already land safely in the database (nothing is lost), and we added `/admin/inquiries` so you can see every advertise-form lead. But **email notifications are off** until:
-1. You confirm the destination address (current default in code: `dogedin.com@gmail.com` — is that right, or should it be another inbox?).
+1. You set the destination inbox: `supabase secrets set AD_INQUIRY_NOTIFY_EMAIL=you@example.com` (no default — without it the team notification is skipped; inquiries still land in `ad_inquiries`).
 2. A (free-tier) **Resend** API key is created and set as a Supabase function secret: `supabase secrets set RESEND_API_KEY=... AD_INQUIRY_NOTIFY_EMAIL=you@example.com`, and the `notify-ad-inquiry` function is deployed (`supabase functions deploy notify-ad-inquiry`).
 We can do step 2 if you give us access or run two commands we send you.
 

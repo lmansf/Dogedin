@@ -6,6 +6,10 @@
 // ad-appropriate policy, and it only reports a verdict (approved/rejected); the
 // caller owns creating the advertiser row + checkout. Fails loud (non-200) so
 // the caller can fall back to manual review rather than silently auto-approving.
+//
+// It logs each step (visible in the Supabase function logs) so a stuck
+// "everything goes to manual review" is diagnosable: whether the key reached
+// the runtime, whether the image fetched, and the exact Anthropic status/model.
 import {
   corsHeaders,
   isServiceRole,
@@ -39,32 +43,47 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   // Only the server (self-serve ad flow) calls this, with the service role.
-  if (!isServiceRole(req)) return json(401, { error: "Service role required" });
+  if (!isServiceRole(req)) {
+    console.error("moderate-ad: rejected — caller is not the service role");
+    return json(401, { error: "Service role required" });
+  }
 
   const body = await req.json().catch(() => ({}));
   const imagePath = typeof body?.image_path === "string" ? body.image_path : "";
   if (!imagePath) return json(400, { error: "Missing image_path" });
 
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  console.log("moderate-ad: invoked", { imagePath, hasKey: Boolean(apiKey) });
+  if (!apiKey) {
+    console.error("moderate-ad: ANTHROPIC_API_KEY is not set in the function env");
+    return json(502, { error: "ANTHROPIC_API_KEY not set" });
+  }
+
   const base = Deno.env.get("SUPABASE_URL")!;
-  const imgRes = await fetch(
-    `${base}/storage/v1/object/public/${BUCKET}/${imagePath}`,
-  );
-  if (!imgRes.ok) return json(502, { error: "Couldn't fetch creative" });
+  const imgRes = await fetch(`${base}/storage/v1/object/public/${BUCKET}/${imagePath}`);
+  if (!imgRes.ok) {
+    console.error("moderate-ad: couldn't fetch creative", imgRes.status, imagePath);
+    return json(502, { error: `Couldn't fetch creative (${imgRes.status})` });
+  }
   const contentType = imgRes.headers.get("content-type") ?? "image/png";
   const bytes = new Uint8Array(await imgRes.arrayBuffer());
+
+  // Canonical dated id (a bare "claude-haiku-4-5" alias is not guaranteed to
+  // resolve); override with MODERATION_MODEL if the account needs a different one.
+  const model =
+    Deno.env.get("PHOTO_MODERATION_MODEL") ??
+    Deno.env.get("MODERATION_MODEL") ??
+    "claude-haiku-4-5-20251001";
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
-      "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!,
+      "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model:
-        Deno.env.get("PHOTO_MODERATION_MODEL") ??
-        Deno.env.get("MODERATION_MODEL") ??
-        "claude-haiku-4-5",
+      model,
       max_tokens: 10,
       system: SYSTEM,
       messages: [
@@ -84,6 +103,7 @@ Deno.serve(async (req) => {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
+    console.error("moderate-ad: Anthropic API error", res.status, model, detail.slice(0, 300));
     return json(502, { error: `Moderation unavailable: ${res.status} ${detail.slice(0, 200)}` });
   }
 
@@ -91,6 +111,7 @@ Deno.serve(async (req) => {
   const textBlock = (data.content ?? []).find((b: { type: string }) => b.type === "text");
   const verdict = textBlock?.text?.trim().toUpperCase() ?? "";
   const approved = data.stop_reason !== "refusal" && verdict.startsWith("APPROVED");
+  console.log("moderate-ad: verdict", { model, approved, raw: verdict, stop: data.stop_reason });
 
   return json(200, { verdict: approved ? "approved" : "rejected" });
 });

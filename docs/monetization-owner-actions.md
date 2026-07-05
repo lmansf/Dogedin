@@ -100,13 +100,73 @@ Guardrails, all built in:
   `🤖 auto-approved` marker.
 
 **Two owner steps to turn this on:**
-1. **Deploy the moderation function:** `supabase functions deploy moderate-ad`.
-   It reuses the same `ANTHROPIC_API_KEY` already set for photo moderation — no
-   new key. (Until it's deployed, self-serve applications simply fall back to the
-   manual review queue, no charge.)
+1. **Set `ANTHROPIC_API_KEY` in the app env (Vercel).** The creative check runs
+   inside the app now (same place as checkout — no Supabase Edge Function or
+   gateway auth to get right), so it needs the Anthropic key where the *site*
+   runs: add `ANTHROPIC_API_KEY` to Vercel and redeploy. (Until it's set,
+   self-serve applications fall back to the manual review queue, no charge. The
+   old `moderate-ad` edge function is no longer used by this flow — you can
+   ignore it.)
 2. Confirm the Stripe **webhook** (already used for paid ads/membership) is live
    and `STRIPE_SECRET_KEY` + `SUPABASE_SERVICE_ROLE_KEY` + `NEXT_PUBLIC_SITE_URL`
    are set — the same three the existing pay-link flow needs.
+
+## 8. Income avenues from anonymized data `[new — Business Insights + more]`
+
+Four avenues, all aggregate-only (no member PII is ever sold — see the privacy
+note below):
+
+**a) Business Insights subscription — the recurring one.** Every listing's
+engagement is now counted into `business_stats_daily` (views, website taps,
+calls, direction taps, offer unlocks — per business per day, no visitor
+identity). Businesses buy their own numbers as a monthly subscription
+(**$15/mo** default; `INSIGHTS_MONTHLY_CENTS` on the main site +
+`NEXT_PUBLIC_INSIGHTS_PRICE_LABEL` on the media-kit deployment to reprice) and
+view them in the **business portal at `<media-kit site>/portal`**:
+
+- A business signs in (or creates an account) with the **contact email on its
+  listing** (`businesses.owner_email`) — that's the ownership link. Site-wide
+  entry: the top-right **Sign in** chip → `/signin` (two doors: dog parents →
+  `/account`, businesses → the portal via `/portal`). One shared account
+  system.
+- **Free tier** (no card): real vanity numbers — 30-day listing views + review
+  count/average — with the lead metrics shown as locked cards. This is the
+  hook; upgrading is the same self-serve Stripe checkout.
+- **Insights tier** ($15/mo): website taps, calls, direction taps, offer
+  unlocks, daily trend, category benchmark + rank, lifetime totals — plus
+  **5 team seats**: the owner mints up to 4 single-use invite codes
+  (`PACK-XXXXXXXX`) in the portal; teammates create their own login and redeem.
+- **Admins (app_admins) see every listing in preview without paying** — that's
+  your demo mode.
+- Cancel/renewal-failure downgrades automatically via the Stripe webhook;
+  counting continues regardless, so history is intact if they re-subscribe.
+
+**b) Advertiser benchmark bundle (price support, already live).** Per-slot CTR
+benchmarks (media kit) + per-ad 30-day breakdowns (`/admin/ads`) justify the
+daily ad rates at renewal. Nothing to configure.
+
+**c) Public dashboard sponsorship.** The State-of-the-Pack dashboard now has a
+sold "Presented by ___" strip: set `NEXT_PUBLIC_SPONSOR_NAME` (+ optional
+`NEXT_PUBLIC_SPONSOR_URL`) on the public-analytics deployment and redeploy;
+unset = hidden. Suggested $50–100/mo.
+
+**d) Quarterly "Dunedin Dog Economy" report.** All numbers already exist via
+the media-kit RPCs + insights aggregates; `docs/dog-economy-report-template.md`
+is the outline. Sell as a sponsored PDF ($100–300/quarter) or use as ad-sales
+collateral.
+
+**Privacy line to publish** (put on the site's privacy/about page, keeps
+practice consistent with the "no tracking, no personal info" promise):
+
+> We count aggregate engagement on business listings (for example, how many
+> times a listing was viewed or its website link was tapped each day). These
+> counts contain no personal information and are shared only with that
+> business. We never sell names, emails, or any member data.
+
+**Owner steps for §8:** re-run `schema.sql`; set `BUSINESS_PORTAL_URL` (the
+media-kit URL) + optionally `INSIGHTS_MONTHLY_CENTS` on the main site; redeploy
+main site + media-kit. To connect a business to its owner: set the listing's
+contact email (`owner_email`) to the owner's login email.
 
 ---
 

@@ -9,6 +9,7 @@ import {
   adTotalCents,
   type AdPlacement,
 } from "@/lib/ads";
+import { moderateAdImage } from "@/lib/adModeration";
 
 const AD_CREATIVE_BUCKET = "ad-creatives";
 
@@ -62,17 +63,10 @@ export async function submitPaidAd(input: {
 
   const mobilePaths = [input.mobileImagePath].filter(Boolean) as string[];
 
-  // 1. Moderate the creative. Fails closed to manual review (never auto-live).
-  let verdict: string | null = null;
   try {
-    const { data, error } = await supabaseAdmin.functions.invoke("moderate-ad", {
-      body: { image_path: input.imagePath },
-    });
-    if (error) throw error;
-    verdict = (data as { verdict?: string } | null)?.verdict ?? null;
-  } catch {
-    verdict = null; // unavailable → manual fallback below
-  }
+  // 1. Moderate the creative in-process with Claude vision (no edge function /
+  // gateway auth to get wrong). Fails closed to manual review, never auto-live.
+  const verdict = await moderateAdImage(input.imageUrl);
 
   if (verdict === "rejected") {
     // Don't keep an inappropriate creative in the public bucket; nothing charged.
@@ -129,13 +123,27 @@ export async function submitPaidAd(input: {
       customer_email: input.email.trim() || undefined,
       // The webhook keys off this to activate the right ad on payment.
       metadata: { advertiser_id: row.id },
-      success_url: `${base}/advertise?paid=1`,
+      // session_id lets the return page confirm payment + activate directly,
+      // so the ad goes live even if the webhook is slow or misconfigured.
+      success_url: `${base}/advertise?paid=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/advertise?canceled=1`,
     });
     if (!session.url) return { error: "Stripe didn't return a checkout URL." };
     return { url: session.url };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Checkout failed." };
+  }
+  } catch (e) {
+    // Anything unexpected (a rejected Supabase/Storage call, a bad env, …)
+    // becomes a readable message instead of crashing the page. The detail helps
+    // diagnose; trim it to something generic once the flow is confirmed working.
+    console.error("submitPaidAd failed:", e);
+    return {
+      error:
+        "Couldn't set up your ad: " +
+        (e instanceof Error ? e.message : "unexpected error") +
+        ". Please try again, or use “Send an inquiry.”",
+    };
   }
 }
 

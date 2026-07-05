@@ -66,9 +66,18 @@ export default function BusinessSubmissionForm() {
         <p className="font-display text-xl font-extrabold text-[var(--sand)]">
           Thanks — we&apos;ll take a look! 🐾
         </p>
+        <p className="mt-2 text-sm font-bold text-[var(--sand)]">
+          📬 Check your email for a link to your personalized business
+          dashboard!
+        </p>
         <p className="mt-1 text-sm font-bold text-[var(--sand)]/90">
-          A Dogedin admin reviews every submission before it goes live. We&apos;ll
-          reach out at the email you gave us if we have questions.
+          Or head straight to{" "}
+          <a href="/portal" className="underline">
+            your dashboard
+          </a>{" "}
+          — sign in with the email you just gave us (same login as dogedin.com;
+          create the account if you don&apos;t have one yet). A Dogedin admin
+          reviews every submission before it goes live in the guide.
         </p>
       </div>
     );
@@ -91,7 +100,7 @@ export default function BusinessSubmissionForm() {
     if (!photo) return setError("A photo for the card is required.");
 
     startTransition(async () => {
-      const { error } = await submitBusiness({
+      const { error, businessId } = await submitBusiness({
         name,
         category,
         neighborhood,
@@ -107,6 +116,13 @@ export default function BusinessSubmissionForm() {
       });
       if (error) return setError(error);
       setSent(true);
+      // Best-effort welcome email with their portal link — the listing is
+      // already safely stored either way (one-shot via welcome_sent_at).
+      if (businessId) {
+        client.functions
+          .invoke("welcome-business", { body: { business_id: businessId } })
+          .catch(() => {});
+      }
     });
   };
 

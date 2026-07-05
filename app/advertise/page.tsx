@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import AdInquiryForm from "@/components/ads/AdInquiryForm";
 import { AD_LOCATIONS, AD_SPECS, AD_CREATIVE_TYPES, formatUsd } from "@/lib/ads";
+import { confirmAdPaymentBySession } from "@/lib/confirmAdPayment";
 
 export const metadata: Metadata = {
   title: "Advertise with Dogedin",
@@ -40,19 +41,26 @@ const AD_FREE = [
 export default async function AdvertisePage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string; canceled?: string }>;
+  searchParams: Promise<{ paid?: string; canceled?: string; session_id?: string }>;
 }) {
-  const { paid, canceled } = await searchParams;
+  const { paid, canceled, session_id } = await searchParams;
+  // Returning from a successful Checkout: verify the payment with Stripe and
+  // flip the ad live right now, so it doesn't depend on the webhook firing.
+  if (paid === "1" && session_id) {
+    await confirmAdPaymentBySession(session_id);
+  }
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-8">
       {paid === "1" && (
         <div className="border-[3px] border-black bg-[var(--green)] p-4 text-center shadow-hard">
           <p className="font-display text-xl font-extrabold text-[var(--sand)]">
-            🎉 Payment received — your ad is live!
+            🎉 Payment received — hang tight!
           </p>
           <p className="mt-1 text-sm font-bold text-[var(--sand)]/90">
-            It starts showing on its first booked day and stops after the last —
-            no further action needed. Thanks for supporting the pack!
+            Your ad goes live within a minute — it takes a moment for the payment
+            to confirm — or on your first booked day if you scheduled it ahead. It
+            then runs through your last day and switches off on its own. Nothing
+            more to do — thanks for supporting the pack! 🐾
           </p>
         </div>
       )}
