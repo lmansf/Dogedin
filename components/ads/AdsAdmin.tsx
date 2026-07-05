@@ -194,13 +194,23 @@ export default function AdsAdmin() {
       </div>
     );
 
+  const appliedCount = rows.filter((r) => r.status === "applied").length;
+
   return (
     <div className="flex flex-col gap-6">
-      <form
-        onSubmit={add}
-        className="flex flex-col gap-3 border-[3px] border-black bg-white p-5 shadow-hard"
-      >
-        <h2 className="font-display text-xl font-extrabold">Add advertiser</h2>
+      {/* Manual entry is now the exception — businesses apply through /advertise
+          with everything filled in, so this is collapsed by default. */}
+      <details className="border-[3px] border-black bg-white shadow-hard">
+        <summary className="cursor-pointer list-none p-4 font-display text-lg font-extrabold">
+          ➕ Add an ad manually{" "}
+          <span className="text-xs font-bold uppercase tracking-wide text-black/40">
+            (optional — applications come in ready to approve)
+          </span>
+        </summary>
+        <form
+          onSubmit={add}
+          className="flex flex-col gap-3 border-t-[3px] border-black p-5"
+        >
         <input
           className={input}
           placeholder="Business name"
@@ -283,9 +293,16 @@ export default function AdsAdmin() {
         >
           Add
         </button>
-      </form>
+        </form>
+      </details>
 
       <div className="flex flex-col gap-3">
+        <h2 className="font-display text-xl font-extrabold">Applications &amp; live ads</h2>
+        {appliedCount > 0 && (
+          <p className="border-2 border-black bg-[var(--gold)]/30 px-3 py-2 text-sm font-black">
+            🔔 {appliedCount} application{appliedCount === 1 ? "" : "s"} waiting for your yes / no
+          </p>
+        )}
         {rows.length === 0 && (
           <p className="text-sm font-bold text-black/50">No advertisers yet.</p>
         )}
@@ -392,7 +409,7 @@ export default function AdsAdmin() {
                     onClick={() => remove(r.id)}
                     className="text-xs font-bold uppercase tracking-wide text-[var(--red)] hover:underline"
                   >
-                    Delete
+                    {r.status === "applied" ? "Reject ✕" : "Delete"}
                   </button>
                 </div>
               </div>
