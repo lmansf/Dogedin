@@ -49,6 +49,25 @@ export async function POST(req: Request) {
           break;
         }
 
+        // Business Insights subscription: activate the business's insights row
+        // (see /api/insights/checkout). The portal RPCs gate on status='active'.
+        const bizId = s.metadata?.business_insights_id as string | undefined;
+        if (bizId) {
+          await supabaseAdmin.from("business_insights_subs").upsert(
+            {
+              business_id: bizId,
+              status: "active",
+              stripe_customer_id:
+                typeof s.customer === "string" ? s.customer : null,
+              stripe_subscription_id:
+                typeof s.subscription === "string" ? s.subscription : null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "business_id" }
+          );
+          break;
+        }
+
         const userId =
           (s.metadata?.supabase_user_id as string | undefined) ??
           (s.client_reference_id ?? undefined);
@@ -83,6 +102,17 @@ export async function POST(req: Request) {
               : sub.status === "past_due"
                 ? "past_due"
                 : "inactive";
+
+        // Business Insights subscription lifecycle (renewal failure, cancel):
+        // its own table, never the members flow below.
+        const bizSubId = sub.metadata?.business_insights_id as string | undefined;
+        if (bizSubId) {
+          await supabaseAdmin
+            .from("business_insights_subs")
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq("business_id", bizSubId);
+          break;
+        }
         // Prefer the user id from metadata, but fall back to matching the stored
         // subscription id so a cancellation still downgrades the member even if
         // the event lacks our metadata (dashboard edits, portal changes, etc.).
