@@ -905,6 +905,34 @@ language sql security definer stable set search_path = public as $$
 $$;
 grant execute on function public.dog_paw_count(uuid) to anon, authenticated;
 
+-- Public pack roster with profile-paw tallies, for the homepage "Meet the
+-- pack" carousel and the "Top of the pack" (most-pawed) rail. Reads the
+-- privilege-gated public view (never contact data) and left-joins the paw
+-- tally so a dog with zero paws still appears. p_sort = 'paws' ranks by paw
+-- count (ties broken by recency); anything else ('recent') is newest-first.
+-- No giver identity is ever exposed — only aggregate counts, same privacy bar
+-- as dog_paw_count(). id is returned so the client can give/remove a paw.
+create or replace function public.pack_dogs(p_sort text default 'recent', p_limit int default 12)
+returns table (
+  id uuid, slug text, dog_name text, breed text, bio text,
+  photo_path text, has_contact boolean, paw_count bigint
+)
+language sql security definer stable set search_path = public as $$
+  select
+    d.id, d.slug, d.dog_name, d.breed, d.bio, d.photo_path,
+    d.lost_contact_opt_in as has_contact,
+    coalesce(p.cnt, 0)::bigint as paw_count
+  from public.public_dog_profiles d
+  left join (
+    select dog_id, count(*) as cnt from public.dog_paws group by dog_id
+  ) p on p.dog_id = d.id
+  order by
+    case when p_sort = 'paws' then coalesce(p.cnt, 0) else 0 end desc,
+    d.created_at desc
+  limit greatest(p_limit, 0);
+$$;
+grant execute on function public.pack_dogs(text, int) to anon, authenticated;
+
 -- Comments (owner-to-owner communication on posts) were removed from v1 scope
 -- — friends + likes only for now. Drops any table from an earlier schema
 -- version so re-running this file converges even on a database that already

@@ -29,6 +29,20 @@ export type DogSearchResult = {
   hasContact: boolean;
 };
 
+// A pack-roster row: a public dog plus its profile-paw tally and real UUID
+// (so cards can render a live paw button). Powers both the "Meet the pack"
+// carousel and the "Top of the pack" most-pawed rail.
+export type PackDogRow = {
+  id: string;
+  slug: string;
+  dogName: string;
+  breed: string | null;
+  bio: string | null;
+  photoPath: string | null;
+  hasContact: boolean;
+  pawCount: number;
+};
+
 // Build the public URL for a stored dog photo. Storage bucket is public-read, so
 // this is a plain object URL (no signing). Returns null when there's no photo.
 export function dogPhotoUrl(path: string | null): string | null {
@@ -64,31 +78,47 @@ export async function getPublicDog(slug: string): Promise<PublicDog | null> {
   }
 }
 
-// Most recently registered dogs, for the homepage "Meet the pack" carousel.
-// Reads the public view (no contact data). Returns [] when Supabase is absent
-// or the pack is still empty — callers fall back to the mascot roster.
-export async function listRecentDogs(
-  limit = 8
-): Promise<(DogSearchResult & { bio: string | null })[]> {
+// Shared reader for the pack_dogs RPC (public view + paw tallies, no contact
+// data). sort='paws' ranks by profile-paw count; 'recent' is newest-first.
+// Returns [] when Supabase is absent or the pack is still empty — carousel
+// callers fall back to the mascot roster.
+async function fetchPackDogs(
+  sort: "recent" | "paws",
+  limit: number
+): Promise<PackDogRow[]> {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from("public_dog_profiles")
-      .select("slug, dog_name, breed, bio, photo_path, lost_contact_opt_in")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    const { data, error } = await supabase.rpc("pack_dogs", {
+      p_sort: sort,
+      p_limit: limit,
+    });
     if (error || !data) return [];
-    return data.map((d) => ({
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    return (data as any[]).map((d) => ({
+      id: d.id,
       slug: d.slug,
       dogName: d.dog_name,
       breed: d.breed,
       bio: d.bio ?? null,
       photoPath: d.photo_path,
-      hasContact: d.lost_contact_opt_in,
+      hasContact: d.has_contact,
+      pawCount: Number(d.paw_count) || 0,
     }));
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   } catch {
     return [];
   }
+}
+
+// Most recently registered dogs, for the homepage "Meet the pack" carousel.
+export function listRecentDogs(limit = 8): Promise<PackDogRow[]> {
+  return fetchPackDogs("recent", limit);
+}
+
+// Most-pawed dogs, for the homepage "Top of the pack" rail and any
+// popularity surface. Ties break toward the newest dog.
+export function listTopPawedDogs(limit = 8): Promise<PackDogRow[]> {
+  return fetchPackDogs("paws", limit);
 }
 
 // Every public profile slug, for the sitemap. Reads the same public view as

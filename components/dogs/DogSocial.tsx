@@ -28,7 +28,6 @@ import {
   validatePhoto,
   type DogPost,
 } from "@/lib/dogPosts";
-import { getDogPawCount, hasPawedDog, toggleDogPaw } from "@/lib/dogPaws";
 import PhotoPicker from "@/components/PhotoPicker";
 
 // Friends + paws + photo feed for a dog's public profile. Anonymous visitors
@@ -60,25 +59,20 @@ export default function DogSocial({
   const [ownPosts, setOwnPosts] = useState<DogPost[]>([]);
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [myLikedIds, setMyLikedIds] = useState<Set<string>>(new Set());
-  const [pawCount, setPawCount] = useState(0);
-  const [pawed, setPawed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const amOwner = mine.some((d) => d.id === dogId);
 
   const load = useCallback(async () => {
-    const [approved, paws] = await Promise.all([listApprovedPosts(dogId), getDogPawCount(dogId)]);
+    const approved = await listApprovedPosts(dogId);
     setPosts(approved);
-    setPawCount(paws);
     setLikes(await likeCounts(approved.map((p) => p.id)));
 
     if (!user) {
       setMine([]);
       setFriends([]);
-      setPawed(false);
       return;
     }
-    setPawed(await hasPawedDog(dogId));
     const dogs = await myDogs();
     setMine(dogs);
     setActingDogId((prev) => prev ?? dogs.find((d) => d.id !== dogId)?.id ?? dogs[0]?.id ?? null);
@@ -136,20 +130,6 @@ export default function DogSocial({
     load();
   };
 
-  // Optimistic profile-paw toggle (one per signed-in user; see lib/dogPaws.ts).
-  const doTogglePaw = async () => {
-    if (!user) return;
-    const was = pawed;
-    setPawed(!was);
-    setPawCount((c) => Math.max(0, c + (was ? -1 : 1)));
-    const { error } = await toggleDogPaw(dogId, was);
-    if (error) {
-      setPawed(was);
-      setPawCount((c) => Math.max(0, c + (was ? 1 : -1)));
-      setNotice(`Couldn't update paw: ${error}`);
-    }
-  };
-
   const doToggleLike = async (post: DogPost) => {
     if (!actingDogId) return;
     const liked = myLikedIds.has(post.id);
@@ -166,15 +146,6 @@ export default function DogSocial({
 
   return (
     <div className="flex flex-col gap-6">
-      <ProfilePawPanel
-        dogName={dogName}
-        count={pawCount}
-        pawed={pawed}
-        canPaw={configured && !!user}
-        signedOut={configured && !user}
-        onToggle={doTogglePaw}
-      />
-
       {/* The friends LIST is private to the dog's owner. Signed-in visitors
           still get friend-request actions for their own edge with this dog. */}
       {amOwner && <FriendsPanel friends={friends} />}
@@ -230,8 +201,10 @@ export default function DogSocial({
       ) : (
         !user &&
         configured && (
-          <div className="border-2 border-black bg-white p-4">
-            <AuthPanel intro={`Sign in to friend ${dogName} and give their photos a paw.`} />
+          <div id="join" className="border-2 border-black bg-white p-4">
+            <AuthPanel
+              intro={`Sign in to give ${dogName} a paw, add them as a friend, and paw their photos.`}
+            />
           </div>
         )
       )}
@@ -363,51 +336,6 @@ function FriendActions({
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-// Profile-level paw tally (dog_paws): one per signed-in user, clearly
-// separate from the per-photo paws on each PostCard below.
-function ProfilePawPanel({
-  dogName,
-  count,
-  pawed,
-  canPaw,
-  signedOut,
-  onToggle,
-}: {
-  dogName: string;
-  count: number;
-  pawed: boolean;
-  canPaw: boolean;
-  signedOut: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
-      <div className="min-w-0">
-        <h2 className="font-display text-lg font-extrabold">Profile paws</h2>
-        <p className="mt-0.5 text-xs text-black/50">
-          {signedOut
-            ? `Sign in below to give ${dogName} a paw.`
-            : "One per person — photo paws count separately."}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={!canPaw}
-        aria-pressed={pawed}
-        aria-label={
-          pawed ? `Remove your paw from ${dogName}'s profile` : `Give ${dogName}'s profile a paw`
-        }
-        className={`border-[3px] border-black px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform enabled:hover:-translate-y-0.5 disabled:opacity-40 ${
-          pawed ? "bg-[var(--coral)] text-white" : "bg-white text-black/60"
-        }`}
-      >
-        🐾 {count}
-      </button>
     </div>
   );
 }
