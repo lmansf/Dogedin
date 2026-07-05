@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AdInquiryForm from "@/components/ads/AdInquiryForm";
+import { AD_LOCATIONS, AD_SPECS, AD_CREATIVE_TYPES } from "@/lib/ads";
 
 export const metadata: Metadata = {
   title: "Advertise with Dogedin",
@@ -7,26 +8,28 @@ export const metadata: Metadata = {
     "Put your Dunedin, FL business in front of the town's dog people — tasteful, clearly labelled spots with honest monthly reporting.",
 };
 
-const SLOTS = [
-  {
+// Per-location marketing copy (emoji + pitch), keyed by the location id in
+// lib/ads.ts so the dimensions/specs come from the single source of truth and
+// can never drift from what the form actually enforces.
+const PITCH: Record<string, { emoji: string; why: string }> = {
+  home_feed: {
     emoji: "🏠",
-    name: "Homepage spotlight",
-    where: "A banner between the community sections on the front page",
     why: "The whole pack passes through here — broadest reach in town.",
   },
-  {
+  home_ribbon: {
+    emoji: "🎗",
+    why: "A slim strip up top — always in view as people land on the site.",
+  },
+  ttd_grid: {
     emoji: "🗺",
-    name: "Local guide featured spot",
-    where: "A native card inside the Things-to-do grid, styled like the guide itself",
     why: "Shown to people actively planning where to eat, drink and play with their dog.",
   },
-  {
-    emoji: "📅",
-    name: "Events week sponsor (coming soon)",
-    where: "A banner under the town's dog events calendar, once it launches",
-    why: "Reaches people building their weekend plans. Not for sale until the calendar is live.",
-  },
-];
+};
+
+// Human-readable file formats (image/jpeg → JPG …) for the spec sheet.
+const FORMATS = AD_CREATIVE_TYPES.map((t) => t.split("/")[1].toUpperCase())
+  .join(" / ")
+  .replace("JPEG", "JPG");
 
 const AD_FREE = [
   { path: "Lost-dog lookup & dog profiles", why: "a scared finder or worried owner should never see an ad" },
@@ -55,20 +58,73 @@ export default function AdvertisePage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-display text-2xl font-extrabold">The spots</h2>
-        {SLOTS.map((s) => (
-          <div
-            key={s.name}
-            className="flex items-start gap-4 border-[3px] border-black bg-white p-4 shadow-hard"
-          >
-            <span className="text-3xl">{s.emoji}</span>
-            <div>
-              <h3 className="font-display text-lg font-extrabold">{s.name}</h3>
-              <p className="text-sm font-semibold text-black/70">{s.where}</p>
-              <p className="mt-1 text-sm text-black/60">{s.why}</p>
+        <h2 className="font-display text-2xl font-extrabold">
+          The spots &amp; their graphics specs
+        </h2>
+        <p className="text-sm text-black/60">
+          Build your artwork to the exact size below and it&apos;ll be accepted
+          on the form and drop straight into rotation once we approve it.
+          Everything is {FORMATS}.
+        </p>
+
+        {AD_LOCATIONS.map((loc) => {
+          const spec = AD_SPECS[loc.placement];
+          const pitch = PITCH[loc.id];
+          return (
+            <div
+              key={loc.id}
+              className="flex items-start gap-4 border-[3px] border-black bg-white p-4 shadow-hard"
+            >
+              <span className="text-3xl" aria-hidden>
+                {pitch?.emoji ?? "📢"}
+              </span>
+              <div className="min-w-0">
+                <h3 className="font-display text-lg font-extrabold">{loc.name}</h3>
+                <p className="text-sm font-semibold text-black/70">{loc.where}</p>
+                {pitch?.why && (
+                  <p className="mt-1 text-sm text-black/60">{pitch.why}</p>
+                )}
+                {/* The dimension helper the businesses need. */}
+                <dl className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                  <SpecChip label="Size" value={`${spec.width} × ${spec.height} px`} />
+                  {spec.mobile && (
+                    <SpecChip
+                      label="Mobile"
+                      value={`${spec.mobile.width} × ${spec.mobile.height} px`}
+                    />
+                  )}
+                  <SpecChip label="Format" value={FORMATS} />
+                  <SpecChip
+                    label="Max size"
+                    value={`${Math.round(spec.maxBytes / 1024)} KB`}
+                  />
+                </dl>
+              </div>
             </div>
+          );
+        })}
+
+        {/* Not-yet-purchasable — kept here so businesses know it's coming. */}
+        <div className="flex items-start gap-4 border-[3px] border-dashed border-black/40 bg-white/60 p-4">
+          <span className="text-3xl" aria-hidden>
+            📅
+          </span>
+          <div>
+            <h3 className="font-display text-lg font-extrabold">
+              Events week sponsor{" "}
+              <span className="text-sm font-bold text-black/40">(coming soon)</span>
+            </h3>
+            <p className="text-sm font-semibold text-black/70">
+              A banner under the town&apos;s dog events calendar, once it launches.
+            </p>
+            <p className="mt-1 text-sm text-black/60">
+              Reaches people building their weekend plans. Not for sale until the
+              calendar is live — same banner size ({AD_SPECS.banner.width} ×{" "}
+              {AD_SPECS.banner.height} px) when it opens.
+            </p>
           </div>
-        ))}
+        </div>
+
         <p className="border-2 border-black bg-[var(--gold)]/25 px-3 py-2 text-sm font-bold">
           Simple flat monthly pricing, one advertiser per spot at a time, and an
           honest monthly report: how many neighbours actually saw your ad (we
@@ -98,6 +154,16 @@ export default function AdvertisePage() {
       </section>
 
       <AdInquiryForm />
+    </div>
+  );
+}
+
+// A labelled spec value, e.g. "Size · 728 × 90 px".
+function SpecChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-1 border-2 border-black bg-[var(--sand)] px-2 py-1">
+      <dt className="uppercase tracking-wide text-black/50">{label}</dt>
+      <dd className="text-black">{value}</dd>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import PhotoPicker from "@/components/PhotoPicker";
 import {
   AD_CREATIVE_BUCKET,
   AD_CREATIVE_TYPES,
+  AD_LOCATIONS,
   AD_SPECS,
   validateAdCreative,
   type AdPlacement,
@@ -209,15 +210,15 @@ export default function AdInquiryForm() {
         </legend>
 
         <label className="flex flex-col gap-1 text-xs font-extrabold uppercase tracking-wide text-black/60">
-          Placement
+          Which spot?
           <select
             className={input}
             value={placement}
             onChange={(e) => changePlacement(e.target.value as AdPlacement)}
           >
-            {(Object.keys(AD_SPECS) as AdPlacement[]).map((p) => (
-              <option key={p} value={p}>
-                {AD_SPECS[p].label} — {AD_SPECS[p].blurb}
+            {AD_LOCATIONS.map((loc) => (
+              <option key={loc.id} value={loc.placement}>
+                {loc.name} — {loc.where}
               </option>
             ))}
           </select>
