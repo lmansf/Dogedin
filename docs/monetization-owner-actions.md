@@ -75,9 +75,38 @@ These features added columns/policies/a bucket to Supabase. Re-run the updated
 `supabase/schema.sql` once against production (idempotent — validated by running
 it twice against a scratch Postgres 16). It adds: the ad state machine
 (`placement`/`status` on `advertisers`, the apply-from-form RLS policy, the
-`ad-creatives` storage bucket) and keeps the public ad view/RPCs gated on the
-new `active` status. Everything else (review ranking, permalinks, the linking
-engine) is pure app code and needs nothing.
+`ad-creatives` storage bucket), the `moderation_status`/`refunded_at` columns
+for self-serve ads, per-placement daily pricing (app-side), and keeps the public
+ad view/RPCs gated on the new `active` status. Everything else (review ranking,
+permalinks, the linking engine) is pure app code and needs nothing.
+
+## 7. Self-serve ads: pay-during-application + auto-approval `[new]`
+
+A business can now run an ad end-to-end with no admin step: on `/advertise` they
+pick a spot + dates, upload a spec-correct creative, and hit **Pay & go live**.
+The creative is checked by **Claude** for appropriateness; if it passes, they go
+straight to **Stripe Checkout**, and paying flips the ad live automatically
+(within its booked dates). Pricing is the per-placement **daily rate × days**
+(see §2 / `lib/ads.ts` — Ribbon $6, Homepage banner $4, Local-guide card $3 per
+day; change a number there to reprice everything).
+
+Guardrails, all built in:
+- **Moderation is the gate.** Inappropriate creatives are rejected before any
+  charge. If Claude is briefly unavailable it **fails closed** — the ad drops to
+  the manual `applied` queue and the business is *not* charged (never an
+  auto-charge/auto-publish of an unreviewed ad).
+- **Admin control is post-hoc**, in `/admin/ads`: **Pause ⏸** (reversible) and
+  **Refund 💸** (full Stripe refund + takedown). Paid self-serve ads show a
+  `🤖 auto-approved` marker.
+
+**Two owner steps to turn this on:**
+1. **Deploy the moderation function:** `supabase functions deploy moderate-ad`.
+   It reuses the same `ANTHROPIC_API_KEY` already set for photo moderation — no
+   new key. (Until it's deployed, self-serve applications simply fall back to the
+   manual review queue, no charge.)
+2. Confirm the Stripe **webhook** (already used for paid ads/membership) is live
+   and `STRIPE_SECRET_KEY` + `SUPABASE_SERVICE_ROLE_KEY` + `NEXT_PUBLIC_SITE_URL`
+   are set — the same three the existing pay-link flow needs.
 
 ---
 

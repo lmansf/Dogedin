@@ -15,6 +15,7 @@ import {
   type AdStatus,
 } from "@/lib/ads";
 import { createAdCheckoutSession } from "@/app/admin/ads/actions";
+import { refundAd } from "@/app/advertise/actions";
 
 type Row = {
   id: string;
@@ -30,6 +31,8 @@ type Row = {
   active: boolean;
   paid_at: string | null;
   stripe_payment_ref: string | null;
+  moderation_status: string | null;
+  refunded_at: string | null;
   starts_at: string | null;
   ends_at: string | null;
   impressions: number;
@@ -99,7 +102,7 @@ export default function AdsAdmin() {
       supabase
         .from("advertisers")
         .select(
-          "id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement, status, contact_email, active, paid_at, stripe_payment_ref, starts_at, ends_at, impressions, clicks"
+          "id, business_name, tagline, image_url, mobile_image_url, link_url, weight, placement, status, contact_email, active, paid_at, stripe_payment_ref, moderation_status, refunded_at, starts_at, ends_at, impressions, clicks"
         )
         .order("created_at", { ascending: false }),
       supabase
@@ -175,6 +178,19 @@ export default function AdsAdmin() {
     if (!supabase) return;
     if (!confirm("Delete this advertiser?")) return;
     await supabase.from("advertisers").delete().eq("id", id);
+    load();
+  };
+
+  // Refund a paid ad's Stripe payment in full and take it down (server verifies
+  // admin + moves the money; see app/advertise/actions.ts).
+  const refund = async (id: string) => {
+    if (!supabase) return;
+    if (!confirm("Refund this ad's payment in full and take it down?")) return;
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return alert("Session expired — sign in again.");
+    const res = await refundAd({ accessToken: token, advertiserId: id });
+    if ("error" in res) alert(res.error);
     load();
   };
 
@@ -405,7 +421,7 @@ export default function AdsAdmin() {
                       onClick={() => setStatus(r.id, "disabled")}
                       className={actionBtn}
                     >
-                      Disable ⏸
+                      Pause ⏸
                     </button>
                   )}
                   <button
@@ -418,13 +434,27 @@ export default function AdsAdmin() {
                 </div>
               </div>
 
-              {/* Stripe pay link: generate one for an approved ad; paying it
-                  auto-activates the ad via the webhook. Shows a paid marker once
-                  Stripe has confirmed payment. */}
-              {r.paid_at ? (
-                <p className="border-t-2 border-dashed border-black/15 pt-2 text-xs font-black uppercase tracking-wide text-[var(--green)]">
-                  💳 Paid {r.paid_at.slice(0, 10)}
+              {/* Payment state. A self-serve ad arrives already paid + live
+                  (Claude-moderated); an admin-created ad gets a pay link here.
+                  Paid ads can be refunded (money back + taken down). */}
+              {r.refunded_at ? (
+                <p className="border-t-2 border-dashed border-black/15 pt-2 text-xs font-black uppercase tracking-wide text-black/50">
+                  ↩︎ Refunded {r.refunded_at.slice(0, 10)}
                 </p>
+              ) : r.paid_at ? (
+                <div className="flex flex-wrap items-center gap-3 border-t-2 border-dashed border-black/15 pt-2">
+                  <span className="text-xs font-black uppercase tracking-wide text-[var(--green)]">
+                    💳 Paid {r.paid_at.slice(0, 10)}
+                    {r.moderation_status === "approved" && " · 🤖 auto-approved"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => refund(r.id)}
+                    className="text-xs font-bold uppercase tracking-wide text-[var(--red)] hover:underline"
+                  >
+                    Refund 💸
+                  </button>
+                </div>
               ) : (
                 r.status === "approved" && (
                   <AdPayLink

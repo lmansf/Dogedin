@@ -15,6 +15,7 @@ import {
   validateAdCreative,
   type AdPlacement,
 } from "@/lib/ads";
+import { submitPaidAd } from "@/app/advertise/actions";
 
 // Inquiry + ad application form for local businesses who want a slot. Always
 // writes a lead to ad_inquiries (anyone may insert; only admins read). If the
@@ -39,6 +40,7 @@ export default function AdInquiryForm() {
   const [creativeError, setCreativeError] = useState<string | null>(null);
 
   const [sent, setSent] = useState(false);
+  const [queued, setQueued] = useState(false); // paid path fell back to manual review
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -58,8 +60,8 @@ export default function AdInquiryForm() {
           Got it — we&apos;ll be in touch! 🐾
         </p>
         <p className="mt-1 text-sm font-bold text-[var(--sand)]/90">
-          {creative
-            ? "Your ad is in the queue for review — we'll confirm placement and payment before it goes live."
+          {queued
+            ? "We couldn't auto-review your ad just now, so a human will check it and email you a secure payment link. You weren't charged."
             : "Thanks for supporting Dunedin's dog community."}
         </p>
       </div>
@@ -103,17 +105,75 @@ export default function AdInquiryForm() {
     if (!client) return;
     if (!businessName.trim() || !contactName.trim() || !email.trim())
       return setError("Business, contact name and email are required.");
-    if (creative && !/^https?:\/\//i.test(linkUrl.trim()))
-      return setError(
-        "Add the destination link (https://…) your ad should click through to."
-      );
-    if (startsAt && endsAt && endsAt < startsAt)
-      return setError("The end date can't be before the start date.");
+    // ---- Self-serve paid ad: a creative is attached. Upload it, then hand off
+    // to the server, which moderates it and (if clean) returns a Stripe
+    // Checkout link. Paying makes it live automatically — no admin approval. ----
+    if (creative) {
+      if (!/^https?:\/\/\S+/i.test(linkUrl.trim()))
+        return setError(
+          "Add the destination link (https://…) your ad should click through to."
+        );
+      if (!startsAt || !endsAt || runDays < 1)
+        return setError(
+          "Pick the dates your ad should run (end on or after the start)."
+        );
 
+      startTransition(async () => {
+        const upload = async (
+          file: File
+        ): Promise<{ path: string; url: string } | null> => {
+          const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+          const path = `${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await client.storage
+            .from(AD_CREATIVE_BUCKET)
+            .upload(path, file, { contentType: file.type, upsert: false });
+          if (upErr) return null;
+          const url = client.storage
+            .from(AD_CREATIVE_BUCKET)
+            .getPublicUrl(path).data.publicUrl;
+          return { path, url };
+        };
+
+        const primary = await upload(creative);
+        if (!primary)
+          return setError("The creative upload failed — please try again.");
+        const mobile = mobileCreative ? await upload(mobileCreative) : null;
+
+        const res = await submitPaidAd({
+          businessName,
+          contactName,
+          email,
+          placement,
+          linkUrl,
+          startsAt,
+          endsAt,
+          imagePath: primary.path,
+          imageUrl: primary.url,
+          mobileImagePath: mobile?.path ?? null,
+          mobileImageUrl: mobile?.url ?? null,
+        });
+
+        if ("url" in res) {
+          window.location.href = res.url; // to Stripe Checkout
+          return;
+        }
+        if ("rejected" in res)
+          return setError(
+            "Your creative wasn't approved for our family-friendly guidelines. Adjust it and try again — you weren't charged."
+          );
+        if ("queued" in res) {
+          setQueued(true);
+          setSent(true);
+          return;
+        }
+        return setError(res.error);
+      });
+      return;
+    }
+
+    // ---- Just saying hello (no creative): store a lead for the team. ----
     startTransition(async () => {
-      // 1. Store the lead first — it's the thing we must never lose, and the
-      // notify function keys off this row. Id is minted client-side because
-      // anon can't read the row back to get a returned id.
+      // Id is minted client-side because anon can't read the row back for one.
       const inquiryId = crypto.randomUUID();
       const { error: inqErr } = await client.from("ad_inquiries").insert({
         id: inquiryId,
@@ -123,52 +183,6 @@ export default function AdInquiryForm() {
         message: message.trim().slice(0, 2000) || null,
       });
       if (inqErr) return setError("Couldn't send that — please try again.");
-
-      // 2. If a creative was attached, upload it and create an applied ad.
-      if (creative) {
-        const upload = async (file: File): Promise<string | null> => {
-          const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-          const path = `${crypto.randomUUID()}.${ext}`;
-          const { error: upErr } = await client.storage
-            .from(AD_CREATIVE_BUCKET)
-            .upload(path, file, { contentType: file.type, upsert: false });
-          if (upErr) return null;
-          return client.storage.from(AD_CREATIVE_BUCKET).getPublicUrl(path).data
-            .publicUrl;
-        };
-
-        const imageUrl = await upload(creative);
-        if (!imageUrl) {
-          // The lead is safely stored; just tell them the image part failed.
-          return setError(
-            "Your message was sent, but the creative upload failed — please email it to us."
-          );
-        }
-        const mobileUrl = mobileCreative ? await upload(mobileCreative) : null;
-
-        // status is forced to 'applied' by RLS; set it explicitly so intent is
-        // clear. active:false so nothing renders until an admin activates it.
-        const { error: adErr } = await client.from("advertisers").insert({
-          business_name: businessName.trim().slice(0, 120),
-          image_url: imageUrl,
-          mobile_image_url: mobileUrl,
-          link_url: linkUrl.trim(),
-          placement,
-          // The dates the business asked the ad to run — the admin sees these on
-          // the application and just approves; nothing to re-enter.
-          starts_at: startsAt || null,
-          ends_at: endsAt || null,
-          status: "applied",
-          active: false,
-          weight: 1,
-          contact_email: email.trim().slice(0, 120),
-        });
-        if (adErr)
-          return setError(
-            "Your message was sent, but we couldn't file the ad — we'll follow up by email."
-          );
-      }
-
       setSent(true);
       // Best-effort email nudge to the team — the lead is already stored.
       client.functions
@@ -325,8 +339,8 @@ export default function AdInquiryForm() {
             {runDays === 1 ? "" : "s"} ={" "}
             <strong className="font-black">{formatUsd(estimateCents)}</strong>
             <span className="mt-0.5 block text-[11px] font-normal text-black/50">
-              We&apos;ll send a secure payment link once we approve — pay then and
-              your ad goes live automatically.
+              Pay securely now — your ad goes live automatically as soon as the
+              creative passes a quick content check.
             </span>
           </p>
         )}
@@ -342,7 +356,13 @@ export default function AdInquiryForm() {
         disabled={pending}
         className="w-fit border-[3px] border-black bg-[var(--turq)] px-5 py-2 text-sm font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none disabled:opacity-50"
       >
-        {pending ? "Sending…" : creative ? "Submit ad application" : "Send inquiry"}
+        {pending
+          ? "One sec…"
+          : creative
+            ? runDays > 0
+              ? `Pay & go live · ${formatUsd(estimateCents)}`
+              : "Continue to payment"
+            : "Send inquiry"}
       </button>
     </form>
   );
