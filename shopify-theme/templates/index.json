@@ -191,12 +191,29 @@
         "padding_top": 36,
         "padding_bottom": 8
       }
+    },
+    "favorites_sponsor": {
+      "type": "ad-slot-live",
+      "settings": {
+        "slot": "shop_favorites_ribbon",
+        "placement": "ribbon",
+        "label": "Presented by",
+        "color_scheme": "scheme-1",
+        "padding_top": 8,
+        "padding_bottom": 0
+      }
+    },
+    "favorites_telemetry": {
+      "type": "favorites-telemetry",
+      "settings": {}
     }
   },
   "order": [
     "hero",
     "meet_the_pack",
+    "favorites_sponsor",
     "featured_collection",
+    "favorites_telemetry",
     "ad_live",
     "brand_story",
     "registry_callout"
