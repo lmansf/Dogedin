@@ -82,7 +82,8 @@
     },
     signOut() { localStorage.removeItem(LS); },
     getSession: getSession,
-    async select(path) { return rest("GET", path); },
+    async select(path, token) { return rest("GET", path, undefined, token); },
+    async del(path, token) { return rest("DELETE", path, undefined, token); },
     async insert(table, row, token) {
       return rest("POST", table, row, token, "return=minimal");
     },

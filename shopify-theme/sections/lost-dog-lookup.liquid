@@ -26,17 +26,17 @@
           (d.ownerPhone ? '📞 <a style="text-decoration:underline;color:inherit;" href="tel:' + esc(d.ownerPhone) + '">' + esc(d.ownerPhone) + "</a> " : "") +
           (d.ownerEmail ? '✉️ <a style="text-decoration:underline;color:inherit;" href="mailto:' + esc(d.ownerEmail) + '">' + esc(d.ownerEmail) + "</a>" : "") + "</p>";
       } else if (d.hasContact === false) {
-        contact = '<p style="margin:0.4rem 0 0;opacity:0.7;">Owner contact is private — view the profile on dogedin.com to learn more.</p>';
+        contact = '<p style="margin:0.4rem 0 0;opacity:0.7;">Owner contact is private — this pup&#39;s human chose not to share it.</p>';
       }
       return '<div style="display:flex;gap:1.4rem;align-items:center;border:0.25rem solid rgb(var(--color-foreground));padding:1.2rem;margin-bottom:1rem;background:rgb(var(--color-background));">' + img +
         '<div><h3 style="margin:0;font-size:1.8rem;">' + esc(d.dogName) + "</h3>" +
         (d.breed ? '<p style="margin:0.2rem 0 0;opacity:0.75;">' + esc(d.breed) + "</p>" : "") + contact +
-        '<p style="margin:0.4rem 0 0;"><a style="font-weight:800;text-decoration:underline;color:inherit;" href="https://dogedin.com/dog/' + encodeURIComponent(d.slug) + '" target="_blank" rel="noopener">Full profile →</a></p></div></div>';
+        (d.bio ? '<p style="margin:0.4rem 0 0;font-style:italic;opacity:0.85;">' + esc(d.bio) + "</p>" : "") + "</div></div>";
     }
     async function full(slug) {
-      var rows = await D.select("public_dog_profiles?select=slug,dog_name,breed,photo_path,lost_contact_opt_in,owner_phone,owner_email&slug=eq." + encodeURIComponent(slug));
+      var rows = await D.select("public_dog_profiles?select=slug,dog_name,breed,bio,photo_path,lost_contact_opt_in,owner_phone,owner_email&slug=eq." + encodeURIComponent(slug));
       var d = rows && rows[0]; if (!d) return null;
-      return { slug: d.slug, dogName: d.dog_name, breed: d.breed, photoPath: d.photo_path, hasContact: d.lost_contact_opt_in, ownerPhone: d.owner_phone, ownerEmail: d.owner_email };
+      return { slug: d.slug, dogName: d.dog_name, breed: d.breed, bio: d.bio, photoPath: d.photo_path, hasContact: d.lost_contact_opt_in, ownerPhone: d.owner_phone, ownerEmail: d.owner_email };
     }
     document.getElementById("dgd-find").addEventListener("submit", async function (ev) {
       ev.preventDefault();
@@ -52,7 +52,7 @@
           if (d) return;
         }
         var res = await D.rpc("search_dogs", { q: q });
-        if (!res || !res.length) { out.innerHTML = '<p style="font-weight:700;">No match — double-check the code, or search on <a style="text-decoration:underline;color:inherit;" href="https://dogedin.com/found" target="_blank" rel="noopener">dogedin.com/found</a>.</p>'; return; }
+        if (!res || !res.length) { out.innerHTML = '<p style="font-weight:700;">No match — double-check the tag code, or try searching the dog&#39;s name.</p>'; return; }
         var cards = await Promise.all(res.slice(0, 10).map(function (r) { return full(r.slug); }));
         out.innerHTML = cards.filter(Boolean).map(card).join("");
       } catch (e) {
