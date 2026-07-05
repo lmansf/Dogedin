@@ -1133,3 +1133,216 @@ language sql security definer stable set search_path = public as $$
   );
 $$;
 grant execute on function public.media_kit_stats() to anon, authenticated;
+
+-- ============================================================================
+-- 8. BUSINESS INSIGHTS — engagement counters + the paid owner portal
+-- ----------------------------------------------------------------------------
+-- Per-business engagement is counted into business_stats_daily (same shape as
+-- ad_stats_daily) by the public site, and sold back to each business as a
+-- monthly "Business Insights" subscription, viewed in the business portal on
+-- the media-kit site. Privacy stance: these are content-engagement counters on
+-- the business's OWN public listing (never visitor identity), each business
+-- sees only its own numbers plus category-level aggregates, and community
+-- member data is never exposed here.
+-- ============================================================================
+
+-- stat is a fixed vocabulary enforced by record_business_stat below:
+--   view         — a visitor opened the listing (expanded card / permalink page)
+--   website      — tapped the website link
+--   phone        — tapped the phone number
+--   directions   — tapped a maps link
+--   offer_unlock — unlocked the business's thank-you offer by leaving a review
+create table if not exists public.business_stats_daily (
+  business_id uuid not null references public.businesses(id) on delete cascade,
+  stat        text not null,
+  day         date not null default current_date,
+  count       bigint not null default 0,
+  primary key (business_id, stat, day)
+);
+alter table public.business_stats_daily enable row level security;
+
+drop policy if exists "admins read business stats" on public.business_stats_daily;
+create policy "admins read business stats" on public.business_stats_daily
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+-- Owners read via business_insights() below (SECURITY DEFINER), never directly,
+-- so one business can never browse another's counters.
+
+-- Counter bump, callable by anon from the public site. Whitelisted stat names
+-- and approved businesses only, so junk rows can't be minted.
+create or replace function public.record_business_stat(p_business_id uuid, p_stat text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_stat not in ('view', 'website', 'phone', 'directions', 'offer_unlock') then
+    return;
+  end if;
+  if not exists (
+    select 1 from public.businesses b
+    where b.id = p_business_id and b.status = 'approved'
+  ) then
+    return;
+  end if;
+  insert into public.business_stats_daily (business_id, stat, count)
+    values (p_business_id, p_stat, 1)
+    on conflict (business_id, stat, day)
+    do update set count = public.business_stats_daily.count + 1;
+end $$;
+grant execute on function public.record_business_stat(uuid, text) to anon, authenticated;
+
+-- One paid insights subscription per business. Rows are written ONLY by the
+-- Stripe webhook / checkout-return confirm via the service role (RLS bypass);
+-- the browser never writes status.
+create table if not exists public.business_insights_subs (
+  business_id             uuid primary key references public.businesses(id) on delete cascade,
+  status                  text not null default 'inactive',  -- active|past_due|canceled|inactive
+  stripe_customer_id      text,
+  stripe_subscription_id  text,
+  created_at              timestamptz not null default now(),
+  updated_at              timestamptz not null default now()
+);
+alter table public.business_insights_subs enable row level security;
+
+drop policy if exists "admins read insights subs" on public.business_insights_subs;
+create policy "admins read insights subs" on public.business_insights_subs
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- The businesses the signed-in caller may see in the portal: approved listings
+-- whose owner_email matches the caller's email. Admins see every approved
+-- listing (preview mode — lets the owner demo the product without paying).
+create or replace function public.my_portal_businesses()
+returns table (
+  id uuid, slug text, name text, category text, neighborhood text,
+  insights_active boolean, is_admin boolean
+)
+language sql security definer stable set search_path = public as $$
+  with me as (
+    select lower(coalesce(auth.jwt() ->> 'email', '')) as email
+  ), adm as (
+    select exists (
+      select 1 from public.app_admins a, me where lower(a.email) = me.email and me.email <> ''
+    ) as is_admin
+  )
+  select b.id, b.slug, b.name, b.category, b.neighborhood,
+         (coalesce(s.status, '') = 'active') or adm.is_admin as insights_active,
+         adm.is_admin
+  from public.businesses b
+  cross join me
+  cross join adm
+  left join public.business_insights_subs s on s.business_id = b.id
+  where b.status = 'approved'
+    and (
+      adm.is_admin
+      or (me.email <> '' and lower(coalesce(b.owner_email, '')) = me.email)
+    )
+  order by b.name;
+$$;
+grant execute on function public.my_portal_businesses() to authenticated;
+
+-- Full insights payload for one business. Access: an admin (preview), or the
+-- business's owner_email WITH an active subscription. Anyone else gets null.
+-- Aggregate counters + review benchmark only — never visitor-level data.
+create or replace function public.business_insights(p_business_id uuid)
+returns jsonb language plpgsql security definer stable set search_path = public as $$
+declare
+  v_email  text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  v_admin  boolean := false;
+  v_owner  boolean := false;
+  v_active boolean := false;
+  v_category text;
+begin
+  if v_email = '' then return null; end if;
+
+  select exists (select 1 from public.app_admins a where lower(a.email) = v_email)
+    into v_admin;
+  select exists (
+      select 1 from public.businesses b
+      where b.id = p_business_id and b.status = 'approved'
+        and lower(coalesce(b.owner_email, '')) = v_email
+    ) into v_owner;
+  select coalesce(s.status, '') = 'active'
+    into v_active
+    from public.business_insights_subs s where s.business_id = p_business_id;
+  v_active := coalesce(v_active, false);
+
+  if not (v_admin or (v_owner and v_active)) then return null; end if;
+
+  select category into v_category from public.businesses where id = p_business_id;
+
+  return jsonb_build_object(
+    'business', (
+      select jsonb_build_object('id', b.id, 'slug', b.slug, 'name', b.name, 'category', b.category)
+      from public.businesses b where b.id = p_business_id
+    ),
+    'access', case when v_active then 'active' else 'admin_preview' end,
+    'totals_30d', (
+      select coalesce(jsonb_object_agg(t.stat, t.n), '{}'::jsonb)
+      from (
+        select stat, sum(count)::bigint as n
+        from public.business_stats_daily
+        where business_id = p_business_id and day >= current_date - 29
+        group by stat
+      ) t
+    ),
+    'totals_lifetime', (
+      select coalesce(jsonb_object_agg(t.stat, t.n), '{}'::jsonb)
+      from (
+        select stat, sum(count)::bigint as n
+        from public.business_stats_daily
+        where business_id = p_business_id
+        group by stat
+      ) t
+    ),
+    'daily_30d', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'day',          to_char(gs.d, 'YYYY-MM-DD'),
+               'view',         coalesce(s.n_view, 0),
+               'website',      coalesce(s.n_website, 0),
+               'phone',        coalesce(s.n_phone, 0),
+               'directions',   coalesce(s.n_directions, 0),
+               'offer_unlock', coalesce(s.n_offer, 0)
+             ) order by gs.d), '[]'::jsonb)
+      from generate_series(current_date - 29, current_date, '1 day'::interval) gs(d)
+      left join (
+        select day,
+               sum(count) filter (where stat = 'view')         as n_view,
+               sum(count) filter (where stat = 'website')      as n_website,
+               sum(count) filter (where stat = 'phone')        as n_phone,
+               sum(count) filter (where stat = 'directions')   as n_directions,
+               sum(count) filter (where stat = 'offer_unlock') as n_offer
+        from public.business_stats_daily
+        where business_id = p_business_id and day >= current_date - 29
+        group by day
+      ) s on s.day = gs.d::date
+    ),
+    'reviews', jsonb_build_object(
+      'count', (select count(*) from public.reviews r where r.business_id = p_business_id),
+      'avg', (select round(avg(r.rating)::numeric, 2) from public.reviews r where r.business_id = p_business_id),
+      'recent_90d', (
+        select count(*) from public.reviews r
+        where r.business_id = p_business_id and r.created_at >= now() - interval '90 days'
+      ),
+      'category', v_category,
+      'category_avg', (
+        select round(avg(r.rating)::numeric, 2)
+        from public.reviews r
+        join public.businesses b2 on b2.id = r.business_id
+        where b2.status = 'approved' and b2.category = v_category
+      ),
+      'category_businesses', (
+        select count(*) from public.businesses b3
+        where b3.status = 'approved' and b3.category = v_category
+      ),
+      'rank_in_category', (
+        select x.rnk from (
+          select b4.id, rank() over (order by avg(r.rating) desc, count(r.*) desc) as rnk
+          from public.businesses b4
+          join public.reviews r on r.business_id = b4.id
+          where b4.status = 'approved' and b4.category = v_category
+          group by b4.id
+        ) x where x.id = p_business_id
+      )
+    )
+  );
+end $$;
+grant execute on function public.business_insights(uuid) to authenticated;

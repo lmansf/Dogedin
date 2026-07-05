@@ -111,6 +111,58 @@ Guardrails, all built in:
    and `STRIPE_SECRET_KEY` + `SUPABASE_SERVICE_ROLE_KEY` + `NEXT_PUBLIC_SITE_URL`
    are set — the same three the existing pay-link flow needs.
 
+## 8. Income avenues from anonymized data `[new — Business Insights + more]`
+
+Four avenues, all aggregate-only (no member PII is ever sold — see the privacy
+note below):
+
+**a) Business Insights subscription — the recurring one.** Every listing's
+engagement is now counted into `business_stats_daily` (views, website taps,
+calls, direction taps, offer unlocks — per business per day, no visitor
+identity). Businesses buy their own numbers as a monthly subscription
+(**$15/mo** default; `INSIGHTS_MONTHLY_CENTS` on the main site +
+`NEXT_PUBLIC_INSIGHTS_PRICE_LABEL` on the media-kit deployment to reprice) and
+view them in the **business portal at `<media-kit site>/portal`**:
+
+- A business signs in (or creates an account) with the **contact email on its
+  listing** (`businesses.owner_email`) — that's the ownership link.
+- Unsubscribed: they see a locked card + "Unlock insights" → Stripe
+  subscription checkout (main site `/api/insights/checkout`) → activation is
+  webhook-independent (confirmed on checkout return, same as ads).
+- Subscribed: 30-day tiles + daily trend + review benchmark ("you're #2 of 6 in
+  Coffee") + lifetime totals.
+- **Admins (app_admins) see every listing in preview without paying** — that's
+  your demo mode.
+- Cancel/renewal-failure downgrades automatically via the Stripe webhook;
+  counting continues regardless, so history is intact if they re-subscribe.
+
+**b) Advertiser benchmark bundle (price support, already live).** Per-slot CTR
+benchmarks (media kit) + per-ad 30-day breakdowns (`/admin/ads`) justify the
+daily ad rates at renewal. Nothing to configure.
+
+**c) Public dashboard sponsorship.** The State-of-the-Pack dashboard now has a
+sold "Presented by ___" strip: set `NEXT_PUBLIC_SPONSOR_NAME` (+ optional
+`NEXT_PUBLIC_SPONSOR_URL`) on the public-analytics deployment and redeploy;
+unset = hidden. Suggested $50–100/mo.
+
+**d) Quarterly "Dunedin Dog Economy" report.** All numbers already exist via
+the media-kit RPCs + insights aggregates; `docs/dog-economy-report-template.md`
+is the outline. Sell as a sponsored PDF ($100–300/quarter) or use as ad-sales
+collateral.
+
+**Privacy line to publish** (put on the site's privacy/about page, keeps
+practice consistent with the "no tracking, no personal info" promise):
+
+> We count aggregate engagement on business listings (for example, how many
+> times a listing was viewed or its website link was tapped each day). These
+> counts contain no personal information and are shared only with that
+> business. We never sell names, emails, or any member data.
+
+**Owner steps for §8:** re-run `schema.sql`; set `BUSINESS_PORTAL_URL` (the
+media-kit URL) + optionally `INSIGHTS_MONTHLY_CENTS` on the main site; redeploy
+main site + media-kit. To connect a business to its owner: set the listing's
+contact email (`owner_email`) to the owner's login email.
+
 ---
 
 ### Reminder from the earlier brief (still outstanding)

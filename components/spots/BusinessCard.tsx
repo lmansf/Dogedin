@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { StarRating } from "./Stars";
 import ReviewItem from "./ReviewItem";
 import ReviewForm from "./ReviewForm";
+import { recordBusinessStat } from "@/lib/businessStats";
 import type { Business, BusinessHours, Review } from "@/lib/businesses";
 
 // Average star rating, rounded to one decimal. Inlined (rather than imported
@@ -76,6 +77,20 @@ export default function BusinessCard({
   const [open, setOpen] = useState(defaultOpen);
   const [showHours, setShowHours] = useState(false);
   const permalink = `/things-to-do/${business.slug}`;
+
+  // Insights counters (business_stats_daily). "view" = the visitor engaged
+  // with THIS listing (opened its reviews, or landed on its permalink page,
+  // where the card mounts open) — once per mount, and only for real
+  // Supabase-backed listings (demo data has no row to count against).
+  const viewCounted = useRef(false);
+  useEffect(() => {
+    if (!open || !canPersist || viewCounted.current) return;
+    viewCounted.current = true;
+    recordBusinessStat(business.id, "view");
+  }, [open, canPersist, business.id]);
+  const tap = (stat: "website" | "phone" | "directions") => () => {
+    if (canPersist) recordBusinessStat(business.id, stat);
+  };
 
   const avg = useMemo(() => averageRating(reviews), [reviews]);
   const todayKey = useMemo(() => JS_DAY_TO_KEY[new Date().getDay()], []);
@@ -157,6 +172,7 @@ export default function BusinessCard({
                   href={googleMapsDirectionsUrl(business.address)}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={tap("directions")}
                   className="text-[var(--turq)] underline"
                 >
                   📍 Google Maps
@@ -165,6 +181,7 @@ export default function BusinessCard({
                   href={appleMapsDirectionsUrl(business.address)}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={tap("directions")}
                   className="text-[var(--turq)] underline"
                 >
                   Apple Maps
@@ -172,7 +189,11 @@ export default function BusinessCard({
               </>
             )}
             {business.phone && (
-              <a href={`tel:${business.phone}`} className="text-black/60 underline">
+              <a
+                href={`tel:${business.phone}`}
+                onClick={tap("phone")}
+                className="text-black/60 underline"
+              >
                 📞 {business.phone}
               </a>
             )}
@@ -181,6 +202,7 @@ export default function BusinessCard({
                 href={business.website}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={tap("website")}
                 className="text-black/60 underline"
               >
                 🔗 Website

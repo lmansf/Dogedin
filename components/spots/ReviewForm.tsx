@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { StarInput } from "./Stars";
 import { addReview } from "@/app/things-to-do/actions";
+import { recordBusinessStat } from "@/lib/businessStats";
 import type { Review, BusinessOffer } from "@/lib/businesses";
 
 // "Write a review" form for a single business. On submit it calls the addReview
@@ -49,8 +50,13 @@ export default function ReviewForm({
       setRating(0);
       setBody("");
       // A saved review unlocks the deal. Only when it actually persisted, so a
-      // preview-mode review doesn't hand out a code that isn't recorded.
-      if (offer && res.persisted) setUnlocked(true);
+      // preview-mode review doesn't hand out a code that isn't recorded. The
+      // unlock is also counted (business_stats_daily) so the business can see
+      // its offer working in the insights portal.
+      if (offer && res.persisted) {
+        setUnlocked(true);
+        recordBusinessStat(businessId, "offer_unlock");
+      }
     });
   };
 
