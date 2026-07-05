@@ -8,6 +8,10 @@ import {
   AD_CREATIVE_TYPES,
   AD_LOCATIONS,
   AD_SPECS,
+  adDailyCents,
+  adRunDays,
+  adTotalCents,
+  formatUsd,
   validateAdCreative,
   type AdPlacement,
 } from "@/lib/ads";
@@ -63,6 +67,8 @@ export default function AdInquiryForm() {
   }
 
   const spec = AD_SPECS[placement];
+  const runDays = adRunDays(startsAt, endsAt);
+  const estimateCents = adTotalCents(placement, runDays);
 
   // Validate a picked creative against the selected placement's spec, keeping
   // the file only if it conforms so we never upload something off-spec.
@@ -232,6 +238,14 @@ export default function AdInquiryForm() {
           </select>
         </label>
 
+        <p className="text-sm font-black">
+          {formatUsd(adDailyCents(placement))}
+          <span className="text-xs font-bold">/day</span>
+          <span className="ml-1.5 text-xs font-bold text-black/50">
+            — pay only for the days you run
+          </span>
+        </p>
+
         <p className="text-xs font-bold text-black/50">
           Required spec: <strong>{spec.width}×{spec.height} px</strong>, JPG/PNG/WebP,
           ≤{Math.round(spec.maxBytes / 1024)} KB.
@@ -303,6 +317,18 @@ export default function AdInquiryForm() {
               Optional — leave blank to run until you tell us to stop.
             </span>
           </div>
+        )}
+
+        {creative && runDays > 0 && (
+          <p className="border-2 border-black bg-[var(--gold)]/25 px-3 py-2 text-sm font-bold">
+            {formatUsd(adDailyCents(placement))}/day × {runDays} day
+            {runDays === 1 ? "" : "s"} ={" "}
+            <strong className="font-black">{formatUsd(estimateCents)}</strong>
+            <span className="mt-0.5 block text-[11px] font-normal text-black/50">
+              We&apos;ll send a secure payment link once we approve — pay then and
+              your ad goes live automatically.
+            </span>
+          </p>
         )}
 
         {creativeError && (

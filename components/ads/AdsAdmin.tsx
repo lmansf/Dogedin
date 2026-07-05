@@ -6,6 +6,10 @@ import { useSupabaseUser, AuthPanel, signOut } from "@/components/dogs/auth";
 import {
   AD_LOCATIONS,
   AD_SPECS,
+  adDailyCents,
+  adRunDays,
+  adTotalCents,
+  formatUsd,
   locationForPlacement,
   type AdPlacement,
   type AdStatus,
@@ -422,7 +426,14 @@ export default function AdsAdmin() {
                   💳 Paid {r.paid_at.slice(0, 10)}
                 </p>
               ) : (
-                r.status === "approved" && <AdPayLink advertiserId={r.id} />
+                r.status === "approved" && (
+                  <AdPayLink
+                    advertiserId={r.id}
+                    placement={r.placement}
+                    startsAt={r.starts_at}
+                    endsAt={r.ends_at}
+                  />
+                )
               )}
 
               {/* 30-day per-slot breakdown — the renewal conversation. */}
@@ -451,11 +462,28 @@ export default function AdsAdmin() {
   );
 }
 
-// Per-ad Stripe pay-link generator, shown for approved ads. The admin enters
-// the agreed amount; we mint a Checkout link (verified admin-side) they can
-// send to the business. When it's paid, the webhook flips the ad to active.
-function AdPayLink({ advertiserId }: { advertiserId: string }) {
-  const [dollars, setDollars] = useState("");
+// Per-ad Stripe pay-link generator, shown for approved ads. The price is
+// auto-computed from the placement's daily rate × the days the business booked
+// and pre-filled, so you normally just hit Create — edit the amount only to
+// override (an open-ended run with no dates, or a negotiated price). We mint a
+// Checkout link (verified admin-side); paying it flips the ad to active via the
+// webhook.
+function AdPayLink({
+  advertiserId,
+  placement,
+  startsAt,
+  endsAt,
+}: {
+  advertiserId: string;
+  placement: AdPlacement;
+  startsAt: string | null;
+  endsAt: string | null;
+}) {
+  const days = adRunDays(startsAt, endsAt);
+  const autoCents = days > 0 ? adTotalCents(placement, days) : 0;
+  const [dollars, setDollars] = useState(
+    autoCents > 0 ? (autoCents / 100).toFixed(2) : ""
+  );
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -485,6 +513,18 @@ function AdPayLink({ advertiserId }: { advertiserId: string }) {
 
   return (
     <div className="flex flex-col gap-2 border-t-2 border-dashed border-black/15 pt-2">
+      {/* Auto price from the daily rate × booked days; editable to override. */}
+      {days > 0 ? (
+        <p className="text-[11px] font-bold text-black/50">
+          Auto: {formatUsd(adDailyCents(placement))}/day × {days} day
+          {days === 1 ? "" : "s"} ={" "}
+          <span className="font-black text-black/70">{formatUsd(autoCents)}</span>
+        </p>
+      ) : (
+        <p className="text-[11px] font-bold text-black/40">
+          No run dates on this ad — enter an amount to charge.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-black uppercase tracking-wide text-black/50">
           💳 Pay link $
