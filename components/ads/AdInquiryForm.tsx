@@ -25,11 +25,13 @@ export default function AdInquiryForm() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
 
-  // Optional ad application (creative + placement + destination).
+  // Optional ad application (creative + placement + destination + flight dates).
   const [placement, setPlacement] = useState<AdPlacement>("banner");
   const [creative, setCreative] = useState<File | null>(null);
   const [mobileCreative, setMobileCreative] = useState<File | null>(null);
   const [linkUrl, setLinkUrl] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
   const [creativeError, setCreativeError] = useState<string | null>(null);
 
   const [sent, setSent] = useState(false);
@@ -99,6 +101,8 @@ export default function AdInquiryForm() {
       return setError(
         "Add the destination link (https://…) your ad should click through to."
       );
+    if (startsAt && endsAt && endsAt < startsAt)
+      return setError("The end date can't be before the start date.");
 
     startTransition(async () => {
       // 1. Store the lead first — it's the thing we must never lose, and the
@@ -144,6 +148,10 @@ export default function AdInquiryForm() {
           mobile_image_url: mobileUrl,
           link_url: linkUrl.trim(),
           placement,
+          // The dates the business asked the ad to run — the admin sees these on
+          // the application and just approves; nothing to re-enter.
+          starts_at: startsAt || null,
+          ends_at: endsAt || null,
           status: "applied",
           active: false,
           weight: 1,
@@ -268,6 +276,33 @@ export default function AdInquiryForm() {
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
           />
+        )}
+
+        {creative && (
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs font-extrabold uppercase tracking-wide text-black/60">
+              Runs from
+              <input
+                type="date"
+                className={input}
+                value={startsAt}
+                onChange={(e) => setStartsAt(e.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-extrabold uppercase tracking-wide text-black/60">
+              Runs to
+              <input
+                type="date"
+                className={input}
+                min={startsAt || undefined}
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+              />
+            </label>
+            <span className="text-[11px] font-bold text-black/40">
+              Optional — leave blank to run until you tell us to stop.
+            </span>
+          </div>
         )}
 
         {creativeError && (
