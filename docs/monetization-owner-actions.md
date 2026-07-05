@@ -125,12 +125,17 @@ identity). Businesses buy their own numbers as a monthly subscription
 view them in the **business portal at `<media-kit site>/portal`**:
 
 - A business signs in (or creates an account) with the **contact email on its
-  listing** (`businesses.owner_email`) — that's the ownership link.
-- Unsubscribed: they see a locked card + "Unlock insights" → Stripe
-  subscription checkout (main site `/api/insights/checkout`) → activation is
-  webhook-independent (confirmed on checkout return, same as ads).
-- Subscribed: 30-day tiles + daily trend + review benchmark ("you're #2 of 6 in
-  Coffee") + lifetime totals.
+  listing** (`businesses.owner_email`) — that's the ownership link. Site-wide
+  entry: the top-right **Sign in** chip → `/signin` (two doors: dog parents →
+  `/account`, businesses → the portal via `/portal`). One shared account
+  system.
+- **Free tier** (no card): real vanity numbers — 30-day listing views + review
+  count/average — with the lead metrics shown as locked cards. This is the
+  hook; upgrading is the same self-serve Stripe checkout.
+- **Insights tier** ($15/mo): website taps, calls, direction taps, offer
+  unlocks, daily trend, category benchmark + rank, lifetime totals — plus
+  **5 team seats**: the owner mints up to 4 single-use invite codes
+  (`PACK-XXXXXXXX`) in the portal; teammates create their own login and redeem.
 - **Admins (app_admins) see every listing in preview without paying** — that's
   your demo mode.
 - Cancel/renewal-failure downgrades automatically via the Stripe webhook;

@@ -1207,13 +1207,143 @@ create policy "admins read insights subs" on public.business_insights_subs
   for select to authenticated
   using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
 
+-- Team seats: a premium (subscribed) business gets up to 5 logins — the
+-- owner_email plus up to 4 members added by invite code. Members see the same
+-- portal data as the owner; only the owner manages the team. Both tables are
+-- written exclusively through the SECURITY DEFINER RPCs below (RLS allows
+-- admin reads only), so seat caps and ownership checks can't be bypassed.
+create table if not exists public.business_members (
+  business_id uuid not null references public.businesses(id) on delete cascade,
+  email       text not null,
+  added_at    timestamptz not null default now(),
+  primary key (business_id, email)
+);
+alter table public.business_members enable row level security;
+drop policy if exists "admins read business members" on public.business_members;
+create policy "admins read business members" on public.business_members
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+create table if not exists public.business_invite_codes (
+  code         text primary key,
+  business_id  uuid not null references public.businesses(id) on delete cascade,
+  created_at   timestamptz not null default now(),
+  redeemed_by  text,
+  redeemed_at  timestamptz
+);
+alter table public.business_invite_codes enable row level security;
+drop policy if exists "admins read invite codes" on public.business_invite_codes;
+create policy "admins read invite codes" on public.business_invite_codes
+  for select to authenticated
+  using (exists (select 1 from public.app_admins a where a.email = (auth.jwt() ->> 'email')));
+
+-- True when p_email is the listing's owner_email or a redeemed team member.
+create or replace function public.is_business_user(p_business_id uuid, p_email text)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from public.businesses b
+    where b.id = p_business_id and b.status = 'approved'
+      and lower(coalesce(b.owner_email, '')) = lower(p_email)
+  ) or exists (
+    select 1 from public.business_members m
+    where m.business_id = p_business_id and m.email = lower(p_email)
+  );
+$$;
+
+-- Owner-only, premium-only: mint one invite code (5 seats total incl. the
+-- owner, so at most 4 members + outstanding codes). Returns the code, or null
+-- when the caller may not mint one (not owner, no active sub, or cap reached).
+create or replace function public.generate_business_invite(p_business_id uuid)
+returns text language plpgsql security definer as $$
+declare
+  v_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  v_code  text;
+  v_used  int;
+begin
+  if v_email = '' then return null; end if;
+  if not exists (
+    select 1 from public.businesses b
+    where b.id = p_business_id and b.status = 'approved'
+      and lower(coalesce(b.owner_email, '')) = v_email
+  ) then return null; end if;
+  if not exists (
+    select 1 from public.business_insights_subs s
+    where s.business_id = p_business_id and s.status = 'active'
+  ) then return null; end if;
+
+  select (select count(*) from public.business_members m where m.business_id = p_business_id)
+       + (select count(*) from public.business_invite_codes c
+          where c.business_id = p_business_id and c.redeemed_at is null)
+    into v_used;
+  if v_used >= 4 then return null; end if;
+
+  v_code := 'PACK-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+  insert into public.business_invite_codes (code, business_id) values (v_code, p_business_id);
+  return v_code;
+end $$;
+grant execute on function public.generate_business_invite(uuid) to authenticated;
+
+-- Any signed-in account can redeem a code once; their email becomes a team
+-- member of that code's business. Returns the business id on success.
+create or replace function public.redeem_business_invite(p_code text)
+returns uuid language plpgsql security definer as $$
+declare
+  v_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  v_biz   uuid;
+begin
+  if v_email = '' then return null; end if;
+  update public.business_invite_codes
+     set redeemed_by = v_email, redeemed_at = now()
+   where code = upper(btrim(p_code)) and redeemed_at is null
+   returning business_id into v_biz;
+  if v_biz is null then return null; end if;
+  insert into public.business_members (business_id, email)
+    values (v_biz, v_email)
+    on conflict (business_id, email) do nothing;
+  return v_biz;
+end $$;
+grant execute on function public.redeem_business_invite(text) to authenticated;
+
+-- Owner-only team view: current members + outstanding/redeemed codes, plus the
+-- seat math the portal shows ("3 of 5 seats used").
+create or replace function public.business_team(p_business_id uuid)
+returns jsonb language plpgsql security definer stable as $$
+declare
+  v_email text := lower(coalesce(auth.jwt() ->> 'email', ''));
+begin
+  if v_email = '' then return null; end if;
+  if not (
+    exists (select 1 from public.businesses b
+            where b.id = p_business_id and b.status = 'approved'
+              and lower(coalesce(b.owner_email, '')) = v_email)
+    or exists (select 1 from public.app_admins a where lower(a.email) = v_email)
+  ) then return null; end if;
+
+  return jsonb_build_object(
+    'members', coalesce((
+      select jsonb_agg(jsonb_build_object('email', m.email, 'added_at', m.added_at) order by m.added_at)
+      from public.business_members m where m.business_id = p_business_id
+    ), '[]'::jsonb),
+    'codes', coalesce((
+      select jsonb_agg(jsonb_build_object('code', c.code, 'redeemed', c.redeemed_at is not null) order by c.created_at)
+      from public.business_invite_codes c where c.business_id = p_business_id
+    ), '[]'::jsonb),
+    'seats_total', 5,
+    'seats_used', 1 + (select count(*) from public.business_members m where m.business_id = p_business_id)
+  );
+end $$;
+grant execute on function public.business_team(uuid) to authenticated;
+
 -- The businesses the signed-in caller may see in the portal: approved listings
--- whose owner_email matches the caller's email. Admins see every approved
--- listing (preview mode — lets the owner demo the product without paying).
-create or replace function public.my_portal_businesses()
+-- where they are the owner (owner_email) or a redeemed team member. Admins see
+-- every approved listing (preview mode — demo the product without paying).
+-- Dropped first: the return signature gained is_owner, and CREATE OR REPLACE
+-- can't change a function's OUT columns.
+drop function if exists public.my_portal_businesses();
+create function public.my_portal_businesses()
 returns table (
   id uuid, slug text, name text, category text, neighborhood text,
-  insights_active boolean, is_admin boolean
+  insights_active boolean, is_owner boolean, is_admin boolean
 )
 language sql security definer stable set search_path = public as $$
   with me as (
@@ -1224,7 +1354,8 @@ language sql security definer stable set search_path = public as $$
     ) as is_admin
   )
   select b.id, b.slug, b.name, b.category, b.neighborhood,
-         (coalesce(s.status, '') = 'active') or adm.is_admin as insights_active,
+         (coalesce(s.status, '') = 'active') as insights_active,
+         (me.email <> '' and lower(coalesce(b.owner_email, '')) = me.email) as is_owner,
          adm.is_admin
   from public.businesses b
   cross join me
@@ -1234,20 +1365,28 @@ language sql security definer stable set search_path = public as $$
     and (
       adm.is_admin
       or (me.email <> '' and lower(coalesce(b.owner_email, '')) = me.email)
+      or exists (select 1 from public.business_members m
+                 where m.business_id = b.id and m.email = me.email)
     )
   order by b.name;
 $$;
 grant execute on function public.my_portal_businesses() to authenticated;
 
--- Full insights payload for one business. Access: an admin (preview), or the
--- business's owner_email WITH an active subscription. Anyone else gets null.
+-- Insights payload for one business, TIERED. Access requires being an admin,
+-- the listing's owner_email, or a redeemed team member — anyone else gets
+-- null. The tier then decides the payload:
+--   free  — owner/member without an active subscription: the vanity layer only
+--           (30-day views + review count/avg). Enough to prove counting is
+--           real; the lead metrics stay locked behind the upgrade.
+--   active / admin_preview — the full payload: per-stat totals, daily series,
+--           lifetime, and the category benchmark (avg, rank).
 -- Aggregate counters + review benchmark only — never visitor-level data.
 create or replace function public.business_insights(p_business_id uuid)
 returns jsonb language plpgsql security definer stable set search_path = public as $$
 declare
   v_email  text := lower(coalesce(auth.jwt() ->> 'email', ''));
   v_admin  boolean := false;
-  v_owner  boolean := false;
+  v_rel    boolean := false;
   v_active boolean := false;
   v_category text;
 begin
@@ -1255,19 +1394,39 @@ begin
 
   select exists (select 1 from public.app_admins a where lower(a.email) = v_email)
     into v_admin;
-  select exists (
-      select 1 from public.businesses b
-      where b.id = p_business_id and b.status = 'approved'
-        and lower(coalesce(b.owner_email, '')) = v_email
-    ) into v_owner;
+  v_rel := public.is_business_user(p_business_id, v_email);
   select coalesce(s.status, '') = 'active'
     into v_active
     from public.business_insights_subs s where s.business_id = p_business_id;
   v_active := coalesce(v_active, false);
 
-  if not (v_admin or (v_owner and v_active)) then return null; end if;
+  if not (v_admin or v_rel) then return null; end if;
 
   select category into v_category from public.businesses where id = p_business_id;
+
+  -- Free tier: connected to the business, no active subscription.
+  if not (v_admin or v_active) then
+    return jsonb_build_object(
+      'business', (
+        select jsonb_build_object('id', b.id, 'slug', b.slug, 'name', b.name, 'category', b.category)
+        from public.businesses b where b.id = p_business_id
+      ),
+      'access', 'free',
+      'views_30d', (
+        select coalesce(sum(count), 0)::bigint from public.business_stats_daily
+        where business_id = p_business_id and stat = 'view' and day >= current_date - 29
+      ),
+      'reviews', jsonb_build_object(
+        'count', (select count(*) from public.reviews r where r.business_id = p_business_id),
+        'avg', (select round(avg(r.rating)::numeric, 2) from public.reviews r where r.business_id = p_business_id),
+        'recent_90d', (
+          select count(*) from public.reviews r
+          where r.business_id = p_business_id and r.created_at >= now() - interval '90 days'
+        ),
+        'category', v_category
+      )
+    );
+  end if;
 
   return jsonb_build_object(
     'business', (

@@ -26,7 +26,10 @@ export default function SiteNav() {
   const [open, setOpen] = useState(false);
   // Only true once an admin is signed in; otherwise the admin chip/link never
   // render, so nothing about the console is exposed to regular visitors.
-  const { isAdmin } = useIsAdmin();
+  // user/loading also drive the top-right "Sign in" chip: shown to signed-out
+  // visitors only (dog parents AND businesses both enter through /signin).
+  const { user, loading, configured, isAdmin } = useIsAdmin();
+  const signedOut = configured && !loading && !user;
 
   return (
     <div className="flex items-center gap-2 sm:gap-3">
@@ -54,6 +57,17 @@ export default function SiteNav() {
         >
           <span aria-hidden>⚙️</span>
           <span className="hidden sm:inline">Admin</span>
+        </Link>
+      )}
+
+      {/* Sign in — one door for dog parents and businesses (shared accounts). */}
+      {signedOut && (
+        <Link
+          href="/signin"
+          className="flex items-center gap-1 border-[3px] border-black bg-[var(--turq)] px-2 py-1.5 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+        >
+          <span aria-hidden>👋</span>
+          <span className="hidden sm:inline">Sign in</span>
         </Link>
       )}
 
@@ -100,6 +114,9 @@ export default function SiteNav() {
               {[
                 ...LINKS,
                 { href: "/register", label: "Register your dog" },
+                ...(signedOut
+                  ? [{ href: "/signin", label: "👋 Sign in (parents & businesses)" }]
+                  : []),
                 ...(isAdmin ? [{ href: "/admin", label: "⚙️ Admin console" }] : []),
               ].map(
                 (l) => (
