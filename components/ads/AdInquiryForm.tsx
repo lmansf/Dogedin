@@ -142,39 +142,49 @@ export default function AdInquiryForm() {
           return { path, url };
         };
 
-        const primary = await upload(creative);
-        if (!primary)
-          return setError("The creative upload failed — please try again.");
-        const mobile = mobileCreative ? await upload(mobileCreative) : null;
+        try {
+          const primary = await upload(creative);
+          if (!primary)
+            return setError("The creative upload failed — please try again.");
+          const mobile = mobileCreative ? await upload(mobileCreative) : null;
 
-        const res = await submitPaidAd({
-          businessName,
-          contactName,
-          email,
-          placement,
-          linkUrl,
-          startsAt,
-          endsAt,
-          imagePath: primary.path,
-          imageUrl: primary.url,
-          mobileImagePath: mobile?.path ?? null,
-          mobileImageUrl: mobile?.url ?? null,
-        });
+          const res = await submitPaidAd({
+            businessName,
+            contactName,
+            email,
+            placement,
+            linkUrl,
+            startsAt,
+            endsAt,
+            imagePath: primary.path,
+            imageUrl: primary.url,
+            mobileImagePath: mobile?.path ?? null,
+            mobileImageUrl: mobile?.url ?? null,
+          });
 
-        if ("url" in res) {
-          window.location.href = res.url; // to Stripe Checkout
-          return;
-        }
-        if ("rejected" in res)
-          return setError(
-            "Your creative wasn't approved for our family-friendly guidelines. Adjust it and try again — you weren't charged."
+          if ("url" in res) {
+            window.location.href = res.url; // to Stripe Checkout
+            return;
+          }
+          if ("rejected" in res)
+            return setError(
+              "Your creative wasn't approved for our family-friendly guidelines. Adjust it and try again — you weren't charged."
+            );
+          if ("queued" in res) {
+            setQueued(true);
+            setSent(true);
+            return;
+          }
+          return setError(res.error);
+        } catch (err) {
+          // A thrown server action would otherwise crash the whole page to
+          // "a client-side exception"; surface it as a message + log the real
+          // error so it's visible in the console instead.
+          console.error("Paid-ad submission failed:", err);
+          setError(
+            "Something went wrong setting up your payment — please try again, or use “Send an inquiry” above."
           );
-        if ("queued" in res) {
-          setQueued(true);
-          setSent(true);
-          return;
         }
-        return setError(res.error);
       });
       return;
     }

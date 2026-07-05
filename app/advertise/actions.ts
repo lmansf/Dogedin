@@ -62,6 +62,7 @@ export async function submitPaidAd(input: {
 
   const mobilePaths = [input.mobileImagePath].filter(Boolean) as string[];
 
+  try {
   // 1. Moderate the creative. Fails closed to manual review (never auto-live).
   let verdict: string | null = null;
   try {
@@ -136,6 +137,18 @@ export async function submitPaidAd(input: {
     return { url: session.url };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Checkout failed." };
+  }
+  } catch (e) {
+    // Anything unexpected (a rejected Supabase/Storage call, a bad env, …)
+    // becomes a readable message instead of crashing the page. The detail helps
+    // diagnose; trim it to something generic once the flow is confirmed working.
+    console.error("submitPaidAd failed:", e);
+    return {
+      error:
+        "Couldn't set up your ad: " +
+        (e instanceof Error ? e.message : "unexpected error") +
+        ". Please try again, or use “Send an inquiry.”",
+    };
   }
 }
 
