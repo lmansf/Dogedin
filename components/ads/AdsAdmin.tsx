@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseUser, AuthPanel, signOut } from "@/components/dogs/auth";
-import { AD_SPECS, type AdPlacement, type AdStatus } from "@/lib/ads";
+import {
+  AD_LOCATIONS,
+  AD_SPECS,
+  locationForPlacement,
+  type AdPlacement,
+  type AdStatus,
+} from "@/lib/ads";
 import { createAdCheckoutSession } from "@/app/admin/ads/actions";
 
 type Row = {
@@ -221,7 +227,7 @@ export default function AdsAdmin() {
           onChange={(e) => setForm({ ...form, link_url: e.target.value })}
         />
         <label className="flex items-center gap-2 text-sm font-bold">
-          Placement
+          Location
           <select
             className={input}
             value={form.placement}
@@ -229,9 +235,10 @@ export default function AdsAdmin() {
               setForm({ ...form, placement: e.target.value as AdPlacement })
             }
           >
-            {(Object.keys(AD_SPECS) as AdPlacement[]).map((p) => (
-              <option key={p} value={p}>
-                {AD_SPECS[p].label} ({AD_SPECS[p].width}×{AD_SPECS[p].height})
+            {AD_LOCATIONS.map((loc) => (
+              <option key={loc.id} value={loc.placement}>
+                {loc.name} ({AD_SPECS[loc.placement].width}×
+                {AD_SPECS[loc.placement].height})
               </option>
             ))}
           </select>
@@ -306,7 +313,7 @@ export default function AdsAdmin() {
                       {r.status}
                     </span>
                     <span className="border-2 border-black bg-white px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-black/60">
-                      {AD_SPECS[r.placement].label}
+                      📍 {locationForPlacement(r.placement)?.name ?? AD_SPECS[r.placement].label}
                     </span>
                   </p>
                   <p className="truncate text-xs text-black/50">{r.link_url}</p>
@@ -341,13 +348,26 @@ export default function AdsAdmin() {
                     paid ad live or takes it down. */}
                 <div className="flex flex-wrap items-center gap-2">
                   {r.status === "applied" && (
-                    <button
-                      type="button"
-                      onClick={() => setStatus(r.id, "approved")}
-                      className={actionBtn}
-                    >
-                      Approve / paid
-                    </button>
+                    <>
+                      {/* One click straight into rotation at the location the
+                          business chose — same feel as approving a listing. */}
+                      <button
+                        type="button"
+                        onClick={() => setStatus(r.id, "active")}
+                        className={`${actionBtn} bg-[var(--green)] text-[var(--sand)]`}
+                      >
+                        Approve &amp; publish ▶
+                      </button>
+                      {/* Or approve now and collect payment first (Stripe pay
+                          link appears once approved; paying auto-activates). */}
+                      <button
+                        type="button"
+                        onClick={() => setStatus(r.id, "approved")}
+                        className={actionBtn}
+                      >
+                        Approve, bill later
+                      </button>
+                    </>
                   )}
                   {(r.status === "approved" || r.status === "disabled") && (
                     <button

@@ -72,6 +72,48 @@ export const AD_SPECS: Record<
   },
 };
 
+// The named, purchasable ad locations a business actually chooses between on
+// /advertise — each maps 1:1 to a placement type (which carries the spec) and
+// to the on-page slot that serves it. This is the single source of truth for
+// the marketing page, the application form, and the admin console, so "the spot
+// they inquired about" is the same string everywhere and an approved ad drops
+// straight into that location's rotation.
+export type AdLocation = {
+  id: string; // matches the AdSlot `slot` name that renders it
+  name: string; // what the business sees marketed
+  where: string; // one line describing where it appears
+  placement: AdPlacement; // the shape/spec + how AdSlot filters for it
+};
+
+export const AD_LOCATIONS: AdLocation[] = [
+  {
+    id: "home_feed",
+    name: "Homepage spotlight",
+    where: "A banner between the community sections on the homepage",
+    placement: "banner",
+  },
+  {
+    id: "home_ribbon",
+    name: "Homepage ribbon",
+    where: "A full-width strip near the top of the homepage",
+    placement: "ribbon",
+  },
+  {
+    id: "ttd_grid",
+    name: "Local guide featured card",
+    where: "A native card inside the Things-to-do grid",
+    placement: "generic",
+  },
+];
+
+// Each live location has a distinct placement, so a placement uniquely names its
+// location (used to label an ad in the console by where it runs).
+export function locationForPlacement(
+  placement: AdPlacement
+): AdLocation | undefined {
+  return AD_LOCATIONS.find((l) => l.placement === placement);
+}
+
 // Reads an image file's pixel dimensions in the browser (used for spec checks).
 export function readImageSize(
   file: File
