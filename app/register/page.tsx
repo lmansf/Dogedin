@@ -4,7 +4,7 @@ import RegisterFlow from "@/components/dogs/RegisterFlow";
 export const metadata: Metadata = {
   title: "Add your dog",
   description:
-    "Create a free profile for your dog — a public page plus an optional lost-dog contact — and join Dunedin, Florida's dog community.",
+    "Create a profile for your dog — a public page plus an optional lost-dog contact — and join Dunedin, Florida's dog community.",
 };
 
 export default function RegisterPage() {
@@ -20,7 +20,7 @@ export default function RegisterPage() {
             Give your good dog a page
           </h1>
           <p className="mt-3 max-w-lg font-bold text-[var(--ink)]/70">
-            Every Dunedin dog gets a free profile and a spot in the pack. Turn
+            Every Dunedin dog gets a profile and a spot in the pack. Turn
             on “lost dog contact” and a finder can reach you if they ever wander
             off.
           </p>

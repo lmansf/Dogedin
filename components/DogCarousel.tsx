@@ -319,7 +319,7 @@ function RegisterCard({
               Your dog belongs here
             </h3>
             <p className="max-w-sm text-sm text-black/60">
-              Every Dunedin dog gets a free profile page — and a spot in this
+              Every Dunedin dog gets a profile page — and a spot in this
               lineup.
             </p>
             <Link
