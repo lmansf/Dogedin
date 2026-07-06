@@ -8,7 +8,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import type { Cart } from "@/lib/shopify";
+import type { Cart, CartLineAttribute } from "@/lib/shopify";
 import {
   addItem,
   fetchCart,
@@ -22,7 +22,7 @@ type CartContextValue = {
   pending: boolean;
   error: string | null;
   setOpen: (open: boolean) => void;
-  add: (variantId: string) => void;
+  add: (variantId: string, attributes?: CartLineAttribute[]) => void;
   remove: (lineId: string) => void;
   changeQty: (lineId: string, quantity: number) => void;
 };
@@ -60,7 +60,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const add = useCallback((variantId: string) => run(() => addItem(variantId), true), [run]);
+  const add = useCallback(
+    (variantId: string, attributes?: CartLineAttribute[]) =>
+      run(() => addItem(variantId, attributes), true),
+    [run]
+  );
   const remove = useCallback((lineId: string) => run(() => removeItem(lineId)), [run]);
   const changeQty = useCallback(
     (lineId: string, quantity: number) => run(() => setQuantity(lineId, quantity)),

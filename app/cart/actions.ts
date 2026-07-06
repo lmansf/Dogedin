@@ -8,6 +8,7 @@ import {
   removeFromCart,
   updateCartLine,
   type Cart,
+  type CartLineAttribute,
 } from "@/lib/shopify";
 
 const COOKIE = "dogedin_cart";
@@ -34,7 +35,10 @@ export async function fetchCart(): Promise<Cart | null> {
   }
 }
 
-export async function addItem(variantId: string): Promise<Cart> {
+export async function addItem(
+  variantId: string,
+  attributes: CartLineAttribute[] = []
+): Promise<Cart> {
   const store = await cookies();
   let id = store.get(COOKIE)?.value;
 
@@ -44,7 +48,7 @@ export async function addItem(variantId: string): Promise<Cart> {
     id = created.id;
   }
 
-  return addToCart(id, variantId, 1);
+  return addToCart(id, variantId, 1, attributes);
 }
 
 export async function setQuantity(
