@@ -87,6 +87,9 @@
     async insert(table, row, token) {
       return rest("POST", table, row, token, "return=minimal");
     },
+    async update(path, changes, token) {
+      return rest("PATCH", path, changes, token, "return=minimal");
+    },
     async rpc(name, args, token) {
       return rest("POST", "rpc/" + name, args || {}, token);
     },
@@ -104,6 +107,10 @@
     },
     photoUrl(path) {
       return path ? URL_ + "/storage/v1/object/public/dog-photos/" + path : null;
+    },
+    // Public URL for any public-read bucket object (ad-creatives, etc.).
+    publicUrl(bucket, path) {
+      return path ? URL_ + "/storage/v1/object/public/" + bucket + "/" + path : null;
     },
     // --- RegisterFlow.tsx conventions, ported verbatim -----------------
     slugStem(name) {

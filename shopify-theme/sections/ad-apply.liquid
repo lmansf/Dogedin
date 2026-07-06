@@ -1,0 +1,218 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div id="dgd-adapply" style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 62rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">📣 Dunedin, Florida · reach the pack</p>
+  <h2 class="h1" style="margin:0 0 0.6rem;">Advertise your business</h2>
+  <p style="margin:0 0 1.6rem;">Upload your banner and choose where it runs. Your ad joins the same rotation the homepage and Community Favorites strip already serve — we review it, then it goes live. Every impression and click is measured honestly.</p>
+  <div id="dgd-adapply-body"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+</div>
+
+<script>
+(function () {
+  // Ad creative specs — mirror lib/ads.ts AD_SPECS. Only the two placements the
+  // shop actually serves are offered (banner = homepage strip, ribbon =
+  // Community Favorites "Presented by"); a business never picks a slot the shop
+  // can't render. Applications insert as status='applied' (RLS forces it), so
+  // nothing a stranger uploads renders until an admin approves it in-shop.
+  var SPECS = {
+    banner: { label: "Homepage banner", where: "A strip across the shop homepage", w: 728, h: 90, maxKB: 150, mobile: { w: 320, h: 100 } },
+    ribbon: { label: "Community Favorites ribbon", where: "A “Presented by” strip above Community Favorites", w: 1200, h: 120, maxKB: 120 }
+  };
+  var TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var body = document.getElementById("dgd-adapply-body");
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var I = 'width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;';
+    var B = 'border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;';
+    var L = 'font-weight:700;display:block;margin:0 0 0.4rem;';
+
+    // Reads an image file's natural pixel size (validateAdCreative in lib/ads.ts).
+    function readSize(file) {
+      return new Promise(function (resolve, reject) {
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () { URL.revokeObjectURL(url); resolve({ w: img.naturalWidth, h: img.naturalHeight }); };
+        img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("unreadable")); };
+        img.src = url;
+      });
+    }
+    // Enforce a spec at pick time: format allowlist, byte cap, exact dimensions
+    // (±1% for encoder rounding). Returns an error string, or null when it fits.
+    async function validate(file, target, maxKB) {
+      if (TYPES.indexOf(file.type) < 0) return "Creative must be a JPG, PNG or WebP.";
+      if (file.size > maxKB * 1024) return "Creative must be " + maxKB + " KB or smaller (yours is " + Math.round(file.size / 1024) + " KB).";
+      var s; try { s = await readSize(file); } catch (e) { return "Could not read that image — try a different file."; }
+      var okW = Math.abs(s.w - target.w) <= Math.max(1, target.w * 0.01);
+      var okH = Math.abs(s.h - target.h) <= Math.max(1, target.h * 0.01);
+      if (!okW || !okH) return "Creative must be exactly " + target.w + "×" + target.h + " px (yours is " + s.w + "×" + s.h + " px).";
+      return null;
+    }
+
+    var placement = "banner";
+    var creative = null, mobileCreative = null;
+
+    function specRow() {
+      var sp = SPECS[placement];
+      var txt = "Required: <strong>" + sp.w + "×" + sp.h + " px</strong>, JPG/PNG/WebP, ≤" + sp.maxKB + " KB.";
+      if (sp.mobile) txt += " Optional mobile variant: " + sp.mobile.w + "×" + sp.mobile.h + " px.";
+      return txt;
+    }
+
+    function render() {
+      var sp = SPECS[placement];
+      var opts = "";
+      for (var k in SPECS) opts += '<option value="' + k + '"' + (k === placement ? " selected" : "") + ">" + esc(SPECS[k].label) + " — " + esc(SPECS[k].where) + "</option>";
+      body.innerHTML =
+        '<form id="dgd-ad" style="display:flex;flex-direction:column;gap:1.2rem;">' +
+        '<input style="' + I + '" id="dgd-ad-biz" placeholder="Business name *" maxlength="120" required>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;">' +
+        '<input style="' + I + '" id="dgd-ad-name" placeholder="Your name *" maxlength="80" required>' +
+        '<input style="' + I + '" id="dgd-ad-email" type="email" placeholder="Email *" maxlength="120" required>' +
+        "</div>" +
+        '<input style="' + I + '" id="dgd-ad-tagline" placeholder="Tagline (one short line, optional)" maxlength="120">' +
+        '<label><span style="' + L + '">Which spot? *</span>' +
+        '<select style="' + I + '" id="dgd-ad-placement">' + opts + "</select></label>" +
+        '<p id="dgd-ad-spec" style="font-size:1.2rem;opacity:0.7;margin:0;">' + specRow() + "</p>" +
+        '<label><span style="' + L + '">Banner creative *</span>' +
+        '<input type="file" id="dgd-ad-file" accept="image/jpeg,image/png,image/webp"></label>' +
+        '<div id="dgd-ad-mobwrap" style="' + (sp.mobile ? "" : "display:none;") + '"><label><span style="' + L + '">Mobile variant (optional)</span>' +
+        '<input type="file" id="dgd-ad-mobfile" accept="image/jpeg,image/png,image/webp"></label></div>' +
+        '<input style="' + I + '" id="dgd-ad-link" type="url" placeholder="Destination link (https://…) *" maxlength="500" required>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1rem;">' +
+        '<label><span style="' + L + '">Runs from (optional)</span><input style="' + I + '" id="dgd-ad-start" type="date"></label>' +
+        '<label><span style="' + L + '">Runs to (optional)</span><input style="' + I + '" id="dgd-ad-end" type="date"></label>' +
+        "</div>" +
+        '<p style="font-size:1.2rem;opacity:0.6;margin:0;">Leave dates blank to run until you ask us to stop. Expired campaigns drop out of rotation automatically.</p>' +
+        '<p id="dgd-ad-err" style="color:#a6332e;font-weight:700;margin:0;"></p>' +
+        '<button style="' + B + '" type="submit" id="dgd-ad-btn">Submit for review</button>' +
+        "</form>";
+
+      var sel = document.getElementById("dgd-ad-placement");
+      var errEl = document.getElementById("dgd-ad-err");
+      sel.addEventListener("change", function () {
+        placement = sel.value; creative = null; mobileCreative = null;
+        document.getElementById("dgd-ad-file").value = "";
+        var mob = document.getElementById("dgd-ad-mobfile"); if (mob) mob.value = "";
+        document.getElementById("dgd-ad-spec").innerHTML = specRow();
+        document.getElementById("dgd-ad-mobwrap").style.display = SPECS[placement].mobile ? "" : "none";
+        errEl.textContent = "";
+      });
+
+      document.getElementById("dgd-ad-file").addEventListener("change", async function (ev) {
+        errEl.style.color = "#a6332e"; errEl.textContent = "";
+        var f = ev.target.files[0] || null; creative = null;
+        if (!f) return;
+        var msg = await validate(f, { w: SPECS[placement].w, h: SPECS[placement].h }, SPECS[placement].maxKB);
+        if (msg) { ev.target.value = ""; errEl.textContent = msg; return; }
+        creative = f;
+      });
+
+      var mobEl = document.getElementById("dgd-ad-mobfile");
+      if (mobEl) mobEl.addEventListener("change", async function (ev) {
+        errEl.style.color = "#a6332e"; errEl.textContent = "";
+        var f = ev.target.files[0] || null; mobileCreative = null;
+        if (!f) return;
+        var m = SPECS[placement].mobile;
+        var msg = await validate(f, { w: m.w, h: m.h }, SPECS[placement].maxKB);
+        if (msg) { ev.target.value = ""; errEl.textContent = msg; return; }
+        mobileCreative = f;
+      });
+
+      document.getElementById("dgd-ad").addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        errEl.style.color = "#a6332e"; errEl.textContent = "";
+        var btn = document.getElementById("dgd-ad-btn");
+        var biz = document.getElementById("dgd-ad-biz").value.trim();
+        var nm = document.getElementById("dgd-ad-name").value.trim();
+        var em = document.getElementById("dgd-ad-email").value.trim();
+        var tag = document.getElementById("dgd-ad-tagline").value.trim();
+        var link = document.getElementById("dgd-ad-link").value.trim();
+        var start = document.getElementById("dgd-ad-start").value || null;
+        var end = document.getElementById("dgd-ad-end").value || null;
+        if (!biz || !nm || !em) { errEl.textContent = "Business name, your name and email are required."; return; }
+        if (!creative) { errEl.textContent = "Upload a spec-sized banner to continue."; return; }
+        if (!/^https?:\/\/\S+/i.test(link)) { errEl.textContent = "Add the destination link (https://…) your ad clicks through to."; return; }
+        if (start && end && end < start) { errEl.textContent = "The end date can't be before the start date."; return; }
+        btn.disabled = true; btn.textContent = "Uploading…";
+        try {
+          // Anon upload to the public-read ad-creatives bucket, then insert an
+          // 'applied' row referencing the public URL. No session needed — the
+          // RLS policies allow anon insert (bucket) and anon apply (advertisers).
+          var ext = (creative.name.split(".").pop() || "png").toLowerCase();
+          var path = crypto.randomUUID() + "." + ext;
+          await D.upload("ad-creatives", path, creative, null);
+          var imageUrl = D.publicUrl("ad-creatives", path);
+          var mobileUrl = null;
+          if (mobileCreative) {
+            var mext = (mobileCreative.name.split(".").pop() || "png").toLowerCase();
+            var mpath = crypto.randomUUID() + "." + mext;
+            await D.upload("ad-creatives", mpath, mobileCreative, null);
+            mobileUrl = D.publicUrl("ad-creatives", mpath);
+          }
+          await D.insert("advertisers", {
+            business_name: biz, tagline: tag || null, contact_email: em,
+            image_url: imageUrl, mobile_image_url: mobileUrl, link_url: link,
+            placement: placement, status: "applied", active: false,
+            starts_at: start, ends_at: end
+          });
+          document.getElementById("dgd-adapply").innerHTML =
+            '<h3 class="h2" style="margin:0 0 0.8rem;">Application received — thank you! 🐾</h3>' +
+            '<p style="margin:0 0 1rem;">Your <strong>' + esc(SPECS[placement].label) + '</strong> ad for <strong>' + esc(biz) + '</strong> is in the review queue. Once it’s approved it starts rotating in the shop, and you’ll be able to see impressions and clicks against it.</p>' +
+            '<p style="margin:0;">Questions? Email us at ' + esc(em) + '&#39;s reply address and we’ll sort out dates and rates.</p>';
+        } catch (e) {
+          errEl.textContent = (e && e.message) || "Something went wrong — please try again.";
+          btn.disabled = false; btn.textContent = "Submit for review";
+        }
+      });
+    }
+    render();
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Advertise application",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Advertise application"
+    }
+  ]
+}
+{% endschema %}

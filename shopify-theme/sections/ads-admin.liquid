@@ -1,0 +1,263 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div id="dgd-adsadmin" style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 74rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🔒 Admins only</p>
+  <h2 class="h1" style="margin:0 0 0.6rem;">Manage advertisers</h2>
+  <p style="margin:0 0 1.6rem;">Approve applications, add ads manually, and see 30-day impressions &amp; clicks per slot. Access is enforced by the database — only accounts on the admin list can read or change anything here.</p>
+  <div id="dgd-adsadmin-body"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+</div>
+
+<script>
+(function () {
+  // In-shop port of components/ads/AdsAdmin.tsx. Every read/write below hits the
+  // advertisers + ad_stats_daily tables, both locked to app_admins by RLS — so
+  // exposing this in a public theme is safe: a non-admin sees an empty console
+  // and every mutation is rejected server-side. Admin-created ads go live
+  // immediately (status active); applications from /pages/advertise arrive as
+  // 'applied' and are approved here.
+  var STATUS_ORDER = { applied: 0, approved: 1, active: 2, disabled: 3 };
+  var STATUS_BG = { applied: "#c99a2e", approved: "#1fa89b", active: "#1f5c4a", disabled: "#d4cdbb" };
+  var STATUS_FG = { applied: "#211e18", approved: "#f4e9ce", active: "#f4e9ce", disabled: "#211e18" };
+  // The two slots the shop actually serves (banner = homepage, ribbon =
+  // Community Favorites). Manual adds pick from these.
+  var PLACEMENTS = [
+    { value: "banner", label: "Homepage banner (728×90)" },
+    { value: "ribbon", label: "Community Favorites ribbon (1200×120)" }
+  ];
+
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var body = document.getElementById("dgd-adsadmin-body");
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var I = 'width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;';
+    var B = 'border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;';
+    var SMALL = 'border:0.2rem solid rgb(var(--color-foreground));background:#fff;color:#211e18;padding:0.5rem 0.9rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05rem;cursor:pointer;font-size:1.1rem;';
+
+    function authView(msg) {
+      body.innerHTML =
+        (msg ? '<p style="font-weight:700;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;margin:0 0 1.2rem;">' + esc(msg) + "</p>" : "") +
+        '<p style="margin:0 0 1.2rem;">Sign in with your admin account to manage ads.</p>' +
+        '<form id="dgd-a-auth" style="display:flex;flex-direction:column;gap:1rem;max-width:42rem;">' +
+        '<input style="' + I + '" type="email" id="dgd-a-email" placeholder="Email" required>' +
+        '<input style="' + I + '" type="password" id="dgd-a-pass" placeholder="Password" required>' +
+        '<button style="' + B + '" type="submit">Sign in</button>' +
+        '<p id="dgd-a-err" style="color:#a6332e;font-weight:700;margin:0;"></p></form>';
+      var form = document.getElementById("dgd-a-auth"), errEl = document.getElementById("dgd-a-err");
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault(); errEl.textContent = "";
+        try { await D.signIn(document.getElementById("dgd-a-email").value, document.getElementById("dgd-a-pass").value); render(); }
+        catch (e) { errEl.textContent = e.message; }
+      });
+    }
+
+    function notAdminView(email) {
+      body.innerHTML =
+        '<p style="font-weight:700;margin:0 0 1.2rem;">You&#39;re signed in as ' + esc(email) + ', but that address isn&#39;t on the admin list. Ask an owner to add it, or sign in with an admin account.</p>' +
+        '<button id="dgd-a-out" style="' + SMALL + '">Sign out</button>';
+      document.getElementById("dgd-a-out").addEventListener("click", function () { D.signOut(); render(); });
+    }
+
+    async function adminView(sess) {
+      body.innerHTML = '<p style="opacity:0.6;font-weight:700;">Loading advertisers…</p>';
+      var token = sess.access_token;
+      var since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      var rows, statRows;
+      try {
+        rows = await D.select("advertisers?select=id,business_name,tagline,image_url,mobile_image_url,link_url,weight,placement,status,contact_email,active,starts_at,ends_at,impressions,clicks&order=created_at.desc", token);
+        statRows = await D.select("ad_stats_daily?select=ad_id,slot,impressions,clicks&day=gte." + since, token);
+      } catch (e) {
+        body.innerHTML = '<p style="color:#a6332e;font-weight:700;">Couldn&#39;t load ads: ' + esc(e.message) + "</p>";
+        return;
+      }
+      rows = rows || [];
+      rows.sort(function (a, b) { return STATUS_ORDER[a.status] - STATUS_ORDER[b.status]; });
+
+      // Aggregate 30-day per-slot stats by ad.
+      var agg = {};
+      (statRows || []).forEach(function (s) {
+        var perAd = agg[s.ad_id] || (agg[s.ad_id] = {});
+        var cell = perAd[s.slot] || (perAd[s.slot] = { imp: 0, clicks: 0 });
+        cell.imp += s.impressions || 0; cell.clicks += s.clicks || 0;
+      });
+
+      var applied = rows.filter(function (r) { return r.status === "applied"; }).length;
+      var plOpts = PLACEMENTS.map(function (p) { return '<option value="' + p.value + '">' + esc(p.label) + "</option>"; }).join("");
+
+      var html =
+        '<div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin:0 0 1.2rem;flex-wrap:wrap;">' +
+        '<span style="font-weight:700;opacity:0.7;">Signed in as ' + esc(sess.user.email) + "</span>" +
+        '<button id="dgd-a-out" style="' + SMALL + '">Sign out</button></div>' +
+        // Manual add (collapsible) — applications come in ready to approve, so
+        // this is the exception.
+        '<details style="border:0.2rem solid rgb(var(--color-foreground));margin:0 0 1.6rem;">' +
+        '<summary style="cursor:pointer;padding:1rem 1.2rem;font-weight:800;">➕ Add an ad manually</summary>' +
+        '<form id="dgd-a-add" style="display:flex;flex-direction:column;gap:1rem;border-top:0.2rem solid rgb(var(--color-foreground));padding:1.2rem;">' +
+        '<input style="' + I + '" id="dgd-a-biz" placeholder="Business name *">' +
+        '<input style="' + I + '" id="dgd-a-tag" placeholder="Tagline (optional)" maxlength="120">' +
+        '<input style="' + I + '" id="dgd-a-img" placeholder="Image URL (https://…) *">' +
+        '<input style="' + I + '" id="dgd-a-link" placeholder="Link URL (https://…) *">' +
+        '<label style="font-weight:700;">Location <select style="' + I + '" id="dgd-a-pl">' + plOpts + "</select></label>" +
+        '<div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;">' +
+        '<label style="font-weight:700;">Weight <input style="' + I + 'width:8rem;" id="dgd-a-wt" type="number" min="0" max="100" value="1"></label>' +
+        '<label style="font-weight:700;">Runs <input style="' + I + 'width:15rem;" id="dgd-a-s" type="date"> → <input style="' + I + 'width:15rem;" id="dgd-a-e" type="date"></label>' +
+        "</div>" +
+        '<p id="dgd-a-add-err" style="color:#a6332e;font-weight:700;margin:0;"></p>' +
+        '<button style="' + B + '" type="submit">Add &amp; publish</button></form></details>' +
+        '<h3 class="h4" style="margin:0 0 0.8rem;">Applications &amp; live ads</h3>' +
+        (applied > 0 ? '<p style="border:0.2rem solid rgb(var(--color-foreground));background:rgba(201,154,46,0.3);padding:0.8rem 1.2rem;font-weight:800;margin:0 0 1.2rem;">🔔 ' + applied + " application" + (applied === 1 ? "" : "s") + " waiting for your yes / no</p>" : "");
+
+      if (!rows.length) html += '<p style="opacity:0.6;font-weight:700;">No advertisers yet — applications from the advertise page will show up here.</p>';
+
+      rows.forEach(function (r) {
+        var perSlot = agg[r.id] || {};
+        var slots = Object.keys(perSlot).sort();
+        var statChips = slots.map(function (slot) {
+          var s = perSlot[slot], ctr = s.imp > 0 ? ((s.clicks / s.imp) * 100).toFixed(1) : "0.0";
+          return '<span style="border:0.2rem solid rgb(var(--color-foreground));background:#f4e9ce;color:#211e18;padding:0.4rem 0.7rem;font-size:1.1rem;font-weight:700;">' +
+            '<strong style="text-transform:uppercase;">' + esc(slot) + "</strong> · 30d: 👁 " + s.imp + " · 👆 " + s.clicks + " · " + ctr + "% CTR</span>";
+        }).join("");
+        var actions = "";
+        if (r.status === "applied") {
+          actions =
+            '<button style="' + SMALL + 'background:#1f5c4a;color:#f4e9ce;" data-act="active" data-id="' + r.id + '">Approve &amp; publish ▶</button>' +
+            '<button style="' + SMALL + '" data-act="approved" data-id="' + r.id + '">Approve, hold</button>' +
+            '<button style="' + SMALL + 'color:#a6332e;" data-act="delete" data-id="' + r.id + '">Reject ✕</button>';
+        } else if (r.status === "approved" || r.status === "disabled") {
+          actions =
+            '<button style="' + SMALL + 'background:#1f5c4a;color:#f4e9ce;" data-act="active" data-id="' + r.id + '">Activate ▶</button>' +
+            '<button style="' + SMALL + 'color:#a6332e;" data-act="delete" data-id="' + r.id + '">Delete</button>';
+        } else {
+          actions =
+            '<button style="' + SMALL + '" data-act="disabled" data-id="' + r.id + '">Pause ⏸</button>' +
+            '<button style="' + SMALL + 'color:#a6332e;" data-act="delete" data-id="' + r.id + '">Delete</button>';
+        }
+        html +=
+          '<div style="border:0.2rem solid rgb(var(--color-foreground));background:#fff;color:#211e18;padding:1rem;margin:0 0 1rem;display:flex;flex-direction:column;gap:0.8rem;">' +
+          '<div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;">' +
+          '<img src="' + esc(r.image_url) + '" alt="' + esc(r.business_name) + '" style="height:4.2rem;width:9rem;object-fit:cover;border:0.2rem solid #211e18;background:#eee;">' +
+          '<div style="flex:1;min-width:16rem;">' +
+          '<p style="margin:0;font-weight:800;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">' + esc(r.business_name) +
+          '<span style="border:0.2rem solid #211e18;background:' + STATUS_BG[r.status] + ";color:" + STATUS_FG[r.status] + ';padding:0.1rem 0.6rem;font-size:1rem;text-transform:uppercase;">' + esc(r.status) + "</span>" +
+          '<span style="border:0.2rem solid #211e18;padding:0.1rem 0.6rem;font-size:1rem;text-transform:uppercase;">📍 ' + esc(r.placement) + "</span></p>" +
+          '<p style="margin:0.2rem 0 0;font-size:1.1rem;opacity:0.6;word-break:break-all;">' + esc(r.link_url) + "</p>" +
+          (r.contact_email ? '<p style="margin:0.2rem 0 0;font-size:1.1rem;font-weight:700;opacity:0.7;">✉️ ' + esc(r.contact_email) + "</p>" : "") +
+          '<p style="margin:0.2rem 0 0;font-size:1.1rem;font-weight:700;opacity:0.7;">Lifetime: 👁 ' + r.impressions + " · 👆 " + r.clicks +
+          ((r.starts_at || r.ends_at) ? " · 🗓 " + esc(r.starts_at || "…") + " → " + esc(r.ends_at || "…") : "") + "</p></div>" +
+          '<label style="font-weight:700;font-size:1.1rem;">Wt <input type="number" min="0" max="100" value="' + r.weight + '" data-wt="' + r.id + '" style="width:6rem;border:0.2rem solid #211e18;padding:0.4rem;"></label>' +
+          "</div>" +
+          '<div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">' + actions + "</div>" +
+          (statChips ? '<div style="display:flex;gap:0.6rem;flex-wrap:wrap;border-top:0.15rem dashed rgba(33,30,24,0.2);padding-top:0.8rem;">' + statChips + "</div>" : "") +
+          "</div>";
+      });
+
+      body.innerHTML = html;
+      document.getElementById("dgd-a-out").addEventListener("click", function () { D.signOut(); render(); });
+
+      // Manual add.
+      document.getElementById("dgd-a-add").addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        var e2 = document.getElementById("dgd-a-add-err"); e2.textContent = "";
+        var biz = document.getElementById("dgd-a-biz").value.trim();
+        var img = document.getElementById("dgd-a-img").value.trim();
+        var link = document.getElementById("dgd-a-link").value.trim();
+        if (!biz || !img || !link) { e2.textContent = "Business name, image URL and link URL are required."; return; }
+        try {
+          await D.insert("advertisers", {
+            business_name: biz,
+            tagline: document.getElementById("dgd-a-tag").value.trim() || null,
+            image_url: img, link_url: link,
+            placement: document.getElementById("dgd-a-pl").value,
+            weight: parseInt(document.getElementById("dgd-a-wt").value, 10) || 1,
+            status: "active", active: true,
+            starts_at: document.getElementById("dgd-a-s").value || null,
+            ends_at: document.getElementById("dgd-a-e").value || null
+          }, token);
+          adminView(sess);
+        } catch (e) { e2.textContent = e.message; }
+      });
+
+      // Weight edits (on blur).
+      body.querySelectorAll("input[data-wt]").forEach(function (inp) {
+        inp.addEventListener("blur", async function () {
+          try { await D.update("advertisers?id=eq." + inp.getAttribute("data-wt"), { weight: parseInt(inp.value, 10) || 1 }, token); }
+          catch (e) { alert(e.message); }
+        });
+      });
+
+      // Status actions + delete.
+      body.querySelectorAll("button[data-act]").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+          var id = btn.getAttribute("data-id"), act = btn.getAttribute("data-act");
+          try {
+            if (act === "delete") {
+              if (!confirm("Delete this advertiser?")) return;
+              await D.del("advertisers?id=eq." + id, token);
+            } else {
+              await D.update("advertisers?id=eq." + id, { status: act, active: act === "active" }, token);
+            }
+            adminView(sess);
+          } catch (e) { alert(e.message); }
+        });
+      });
+    }
+
+    async function render() {
+      var sess = await D.getSession();
+      if (!sess) return authView();
+      // Admin check: RLS lets a user read their own app_admins row only if they
+      // are one. Empty result → not an admin.
+      var rows;
+      try { rows = await D.select("app_admins?select=email&email=eq." + encodeURIComponent(sess.user.email || ""), sess.access_token); }
+      catch (e) { rows = []; }
+      if (!rows || !rows.length) return notAdminView(sess.user.email);
+      adminView(sess);
+    }
+    render();
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Ads admin console",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Ads admin console"
+    }
+  ]
+}
+{% endschema %}
