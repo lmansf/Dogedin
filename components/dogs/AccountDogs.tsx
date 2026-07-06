@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { dogPhotoUrl, DOG_PHOTO_BUCKET } from "@/lib/dogProfiles";
 import { useSupabaseUser, AuthPanel, signOut } from "./auth";
@@ -69,6 +70,8 @@ export default function AccountDogs() {
           Sign out
         </button>
       </div>
+
+      <OwnerContactPanel user={user} />
 
       {dogs === null ? (
         <p className="text-sm font-bold text-black/50">Loading your dogs…</p>
@@ -167,6 +170,156 @@ export default function AccountDogs() {
 
 const inputClass =
   "w-full border-2 border-black bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--turq)]";
+
+// The owner's contact details, kept once on the account (auth user_metadata)
+// and reused for every dog they register. Editing here writes the account AND
+// every existing dog row's owner_* columns, so a phone/email change keeps all
+// their dogs' lost-dog contact accurate in one save.
+function OwnerContactPanel({ user }: { user: User }) {
+  const meta = (user.user_metadata ?? {}) as {
+    owner_name?: string;
+    owner_phone?: string;
+    owner_email?: string;
+  };
+  const hasContact = Boolean(
+    meta.owner_name && meta.owner_phone && meta.owner_email
+  );
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(meta.owner_name ?? "");
+  const [phone, setPhone] = useState(meta.owner_phone ?? "");
+  const [email, setEmail] = useState(meta.owner_email ?? user.email ?? "");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!supabase) return;
+    if (!name.trim() || !phone.trim() || !email.trim())
+      return setError("Name, phone and email are all required.");
+    setBusy(true);
+    setError(null);
+    const data = {
+      owner_name: name.trim(),
+      owner_phone: phone.trim(),
+      owner_email: email.trim(),
+    };
+    const { error: upErr } = await supabase.auth.updateUser({ data });
+    if (upErr) {
+      setBusy(false);
+      return setError(`Couldn't save: ${upErr.message}`);
+    }
+    // Keep every existing dog's lost-dog contact in sync with the account.
+    await supabase.from("dog_profiles").update(data).eq("user_id", user.id);
+    setBusy(false);
+    setSaved(true);
+    setOpen(false);
+  };
+
+  return (
+    <div className="border-[3px] border-black bg-white p-4 shadow-hard">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-display text-lg font-extrabold">
+            Your contact details
+          </h2>
+          {hasContact && !open ? (
+            <p className="mt-0.5 truncate text-sm text-black/60">
+              {meta.owner_name} · {meta.owner_phone} · {meta.owner_email}
+            </p>
+          ) : (
+            <p className="mt-0.5 text-sm text-black/60">
+              Saved once and reused for every dog — and shown to a finder when
+              lost-dog contact is on.
+            </p>
+          )}
+        </div>
+        {!open && (
+          <button
+            type="button"
+            onClick={() => {
+              setSaved(false);
+              setOpen(true);
+            }}
+            className="shrink-0 border-2 border-black bg-white px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+          >
+            {hasContact ? "Edit" : "Add"}
+          </button>
+        )}
+      </div>
+
+      {saved && !open && (
+        <p className="mt-2 text-sm font-bold text-[var(--green)]">
+          Saved — updated on all your dogs.
+        </p>
+      )}
+
+      {open && (
+        <div className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-extrabold uppercase tracking-wide text-black/60">
+              Your name
+            </span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={80}
+              className={inputClass}
+            />
+          </label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-extrabold uppercase tracking-wide text-black/60">
+                Phone
+              </span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                maxLength={40}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-extrabold uppercase tracking-wide text-black/60">
+                Email
+              </span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={120}
+                className={inputClass}
+              />
+            </label>
+          </div>
+          {error && <p className="text-sm font-bold text-[var(--red)]">{error}</p>}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={save}
+              disabled={busy}
+              className="w-fit border-[3px] border-black bg-[var(--turq)] px-4 py-2 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Save contact details"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setError(null);
+              }}
+              disabled={busy}
+              className="text-xs font-bold uppercase tracking-wide text-black/50 hover:underline disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Inline editor for the fields an owner may change: breed, fun fact (bio) and
 // the lost-dog contact toggle. Name and slug stay fixed — the slug is the
