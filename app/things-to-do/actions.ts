@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { supabase } from "@/lib/supabase";
 import type { Review, Reply } from "@/lib/businesses";
 
@@ -16,6 +16,17 @@ import type { Review, Reply } from "@/lib/businesses";
 
 const PATH = "/things-to-do";
 const today = () => new Date().toISOString().slice(0, 10);
+
+// A review/upvote/reply changes the star rating and counts in three places: the
+// guide list, the business's own permalink, and the home page's "top of the
+// pack" featured spot (cached under the "businesses" tag). Bust all three so a
+// new review's numbers are live everywhere immediately, not up to the 5-min ISR
+// floor later.
+function revalidateGuide() {
+  revalidatePath(PATH);
+  revalidatePath("/things-to-do/[slug]", "page");
+  revalidateTag("businesses");
+}
 const clean = (s: string, max: number) => s.trim().replace(/\s+/g, " ").slice(0, max);
 
 export type AddReviewResult =
@@ -59,7 +70,7 @@ export async function addReview(input: {
     if (error || !data) return { ok: false, error: "Couldn't save your review — try again." };
     review.id = data.id;
     review.createdAt = String(data.created_at).slice(0, 10);
-    revalidatePath(PATH);
+    revalidateGuide();
     return { ok: true, review, persisted: true };
   } catch {
     return { ok: false, error: "Couldn't save your review — try again." };
@@ -80,7 +91,7 @@ export async function upvoteReview(reviewId: string): Promise<UpvoteResult> {
       p_review_id: reviewId,
     });
     if (error) return { ok: false, error: "Couldn't record your upvote." };
-    revalidatePath(PATH);
+    revalidateGuide();
     return { ok: true, upvotes: typeof data === "number" ? data : null, persisted: true };
   } catch {
     return { ok: false, error: "Couldn't record your upvote." };
@@ -121,7 +132,7 @@ export async function addReply(input: {
     if (error || !data) return { ok: false, error: "Couldn't post your reply — try again." };
     reply.id = data.id;
     reply.createdAt = String(data.created_at).slice(0, 10);
-    revalidatePath(PATH);
+    revalidateGuide();
     return { ok: true, reply, persisted: true };
   } catch {
     return { ok: false, error: "Couldn't post your reply — try again." };
