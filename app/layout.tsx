@@ -55,13 +55,14 @@ export const metadata: Metadata = {
 // without a redeploy. Pages stay static — this just turns them into ISR.
 export const revalidate = 300;
 
-// Community leads; keep every line factual — no offers we don't run. A live
-// line naming the top-rated business is appended in RootLayout when one exists.
+// Community leads; keep every line factual — no offers we don't run, and no
+// "coming soon" teasers (they belong in the footer, not the sitewide banner).
+// A live line naming the top-rated business is appended in RootLayout when one
+// exists.
 const MARQUEE = [
   "🐾 REGISTER YOUR GOOD DOG",
   "🚨 FOUND A DOG? LOOK UP THE TAG",
   "🍺 GOOD DOGS · GOOD BREWS",
-  "📅 EVENTS CALENDAR — COMING SOON",
 ];
 
 // Footer link columns: every community surface reachable from any page bottom.

@@ -23,6 +23,7 @@ export default function AdSlot({
   variant = "banner",
   placement,
   label = "Local partner",
+  hideWhenEmpty = false,
 }: {
   slot: string;
   variant?: "banner" | "card";
@@ -31,6 +32,10 @@ export default function AdSlot({
   // "banner" slot serves banners. Set explicitly for ribbon strips.
   placement?: AdPlacement;
   label?: string;
+  // When true, render nothing (not the "your business here" invitation) if no
+  // ad is live. Used on the homepage so an empty site leads with community, not
+  // solicitations; the /advertise link in the footer still drives acquisition.
+  hideWhenEmpty?: boolean;
 }) {
   const wantPlacement: AdPlacement =
     placement ?? (variant === "card" ? "generic" : "banner");
@@ -109,6 +114,9 @@ export default function AdSlot({
   if (!ready) return null;
 
   if (!ad) {
+    // Homepage slots opt out of the invitation entirely so an empty site leads
+    // with community, not "advertise here" boxes.
+    if (hideWhenEmpty) return null;
     // A slim strip for the ribbon, a taller box for feed placements — so two
     // empty slots on one page never read as the same duplicated bar.
     const isRibbon = wantPlacement === "ribbon";
