@@ -1,0 +1,162 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div id="dgd-bizadmin" style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 74rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🔒 Admins only</p>
+  <h2 class="h1" style="margin:0 0 0.6rem;">Admin desk</h2>
+  <p style="margin:0 0 1.6rem;">Review business listings for the Dog-friendly Dunedin guide and read advertising inquiries. Locked to admin accounts by the database.</p>
+  <div id="dgd-bizadmin-body"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+</div>
+
+<script>
+(function () {
+  var BADGE = { pending: "#c99a2e", approved: "#1f5c4a", denied: "#d4cdbb" };
+  var BADGE_FG = { pending: "#211e18", approved: "#f4e9ce", denied: "#211e18" };
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var body = document.getElementById("dgd-bizadmin-body");
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var I = 'width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;';
+    var B = 'border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;';
+    var SMALL = 'border:0.2rem solid rgb(var(--color-foreground));background:#fff;color:#211e18;padding:0.5rem 0.9rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05rem;cursor:pointer;font-size:1.1rem;';
+    var LINK = 'background:none;border:none;font:inherit;font-weight:800;text-transform:uppercase;font-size:1.1rem;text-decoration:underline;cursor:pointer;color:inherit;padding:0;';
+
+    function authView(msg) {
+      body.innerHTML =
+        (msg ? '<p style="font-weight:700;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;margin:0 0 1.2rem;">' + esc(msg) + "</p>" : "") +
+        '<p style="margin:0 0 1.2rem;">Sign in with your admin account.</p>' +
+        '<form id="dgd-x-auth" style="display:flex;flex-direction:column;gap:1rem;max-width:42rem;">' +
+        '<input style="' + I + '" type="email" id="dgd-x-email" placeholder="Email" required>' +
+        '<input style="' + I + '" type="password" id="dgd-x-pass" placeholder="Password" required>' +
+        '<button style="' + B + '" type="submit">Sign in</button>' +
+        '<p id="dgd-x-err" style="color:#a6332e;font-weight:700;margin:0;"></p></form>';
+      var form = document.getElementById("dgd-x-auth"), errEl = document.getElementById("dgd-x-err");
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault(); errEl.textContent = "";
+        try { await D.signIn(document.getElementById("dgd-x-email").value, document.getElementById("dgd-x-pass").value); render(); }
+        catch (e) { errEl.textContent = e.message; }
+      });
+    }
+    function notAdminView(email) {
+      body.innerHTML = '<p style="font-weight:700;margin:0 0 1.2rem;">You&#39;re signed in as ' + esc(email) + ', but that address isn&#39;t on the admin list.</p><button id="dgd-x-out" style="' + SMALL + '">Sign out</button>';
+      document.getElementById("dgd-x-out").addEventListener("click", function () { D.signOut(); render(); });
+    }
+
+    async function deskView(sess) {
+      body.innerHTML = '<p style="opacity:0.6;font-weight:700;">Loading…</p>';
+      var token = sess.access_token, biz, inq;
+      try {
+        biz = await D.select("businesses?select=id,slug,name,category,neighborhood,description,image,address,phone,website,owner_name,owner_email,status,created_at&order=created_at.desc", token);
+        inq = await D.select("ad_inquiries?select=id,business_name,contact_name,email,message,created_at,notified_at&order=created_at.desc", token);
+      } catch (e) { body.innerHTML = '<p style="color:#a6332e;font-weight:700;">Couldn&#39;t load: ' + esc(e.message) + "</p>"; return; }
+      biz = biz || []; inq = inq || [];
+      var pending = biz.filter(function (r) { return r.status === "pending"; });
+      var others = biz.filter(function (r) { return r.status !== "pending"; });
+
+      function bizCard(r) {
+        return '<div style="border:0.2rem solid rgb(var(--color-foreground));background:#fff;color:#211e18;padding:1rem;margin:0 0 1rem;">' +
+          '<div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-start;">' +
+          (r.image ? '<img src="' + esc(r.image) + '" alt="' + esc(r.name) + '" style="height:5rem;width:8rem;object-fit:cover;border:0.2rem solid #211e18;">' : "") +
+          '<div style="flex:1;min-width:16rem;">' +
+          '<p style="margin:0;font-weight:800;font-size:1.5rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">' + esc(r.name) +
+          '<span style="border:0.2rem solid #211e18;background:' + (BADGE[r.status] || "#eee") + ";color:" + (BADGE_FG[r.status] || "#211e18") + ';padding:0.1rem 0.6rem;font-size:1rem;text-transform:uppercase;">' + esc(r.status) + "</span>" +
+          '<span style="border:0.2rem solid #211e18;padding:0.1rem 0.6rem;font-size:1rem;text-transform:uppercase;">' + esc(r.category) + "</span></p>" +
+          '<p style="margin:0.3rem 0 0;font-size:1.2rem;">' + esc(r.description) + "</p>" +
+          '<p style="margin:0.3rem 0 0;font-size:1.1rem;opacity:0.65;font-weight:700;">📍 ' + esc(r.address || "") + (r.phone ? " · 📞 " + esc(r.phone) : "") + (r.website ? ' · 🔗 <a href="' + esc(r.website) + '" style="color:inherit;">site</a>' : "") + "</p>" +
+          '<p style="margin:0.3rem 0 0;font-size:1.1rem;opacity:0.6;font-weight:700;">Submitted by ' + esc(r.owner_name || "") + " · ✉️ " + esc(r.owner_email || "") + "</p></div>" +
+          '<div style="display:flex;flex-direction:column;gap:0.5rem;">' +
+          (r.status !== "approved" ? '<button data-appr="' + r.id + '" style="' + SMALL + 'background:#1f5c4a;color:#f4e9ce;">Approve ▶</button>' : "") +
+          (r.status !== "denied" ? '<button data-deny="' + r.id + '" style="' + SMALL + 'color:#a6332e;">' + (r.status === "approved" ? "Hide" : "Deny") + "</button>" : '<button data-appr="' + r.id + '" style="' + SMALL + '">Restore</button>') +
+          "</div></div></div>";
+      }
+
+      var html =
+        '<div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin:0 0 1.2rem;flex-wrap:wrap;">' +
+        '<span style="font-weight:700;opacity:0.7;">Signed in as ' + esc(sess.user.email) + '</span>' +
+        '<span><a href="/pages/ads-admin" style="' + LINK + 'color:#1fa89b;margin-right:1.2rem;">Ads console →</a><button id="dgd-x-out" style="' + LINK + '">Sign out</button></span></div>' +
+        '<h3 class="h4" style="margin:0 0 0.8rem;">Guide listings</h3>' +
+        (pending.length ? '<p style="border:0.2rem solid rgb(var(--color-foreground));background:rgba(201,154,46,0.3);padding:0.8rem 1.2rem;font-weight:800;margin:0 0 1.2rem;">🔔 ' + pending.length + " listing" + (pending.length === 1 ? "" : "s") + " waiting for review</p>" : "");
+      if (!biz.length) html += '<p style="opacity:0.6;font-weight:700;">No submissions yet — they arrive from /pages/list-business.</p>';
+      pending.forEach(function (r) { html += bizCard(r); });
+      if (others.length) { html += '<details style="margin:0 0 1.6rem;"><summary style="cursor:pointer;font-weight:800;padding:0.6rem 0;">Reviewed listings (' + others.length + ")</summary>"; others.forEach(function (r) { html += bizCard(r); }); html += "</details>"; }
+
+      html += '<h3 class="h4" style="margin:1.6rem 0 0.8rem;border-top:0.2rem solid rgb(var(--color-foreground));padding-top:1.2rem;">Advertising inquiries</h3>';
+      if (!inq.length) html += '<p style="opacity:0.6;font-weight:700;">No inquiries yet — they arrive from the “No banner yet?” form on /pages/advertise.</p>';
+      inq.forEach(function (q) {
+        html += '<div style="border:0.2rem solid rgb(var(--color-foreground));background:#fff;color:#211e18;padding:1rem;margin:0 0 1rem;">' +
+          '<p style="margin:0;font-weight:800;font-size:1.4rem;">' + esc(q.business_name) + "</p>" +
+          '<p style="margin:0.2rem 0 0;font-size:1.2rem;">' + esc(q.contact_name) + ' · <a href="mailto:' + esc(q.email) + '" style="color:inherit;text-decoration:underline;">' + esc(q.email) + "</a></p>" +
+          (q.message ? '<p style="margin:0.4rem 0 0;font-size:1.2rem;opacity:0.8;">“' + esc(q.message) + '”</p>' : "") +
+          '<p style="margin:0.3rem 0 0;font-size:1rem;opacity:0.5;font-weight:700;">' + esc((q.created_at || "").slice(0, 10)) + (q.notified_at ? " · emailed" : " · not emailed") + "</p></div>";
+      });
+
+      body.innerHTML = html;
+      document.getElementById("dgd-x-out").addEventListener("click", function () { D.signOut(); render(); });
+
+      function review(id, status) {
+        return async function () {
+          try { await D.update("businesses?id=eq." + id, { status: status }, token); deskView(sess); }
+          catch (e) { alert(e.message); }
+        };
+      }
+      body.querySelectorAll("button[data-appr]").forEach(function (b) { b.addEventListener("click", review(b.getAttribute("data-appr"), "approved")); });
+      body.querySelectorAll("button[data-deny]").forEach(function (b) { b.addEventListener("click", review(b.getAttribute("data-deny"), "denied")); });
+    }
+
+    async function render() {
+      var sess = await D.getSession();
+      if (!sess) return authView();
+      var rows;
+      try { rows = await D.select("app_admins?select=email&email=eq." + encodeURIComponent(sess.user.email || ""), sess.access_token); }
+      catch (e) { rows = []; }
+      if (!rows || !rows.length) return notAdminView(sess.user.email);
+      deskView(sess);
+    }
+    render();
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Admin desk",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Admin desk"
+    }
+  ]
+}
+{% endschema %}

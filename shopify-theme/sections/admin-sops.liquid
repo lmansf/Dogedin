@@ -1,0 +1,237 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<style>
+  #dgd-sop-doc h3 { margin: 2.4rem 0 0.8rem; }
+  #dgd-sop-doc h4 { margin: 1.8rem 0 0.6rem; font-size: 1.6rem; }
+  #dgd-sop-doc p, #dgd-sop-doc li { line-height: 1.5; }
+  #dgd-sop-doc ol, #dgd-sop-doc ul { margin: 0 0 1rem; padding-left: 2rem; }
+  #dgd-sop-doc li { margin: 0 0 0.4rem; }
+  #dgd-sop-doc code { background: rgba(31,168,155,0.12); border: 0.1rem solid rgba(33,30,24,0.25); padding: 0 0.4rem; font-size: 0.92em; word-break: break-word; }
+  #dgd-sop-doc table { border-collapse: collapse; width: 100%; margin: 0 0 1.2rem; font-size: 1.2rem; }
+  #dgd-sop-doc th, #dgd-sop-doc td { border: 0.2rem solid rgb(var(--color-foreground)); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
+  #dgd-sop-doc th { background: rgba(31,168,155,0.15); text-transform: uppercase; font-size: 1.05rem; letter-spacing: 0.04rem; }
+  #dgd-sop-doc .callout { border: 0.2rem solid rgb(var(--color-foreground)); background: rgba(201,154,46,0.18); padding: 1rem 1.2rem; margin: 0 0 1.2rem; font-weight: 600; }
+  #dgd-sop-doc .toc a { color: inherit; font-weight: 700; }
+  #dgd-sop-doc .scroll { overflow-x: auto; }
+</style>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 80rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🔒 Admins only · Standard operating procedures</p>
+  <h2 class="h1" style="margin:0 0 0.6rem;">Dogedin shop — admin runbook</h2>
+  <p style="margin:0 0 1.6rem;">How to run the community features from inside the Shopify store: advertising, the local guide, dog registrations, and housekeeping. Gated to admin accounts.</p>
+  <div id="dgd-sop-gate"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+
+  <div id="dgd-sop-doc" style="display:none;">
+    <div class="callout">
+      Everything below happens on this store — no need to visit dogedin.com. The
+      shop and the website share one Supabase backend; access is enforced by the
+      database (row-level security), so these consoles are safe to keep in the
+      theme: a non-admin only ever sees a sign-in box.
+    </div>
+
+    <p class="toc"><strong>Jump to:</strong>
+      <a href="#sop-access">Admin access</a> ·
+      <a href="#sop-ads">Business ads</a> ·
+      <a href="#sop-guide">Guide listings</a> ·
+      <a href="#sop-inq">Inquiries</a> ·
+      <a href="#sop-dogs">Dogs &amp; lost tags</a> ·
+      <a href="#sop-map">Page map</a> ·
+      <a href="#sop-house">Housekeeping</a> ·
+      <a href="#sop-safety">Safety</a>
+    </p>
+
+    <h3 id="sop-access">1 · Admin access</h3>
+    <p>You are an admin if your email is in the <code>app_admins</code> table in Supabase. Admin consoles ask you to sign in with that email (same account and password you use to register a dog — create one if needed).</p>
+    <p><strong>To add another admin</strong>, open the Supabase dashboard → SQL editor and run:</p>
+    <div class="scroll"><pre style="border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;overflow-x:auto;"><code>insert into public.app_admins (email) values ('newadmin@example.com');</code></pre></div>
+    <p>That person then signs in on any admin console with that email. Removing an admin is the same <code>delete from public.app_admins where email = '…';</code>.</p>
+
+    <h3 id="sop-ads">2 · Business ads — end to end</h3>
+    <p>Ads live in the <code>advertisers</code> table and rotate through two slots in the shop. An ad only ever shows when its <strong>status is “active”</strong> and today is inside its run dates.</p>
+
+    <h4>2.1 · Where the two ad slots appear</h4>
+    <div class="scroll"><table>
+      <tr><th>Placement</th><th>Exact size</th><th>Max file</th><th>Where it shows</th></tr>
+      <tr><td>Banner</td><td>728×90 (+ optional 320×100 mobile)</td><td>150 KB</td><td>Strip across the shop homepage</td></tr>
+      <tr><td>Ribbon</td><td>1200×120</td><td>120 KB</td><td>“Presented by” strip above Community Favorites</td></tr>
+    </table></div>
+    <p>Format must be JPG, PNG or WebP, at the exact pixel size (the application form checks this before it accepts an upload).</p>
+
+    <h4>2.2 · The three ways an ad gets in</h4>
+    <ol>
+      <li><strong>A business applies</strong> at <code>/pages/advertise</code>: picks a spot, uploads its banner, adds a link and dates. This files an <code>applied</code> row — it does <em>not</em> show yet.</li>
+      <li><strong>A business inquires</strong> (no artwork) via the “No banner yet?” form on the same page. That’s a lead — see §4.</li>
+      <li><strong>You add one manually</strong> in the ads console (§2.3) — goes live immediately.</li>
+    </ol>
+
+    <h4>2.3 · Approving &amp; managing ads — <code>/pages/ads-admin</code></h4>
+    <ol>
+      <li>Open <code>/pages/ads-admin</code> and sign in with your admin email.</li>
+      <li>Applications waiting show at the top with a 🔔. For each you can:
+        <ul>
+          <li><strong>Approve &amp; publish ▶</strong> — flips it to <code>active</code>; it starts rotating right away.</li>
+          <li><strong>Approve, hold</strong> — marks it <code>approved</code> but keeps it dark until you hit <strong>Activate ▶</strong> (use this if you’re collecting payment first).</li>
+          <li><strong>Reject ✕</strong> — deletes it.</li>
+        </ul>
+      </li>
+      <li>For a live ad: <strong>Pause ⏸</strong> takes it out of rotation; <strong>Wt</strong> sets its rotation weight (higher = shown more often when a slot has several ads); <strong>Delete</strong> removes it.</li>
+      <li><strong>Add an ad manually:</strong> expand “➕ Add an ad manually”, paste an image URL + link, pick the spot, set weight and optional run dates, Add. It’s live at once.</li>
+    </ol>
+    <p class="callout"><strong>Status flow:</strong> applied → approved → active ⇄ disabled. Only <code>active</code> rows inside their run dates ever render. Ads with an end date drop out on their own.</p>
+
+    <h4>2.4 · Reading the numbers</h4>
+    <p>Each ad card shows lifetime 👁 impressions and 👆 clicks, plus a 30-day per-slot breakdown with CTR. Impressions only count after an ad is 50% visible for a full second — the same honest rule the website uses — so the figures you quote a renewing advertiser are real.</p>
+
+    <h4>2.5 · Pricing reference</h4>
+    <p>These are the daily rates the website uses; billing in the shop is handled by you (invoice, in person, or a Shopify order — the shop doesn’t auto-charge).</p>
+    <div class="scroll"><table>
+      <tr><th>Placement</th><th>Daily</th><th>≈ Monthly</th></tr>
+      <tr><td>Ribbon</td><td>$6/day</td><td>≈ $180</td></tr>
+      <tr><td>Banner</td><td>$4/day</td><td>≈ $120</td></tr>
+    </table></div>
+
+    <h3 id="sop-guide">3 · Guide listings (Dog-friendly Dunedin)</h3>
+    <p>Businesses add themselves at <code>/pages/list-business</code> (category, hours, address, card photo). Each arrives as <code>pending</code> and is invisible until you approve it.</p>
+    <ol>
+      <li>Open <code>/pages/admin-desk</code> and sign in.</li>
+      <li>Under <strong>Guide listings</strong>, pending submissions show first with a 🔔.</li>
+      <li><strong>Approve ▶</strong> puts it live in the guide; <strong>Deny</strong> hides it. You can <strong>Hide</strong> a live listing or <strong>Restore</strong> a denied one later.</li>
+    </ol>
+    <p>Approved listings appear wherever the <em>Dog-friendly Dunedin guide</em> section is placed, with tap-to-call, directions, and website links — and every tap is counted for the business.</p>
+
+    <h3 id="sop-inq">4 · Advertising inquiries</h3>
+    <p>The “No banner yet?” form files leads into <code>ad_inquiries</code>. Read them at the bottom of <code>/pages/admin-desk</code> (business, contact, email, message, whether an email nudge went out). Reply by email; when a deal is agreed, set the ad up in the ads console (§2.3).</p>
+
+    <h3 id="sop-dogs">5 · Dogs &amp; lost-dog tags</h3>
+    <ul>
+      <li><strong>Register:</strong> <code>/pages/register-your-dog</code> — an owner creates an account, adds a photo and fun fact (auto-moderated), and gets a unique <strong>tag code</strong>.</li>
+      <li><strong>Manage:</strong> <code>/pages/account</code> — the owner edits or deletes their own dogs and copies each tag code. Everything is scoped to them by the database.</li>
+      <li><strong>Look up a found dog:</strong> <code>/pages/found</code> — anyone types a tag code (or the dog’s name) and reaches the owner if the owner opted in to sharing contact. A QR on a physical tag can link straight to <code>/pages/found?tag=CODE</code>.</li>
+      <li><strong>Moderation:</strong> fun-fact text runs through the same AI moderation as the website. Nothing else about a dog is admin-gated — owners self-serve.</li>
+    </ul>
+
+    <h3 id="sop-map">6 · Page map</h3>
+    <div class="scroll"><table>
+      <tr><th>Page</th><th>Who</th><th>What</th></tr>
+      <tr><td><code>/pages/advertise</code></td><td>Business</td><td>Apply for an ad or send an inquiry</td></tr>
+      <tr><td><code>/pages/list-business</code></td><td>Business</td><td>Submit a guide listing</td></tr>
+      <tr><td><code>/pages/register-your-dog</code></td><td>Owner</td><td>Register a dog, get a tag code</td></tr>
+      <tr><td><code>/pages/account</code></td><td>Owner</td><td>Manage their dogs</td></tr>
+      <tr><td><code>/pages/found</code></td><td>Anyone</td><td>Look up a lost-dog tag</td></tr>
+      <tr><td><code>/pages/ads-admin</code></td><td><strong>Admin</strong></td><td>Approve &amp; manage ads</td></tr>
+      <tr><td><code>/pages/admin-desk</code></td><td><strong>Admin</strong></td><td>Review guide listings + read inquiries</td></tr>
+      <tr><td><code>/pages/admin-sops</code></td><td><strong>Admin</strong></td><td>This runbook</td></tr>
+    </table></div>
+
+    <h3 id="sop-house">7 · Housekeeping</h3>
+    <ul>
+      <li><strong>Start clean:</strong> the wipe script is in the repo at <code>supabase/reset.sql</code> — run it in the Supabase SQL editor to clear dogs, users, businesses, ads and inquiries. Storage buckets (<code>dog-photos</code>, <code>business-photos</code>, <code>ad-creatives</code>) are emptied separately from the dashboard (each bucket → “Empty bucket”), because SQL can’t delete storage objects.</li>
+      <li><strong>Photos &amp; creatives</strong> live in those three public-read buckets; deleting a dog or rejecting an ad from the consoles removes its row, and dog deletion also removes its photo.</li>
+      <li><strong>Emails</strong> (welcome-business, ad-inquiry nudges, password resets) are sent by Supabase Edge Functions and work regardless of which storefront submitted the form.</li>
+    </ul>
+
+    <h3 id="sop-safety">8 · Safety notes</h3>
+    <ul>
+      <li>These consoles are safe in a public theme <strong>only because</strong> row-level security gates every read and write to admin accounts. Don’t remove those checks.</li>
+      <li>The Supabase <strong>anon key</strong> in the theme is public by design. The <strong>service-role key is not</strong> — never paste it into the theme, a page, or a chat. Use it only in the Supabase dashboard yourself.</li>
+      <li>All of this is on the <strong>draft theme</strong>. Don’t publish the live theme or edit it directly; test changes on the draft preview first.</li>
+      <li>This runbook holds no passwords or keys, by design.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var gate = document.getElementById("dgd-sop-gate");
+    var doc = document.getElementById("dgd-sop-doc");
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var I = 'width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;';
+    var B = 'border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;';
+    var SMALL = 'background:none;border:none;font:inherit;font-weight:800;text-transform:uppercase;font-size:1.1rem;text-decoration:underline;cursor:pointer;color:inherit;padding:0;';
+
+    function authView(msg) {
+      doc.style.display = "none";
+      gate.innerHTML =
+        (msg ? '<p style="font-weight:700;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;margin:0 0 1.2rem;">' + esc(msg) + "</p>" : "") +
+        '<p style="margin:0 0 1.2rem;">Sign in with your admin account to read the runbook.</p>' +
+        '<form id="dgd-s-auth" style="display:flex;flex-direction:column;gap:1rem;max-width:42rem;">' +
+        '<input style="' + I + '" type="email" id="dgd-s-email" placeholder="Email" required>' +
+        '<input style="' + I + '" type="password" id="dgd-s-pass" placeholder="Password" required>' +
+        '<button style="' + B + '" type="submit">Sign in</button>' +
+        '<p id="dgd-s-err" style="color:#a6332e;font-weight:700;margin:0;"></p></form>';
+      var form = document.getElementById("dgd-s-auth"), errEl = document.getElementById("dgd-s-err");
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault(); errEl.textContent = "";
+        try { await D.signIn(document.getElementById("dgd-s-email").value, document.getElementById("dgd-s-pass").value); render(); }
+        catch (e) { errEl.textContent = e.message; }
+      });
+    }
+    function notAdminView(email) {
+      doc.style.display = "none";
+      gate.innerHTML = '<p style="font-weight:700;margin:0 0 1.2rem;">You&#39;re signed in as ' + esc(email) + ', but that address isn&#39;t on the admin list.</p><button id="dgd-s-out" style="' + SMALL + '">Sign out</button>';
+      document.getElementById("dgd-s-out").addEventListener("click", function () { D.signOut(); render(); });
+    }
+    function adminView(sess) {
+      gate.innerHTML = '<div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin:0 0 0.4rem;flex-wrap:wrap;"><span style="font-weight:700;opacity:0.7;">Signed in as ' + esc(sess.user.email) + '</span><button id="dgd-s-out" style="' + SMALL + '">Sign out</button></div>';
+      doc.style.display = "block";
+      document.getElementById("dgd-s-out").addEventListener("click", function () { D.signOut(); render(); });
+    }
+    async function render() {
+      var sess = await D.getSession();
+      if (!sess) return authView();
+      var rows;
+      try { rows = await D.select("app_admins?select=email&email=eq." + encodeURIComponent(sess.user.email || ""), sess.access_token); }
+      catch (e) { rows = []; }
+      if (!rows || !rows.length) return notAdminView(sess.user.email);
+      adminView(sess);
+    }
+    render();
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Admin SOPs",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Admin SOPs"
+    }
+  ]
+}
+{% endschema %}
