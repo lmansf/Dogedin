@@ -11,13 +11,14 @@ import { useIsAdmin } from "@/components/dogs/auth";
 // header bar, which is `relative`). Two things stay visible at every size:
 // the cart, and the coral "Found a dog?" chip — the lost-dog lookup is an
 // emergency utility and must never hide behind a menu.
-// `soon` marks pre-launch destinations: the link stays visible, and clicks
-// are counted as interest (feature_interest_daily) rather than hidden.
+// Pre-launch destinations (Events, the Club) are intentionally NOT in the
+// primary nav — surfacing "coming soon" dead-ends in the top bar reads as
+// under-construction. They live in the footer instead, where clicks are still
+// counted as interest (feature_interest_daily). `soon` support is kept here so
+// a link can be promoted back up the moment its feature ships.
 const LINKS: { href: string; label: string; soon?: string }[] = [
   { href: "/things-to-do", label: "Local Guide" },
-  { href: "/events", label: "Events", soon: "events" },
   { href: "/dogs", label: "The Pack" },
-  { href: "/membership", label: "Club", soon: "club" },
   { href: "/shop", label: "Shop" },
   { href: "/account", label: "My dogs" },
 ];

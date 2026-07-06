@@ -87,25 +87,28 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Ribbon: a full-width top strip. Only renders a live ad when the admin
-          has an active ribbon campaign; otherwise it's a quiet invitation. */}
-      <AdSlot slot="home_ribbon" placement="ribbon" label="Featured partner" />
-
-      {/* The pack: real registered dogs (mascots until the roster fills). */}
+      {/* The pack leads, right under the hero: real registered dogs (mascots
+          until the roster fills). */}
       <DogCarousel pack={pack} />
 
       {/* Most-pawed dogs — the front page is itself a place to add a paw.
           Hidden until the pack has a registered dog. */}
       <TopDogs />
 
-      {/* Local business spotlight — the one ad between community sections. */}
-      <AdSlot slot="home_feed" label="Local partner" />
+      {/* Ribbon: a slim partner strip below the community lede. Hidden until a
+          ribbon campaign is live, so the page never fronts an "advertise here"
+          box before there's a community to advertise to. */}
+      <AdSlot slot="home_ribbon" placement="ribbon" label="Featured partner" hideWhenEmpty />
 
       {/* Editorial, not paid: the top-rated spot in the local guide, crowned
           by community reviews. Hidden while the guide has no listings. */}
       <FeaturedBusiness />
 
       <SpotsPreview />
+
+      {/* Local business spotlight — a single banner between the guide and the
+          shop, shown only when a campaign is live. */}
+      <AdSlot slot="home_feed" label="Local partner" hideWhenEmpty />
 
       {/* Shop teaser: one earning row, honestly framed. Hidden entirely until
           there are real (or dev-preview) products to show. */}
