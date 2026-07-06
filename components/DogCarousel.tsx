@@ -19,7 +19,11 @@ import PawButton from "@/components/dogs/PawButton";
 // the pack is still small. A permanent final card invites the viewer's own dog
 // into the lineup.
 export default function DogCarousel({ pack }: { pack?: PackDog[] }) {
-  const dogs = pack && pack.length > 0 ? pack : mascotsAsPack();
+  // Fall back to the mascot cast while the pack is still empty so the front
+  // page never looks abandoned — but track that we did, so the label can say
+  // so honestly rather than passing fictional dogs off as real neighbours.
+  const usingMascots = !(pack && pack.length > 0);
+  const dogs = usingMascots ? mascotsAsPack() : pack;
   const cardCount = dogs.length + 1; // + the "your dog belongs here" card
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
@@ -138,7 +142,7 @@ export default function DogCarousel({ pack }: { pack?: PackDog[] }) {
             Meet the pack 🐾
           </h2>
           <span className="hidden -rotate-2 border-2 border-black bg-[var(--turq)] px-3 py-1 text-xs font-black uppercase text-[var(--sand)] shadow-hard sm:inline-block">
-            Dunedin&apos;s very good dogs
+            {usingMascots ? "Meet the Dogedin mascots" : "Dunedin's very good dogs"}
           </span>
         </div>
         <div className="hidden items-center gap-3 sm:flex">
