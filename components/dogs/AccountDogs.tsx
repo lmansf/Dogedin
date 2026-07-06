@@ -113,10 +113,10 @@ export default function AccountDogs() {
                       {tagOpen === dog.id ? "Hide tag" : "Tag & QR"}
                     </button>
                   </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
+                  <div className="flex shrink-0 flex-col items-stretch gap-1.5">
                     <Link
                       href={`/dog/${dog.slug}`}
-                      className="text-xs font-black uppercase tracking-wide text-[var(--turq)] hover:underline"
+                      className="border-2 border-black bg-white px-3 py-1.5 text-center text-xs font-black uppercase tracking-wide text-[var(--turq)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
                     >
                       View →
                     </Link>
@@ -125,14 +125,15 @@ export default function AccountDogs() {
                       onClick={() =>
                         setEditOpen((cur) => (cur === dog.id ? null : dog.id))
                       }
-                      className="text-xs font-black uppercase tracking-wide text-black/60 hover:underline"
+                      className="border-2 border-black bg-white px-3 py-1.5 text-xs font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
                     >
                       {editOpen === dog.id ? "Close" : "Edit"}
                     </button>
+                    {/* Destructive — set apart from Edit so it isn't fat-fingered. */}
                     <button
                       type="button"
                       onClick={() => remove(dog)}
-                      className="text-xs font-bold uppercase tracking-wide text-[var(--red)] hover:underline"
+                      className="mt-1.5 border-2 border-[var(--red)] px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-[var(--red)] transition-colors hover:bg-[var(--red)] hover:text-white"
                     >
                       Delete
                     </button>

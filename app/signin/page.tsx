@@ -66,6 +66,13 @@ export default function SignInPage() {
         Same email and password on both — a business account is just a Dogedin
         account whose email is on a listing.
       </p>
+
+      <p className="text-center text-sm font-bold text-black/60">
+        New business, not listed yet?{" "}
+        <Link href="/list-your-business" className="font-black underline">
+          List your business first →
+        </Link>
+      </p>
     </div>
   );
 }

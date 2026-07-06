@@ -49,21 +49,36 @@ export default async function AdvertisePage({
   if (paid === "1" && session_id) {
     await confirmAdPaymentBySession(session_id);
   }
-  return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8">
-      {paid === "1" && (
-        <div className="border-[3px] border-black bg-[var(--green)] p-4 text-center shadow-hard">
-          <p className="font-display text-xl font-extrabold text-[var(--sand)]">
+
+  // On a successful return from Checkout, show a focused confirmation only —
+  // re-rendering the whole spec sheet and inquiry form below a "payment
+  // received" banner reads as "did it not work? do I fill this in again?".
+  if (paid === "1") {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        <div className="border-[3px] border-black bg-[var(--green)] p-6 text-center shadow-hard-lg">
+          <p className="font-display text-2xl font-extrabold text-[var(--sand)]">
             🎉 Payment received — hang tight!
           </p>
-          <p className="mt-1 text-sm font-bold text-[var(--sand)]/90">
+          <p className="mt-2 text-sm font-bold text-[var(--sand)]/90">
             Your ad goes live within a minute — it takes a moment for the payment
             to confirm — or on your first booked day if you scheduled it ahead. It
             then runs through your last day and switches off on its own. Nothing
             more to do — thanks for supporting the pack! 🐾
           </p>
+          <a
+            href="/"
+            className="mt-5 inline-block border-[3px] border-black bg-[var(--sand)] px-5 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+          >
+            Back to Dogedin
+          </a>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-8">
       {canceled === "1" && (
         <div className="border-[3px] border-black bg-[var(--gold)]/30 p-4 text-center shadow-hard">
           <p className="text-sm font-black uppercase tracking-wide">
@@ -95,8 +110,8 @@ export default async function AdvertisePage({
         </h2>
         <p className="text-sm text-black/60">
           Build your artwork to the exact size below and it&apos;ll be accepted
-          on the form and drop straight into rotation once we approve it.
-          Everything is {FORMATS}.
+          on the form and go live automatically as soon as it clears a quick,
+          automated content check. Everything is {FORMATS}.
         </p>
 
         {AD_LOCATIONS.map((loc) => {

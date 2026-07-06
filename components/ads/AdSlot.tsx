@@ -109,13 +109,22 @@ export default function AdSlot({
   if (!ready) return null;
 
   if (!ad) {
+    // A slim strip for the ribbon, a taller box for feed placements — so two
+    // empty slots on one page never read as the same duplicated bar.
+    const isRibbon = wantPlacement === "ribbon";
     return (
       <aside ref={boxRef as React.RefObject<HTMLElement>}>
         <Link
           href="/advertise"
-          className="flex items-center justify-center border-[3px] border-dashed border-black/30 bg-white p-6 text-center text-xs font-bold uppercase tracking-wide text-black/40 transition-colors hover:border-black/60 hover:text-black/60"
+          className={
+            isRibbon
+              ? "flex items-center justify-center border-2 border-dashed border-black/25 bg-white px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-black/40 transition-colors hover:border-black/60 hover:text-black/60"
+              : "flex items-center justify-center border-[3px] border-dashed border-black/30 bg-white p-6 text-center text-xs font-bold uppercase tracking-wide text-black/40 transition-colors hover:border-black/60 hover:text-black/60"
+          }
         >
-          Your business here — reach Dunedin&apos;s dog people →
+          {isRibbon
+            ? "Advertise on Dogedin — top of the page →"
+            : "Your business here — reach Dunedin’s dog people →"}
         </Link>
       </aside>
     );

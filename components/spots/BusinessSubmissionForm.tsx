@@ -54,8 +54,7 @@ export default function BusinessSubmissionForm() {
   if (!supabase) {
     return (
       <p className="border-[3px] border-black bg-[var(--gold)]/30 px-4 py-3 text-sm font-bold">
-        This form isn&apos;t connected yet — set the Supabase env vars and run{" "}
-        <code className="border border-black bg-white px-1">supabase/schema.sql</code>.
+        Listings are temporarily unavailable — please check back soon. 🐾
       </p>
     );
   }
