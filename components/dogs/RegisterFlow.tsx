@@ -51,10 +51,24 @@ export default function RegisterFlow() {
       <AuthPanel intro="Sign in or create an account to register your dog. This keeps each profile tied to you so only you can edit it." />
     );
   }
+  // Owner contact captured on a previous registration lives on the account
+  // (auth user_metadata), so a returning owner never re-types it — adding
+  // another dog becomes a short, dog-only form.
+  const meta = (user.user_metadata ?? {}) as {
+    owner_name?: string;
+    owner_phone?: string;
+    owner_email?: string;
+  };
+
   return (
     <RegistrationForm
       userId={user.id}
       defaultEmail={user.email ?? ""}
+      savedOwner={{
+        name: meta.owner_name ?? "",
+        phone: meta.owner_phone ?? "",
+        email: meta.owner_email ?? "",
+      }}
       // welcome=1 → the profile page greets the new owner with next steps
       // (get the tag & QR, see events) instead of dead-ending.
       onDone={(slug) => router.push(`/dog/${slug}?welcome=1`)}
@@ -62,18 +76,28 @@ export default function RegisterFlow() {
   );
 }
 
+type SavedOwner = { name: string; phone: string; email: string };
+
 function RegistrationForm({
   userId,
   defaultEmail,
+  savedOwner,
   onDone,
 }: {
   userId: string;
   defaultEmail: string;
+  savedOwner: SavedOwner;
   onDone: (slug: string) => void;
 }) {
-  const [ownerName, setOwnerName] = useState("");
-  const [ownerPhone, setOwnerPhone] = useState("");
-  const [ownerEmail, setOwnerEmail] = useState(defaultEmail);
+  const hasSavedOwner = Boolean(
+    savedOwner.name && savedOwner.phone && savedOwner.email
+  );
+  const [ownerName, setOwnerName] = useState(savedOwner.name);
+  const [ownerPhone, setOwnerPhone] = useState(savedOwner.phone);
+  const [ownerEmail, setOwnerEmail] = useState(savedOwner.email || defaultEmail);
+  // Collapsed to a one-line summary when we already have the owner's details,
+  // so a returning owner only fills in the new dog.
+  const [editingOwner, setEditingOwner] = useState(!hasSavedOwner);
   const [dogName, setDogName] = useState("");
   const [breed, setBreed] = useState("");
   const [bio, setBio] = useState("");
@@ -158,7 +182,20 @@ function RegistrationForm({
         const { error: insErr } = await client
           .from("dog_profiles")
           .insert({ ...base, slug, tag_code: randomTagCode() });
-        if (!insErr) return onDone(slug);
+        if (!insErr) {
+          // Remember the owner's contact on the account so the next dog reuses
+          // it (a short, dog-only form). Best-effort — never block the redirect.
+          await client.auth
+            .updateUser({
+              data: {
+                owner_name: base.owner_name,
+                owner_phone: base.owner_phone,
+                owner_email: base.owner_email,
+              },
+            })
+            .catch(() => {});
+          return onDone(slug);
+        }
         if (insErr.code !== "23505") {
           await cleanupPhoto();
           return setError(`Couldn't save the profile: ${insErr.message}`);
@@ -176,7 +213,9 @@ function RegistrationForm({
       className="flex flex-col gap-4 border-[3px] border-black bg-white p-5 shadow-hard sm:p-6"
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-2xl font-extrabold">Register your dog</h2>
+        <h2 className="font-display text-2xl font-extrabold">
+          {hasSavedOwner ? "Add another dog" : "Register your dog"}
+        </h2>
         <button
           type="button"
           onClick={() => signOut()}
@@ -186,39 +225,66 @@ function RegistrationForm({
         </button>
       </div>
 
-      <Field label="Your name" required>
-        <input
-          type="text"
-          value={ownerName}
-          onChange={(e) => setOwnerName(e.target.value)}
-          className={inputClass}
-          maxLength={80}
-          required
-        />
-      </Field>
+      {/* Owner contact: full fields the first time, then a collapsed summary the
+          owner can expand to edit. Kept once on the account, reused every time. */}
+      {editingOwner ? (
+        <>
+          {hasSavedOwner && (
+            <p className="text-xs font-bold text-black/50">
+              Your contact details — saved to your account and used on every dog.
+            </p>
+          )}
+          <Field label="Your name" required>
+            <input
+              type="text"
+              value={ownerName}
+              onChange={(e) => setOwnerName(e.target.value)}
+              className={inputClass}
+              maxLength={80}
+              required
+            />
+          </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Phone" required>
-          <input
-            type="tel"
-            value={ownerPhone}
-            onChange={(e) => setOwnerPhone(e.target.value)}
-            className={inputClass}
-            maxLength={40}
-            required
-          />
-        </Field>
-        <Field label="Email" required>
-          <input
-            type="email"
-            value={ownerEmail}
-            onChange={(e) => setOwnerEmail(e.target.value)}
-            className={inputClass}
-            maxLength={120}
-            required
-          />
-        </Field>
-      </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Phone" required>
+              <input
+                type="tel"
+                value={ownerPhone}
+                onChange={(e) => setOwnerPhone(e.target.value)}
+                className={inputClass}
+                maxLength={40}
+                required
+              />
+            </Field>
+            <Field label="Email" required>
+              <input
+                type="email"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+                className={inputClass}
+                maxLength={120}
+                required
+              />
+            </Field>
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center justify-between gap-3 border-2 border-black bg-[var(--sand)] px-3 py-2">
+          <div className="min-w-0 text-sm">
+            <span className="font-extrabold">Registering as {ownerName}</span>
+            <span className="block truncate text-black/60">
+              {ownerPhone} · {ownerEmail}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditingOwner(true)}
+            className="shrink-0 text-xs font-black uppercase tracking-wide text-[var(--turq)] hover:underline"
+          >
+            Edit
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Dog's name" required>
