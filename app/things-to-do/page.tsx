@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BusinessCard from "@/components/spots/BusinessCard";
+import BeachCard from "@/components/spots/BeachCard";
 import ComingSoonLink from "@/components/ComingSoonLink";
 import AdSlot from "@/components/ads/AdSlot";
 import JsonLd from "@/components/JsonLd";
@@ -58,6 +59,9 @@ export default async function ThingsToDoPage() {
           to set up the tables.
         </p>
       )}
+
+      {/* Live tides + water temp for the beach-bound — key-free NOAA data. */}
+      <BeachCard />
 
       {businesses.length === 0 ? (
         // Honest empty state: a connected-but-empty guide shows no listings

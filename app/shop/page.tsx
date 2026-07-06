@@ -22,7 +22,8 @@ export default async function ShopPage() {
   const live = await getProducts(24);
   const demoFallback =
     process.env.NODE_ENV !== "production" ? [...DEMO_DOGS, ...DEMO_HUMANS] : [];
-  const products = live.length ? live : demoFallback;
+  // Sold-out items dead-end the carousel — list only what's buyable.
+  const products = (live.length ? live : demoFallback).filter((p) => p.available);
 
   return (
     <div className="flex flex-col gap-12">

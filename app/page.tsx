@@ -3,8 +3,6 @@ import DogCarousel from "@/components/DogCarousel";
 import ProductRow from "@/components/ProductRow";
 import AdSlot from "@/components/ads/AdSlot";
 import InstagramFeed from "@/components/social/InstagramFeed";
-import ComingSoonLink from "@/components/ComingSoonLink";
-import EventsPreview from "@/components/home/EventsPreview";
 import FeaturedBusiness from "@/components/home/FeaturedBusiness";
 import SpotsPreview from "@/components/home/SpotsPreview";
 import TopDogs from "@/components/home/TopDogs";
@@ -29,7 +27,10 @@ export default async function Home() {
   // Demo products are a dev-only preview — in production an unconfigured or
   // empty Shopify store hides the teaser row rather than showing fake gear.
   const demoFallback = process.env.NODE_ENV !== "production" ? DEMO_DOGS : [];
-  const teaserProducts = (shopTeaser.length ? shopTeaser : demoFallback).slice(0, 6);
+  // Sold-out items are a dead end on a teaser — only show what's buyable.
+  const teaserProducts = (shopTeaser.length ? shopTeaser : demoFallback)
+    .filter((p) => p.available)
+    .slice(0, 6);
 
   // Real registered dogs for the carousel; the component falls back to the
   // mascot cast when the pack is still empty.
@@ -97,8 +98,6 @@ export default async function Home() {
           Hidden until the pack has a registered dog. */}
       <TopDogs />
 
-      <EventsPreview />
-
       {/* Local business spotlight — the one ad between community sections. */}
       <AdSlot slot="home_feed" label="Local partner" />
 
@@ -132,31 +131,6 @@ export default async function Home() {
           </div>
         </section>
       )}
-
-      {/* Dogedin Club band — teaser only while the Club is pre-launch. No
-          perks or price are promised; the tracked link measures interest. */}
-      <section className="relative overflow-hidden border-[3px] border-black bg-[var(--green)] p-6 shadow-hard-lg md:p-8">
-        <div className="dots pointer-events-none absolute inset-0" />
-        <div className="relative flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="font-display text-3xl font-extrabold text-[var(--sand)]">
-              The Dogedin Club 🎟
-            </h2>
-            <p className="mt-1 max-w-lg font-bold text-[var(--sand)]/90">
-              Something for the pack is in the works. That&apos;s all we can say
-              for now.
-            </p>
-          </div>
-          <ComingSoonLink
-            feature="club"
-            source="home"
-            href="/membership"
-            className="shrink-0 border-[3px] border-black bg-[var(--gold)] px-5 py-2.5 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
-          >
-            Coming soon →
-          </ComingSoonLink>
-        </div>
-      </section>
 
       {/* Auto-pulled Instagram feed (official Graph API; falls back to a
           follow card until configured). */}

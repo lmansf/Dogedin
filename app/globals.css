@@ -55,7 +55,11 @@ h3,
   }
 }
 .animate-marquee {
-  animation: marquee 24s linear infinite;
+  animation: marquee 48s linear infinite;
+}
+/* Let a reader catch an item without chasing it. */
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
 /* Respect reduced-motion: the bar becomes a static strip (the first copy of
    the tripled list stays readable; the clones just sit off-screen). */
