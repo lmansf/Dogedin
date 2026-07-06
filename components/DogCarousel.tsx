@@ -351,9 +351,12 @@ function DogPhoto({ dog, priority }: { dog: PackDog; priority: boolean }) {
   if (!dog.image || failed) {
     return (
       <div
-        className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${dog.grad}`}
+        className={`flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br ${dog.grad}`}
       >
         <span className="text-6xl drop-shadow">{dog.emoji}</span>
+        <span className="rotate-[-2deg] border-2 border-black bg-[var(--sand)] px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-black/70 shadow-hard">
+          📸 awaiting their close-up
+        </span>
       </div>
     );
   }
