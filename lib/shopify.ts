@@ -19,6 +19,12 @@ export type Product = {
   available: boolean;
 };
 
+// A custom line attribute (Shopify AttributeInput). Used to attach per-order
+// personalization — e.g. which dog a lost-dog tag is for, and the profile URL
+// it should be engraved to point at. Keys prefixed with "_" are hidden from the
+// shopper in cart/checkout but still ride along to the order for fulfillment.
+export type CartLineAttribute = { key: string; value: string };
+
 export type CartLine = {
   id: string;
   quantity: number;
@@ -28,6 +34,7 @@ export type CartLine = {
   image: string | null;
   price: number;
   currency: string;
+  attributes: CartLineAttribute[];
 };
 
 export type Cart = {
@@ -174,6 +181,7 @@ const CART_FRAGMENT = /* GraphQL */ `
       nodes {
         id
         quantity
+        attributes { key value }
         merchandise {
           ... on ProductVariant {
             id
@@ -207,14 +215,15 @@ export async function getCart(id: string): Promise<Cart | null> {
 export async function addToCart(
   cartId: string,
   variantId: string,
-  quantity = 1
+  quantity = 1,
+  attributes: CartLineAttribute[] = []
 ): Promise<Cart> {
   const data = await storefront(
     `${CART_FRAGMENT}
      mutation Add($cartId: ID!, $lines: [CartLineInput!]!) {
        cartLinesAdd(cartId: $cartId, lines: $lines) { cart { ...CartParts } }
      }`,
-    { cartId, lines: [{ merchandiseId: variantId, quantity }] }
+    { cartId, lines: [{ merchandiseId: variantId, quantity, attributes }] }
   );
   return mapCart(data.cartLinesAdd.cart);
 }
@@ -264,6 +273,10 @@ function mapCart(c: any): Cart {
       image: l.merchandise.product.featuredImage?.url ?? null,
       price: Number(l.merchandise.price.amount),
       currency: l.merchandise.price.currencyCode,
+      attributes: (l.attributes ?? []).map((a: any) => ({
+        key: a.key,
+        value: a.value ?? "",
+      })),
     })),
   };
 }

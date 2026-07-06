@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { Product } from "@/lib/shopify";
+import type { Product, CartLineAttribute } from "@/lib/shopify";
 import { formatMoney, discountPercent } from "@/lib/format";
 import AddToCartButton from "@/components/cart/AddToCartButton";
 
@@ -15,9 +15,15 @@ const ACCENTS = [
 export default function ProductCard({
   product,
   index = 0,
+  lineAttributes,
+  ctaLabel,
 }: {
   product: Product;
   index?: number;
+  // Per-order personalization forwarded to the add-to-cart line (e.g. the dog a
+  // tag is engraved for). Optional — the shop's generic cards pass nothing.
+  lineAttributes?: CartLineAttribute[];
+  ctaLabel?: string;
 }) {
   const off = discountPercent(product.price, product.compareAtPrice);
   const accent = ACCENTS[index % ACCENTS.length];
@@ -82,6 +88,8 @@ export default function ProductCard({
         <AddToCartButton
           variantId={product.variantId}
           available={product.available}
+          attributes={lineAttributes}
+          label={ctaLabel}
           className="mt-2 w-full"
         />
       </div>

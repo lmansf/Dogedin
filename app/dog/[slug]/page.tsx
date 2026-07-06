@@ -4,6 +4,7 @@ import Image from "next/image";
 import { getPublicDog, dogPhotoUrl } from "@/lib/dogProfiles";
 import { getDogPawCount } from "@/lib/dogPaws";
 import { getCollection } from "@/lib/shopify";
+import { SITE_URL } from "@/lib/site";
 import DogSocial from "@/components/dogs/DogSocial";
 import PawButton from "@/components/dogs/PawButton";
 import ProductCard from "@/components/ProductCard";
@@ -139,9 +140,25 @@ export default async function DogProfilePage({
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
             {tagProducts.map((p, i) => (
-              <ProductCard key={p.id} product={p} index={i} />
+              <ProductCard
+                key={p.id}
+                product={p}
+                index={i}
+                ctaLabel="Add tag 🏷️"
+                // Personalization rides on the order line: the dog's name is
+                // shown to the buyer; "_profile_url" is hidden from them but
+                // reaches fulfillment so the tag is engraved to scan back here.
+                lineAttributes={[
+                  { key: "Tag for", value: dog.dogName },
+                  { key: "_profile_url", value: `${SITE_URL}/dog/${dog.slug}` },
+                ]}
+              />
             ))}
           </div>
+          <p className="mt-3 text-xs font-bold text-black/50">
+            Each tag is made for {dog.dogName} — engraved to scan straight to
+            this profile. We&apos;ll confirm the details before it ships.
+          </p>
         </section>
       )}
 

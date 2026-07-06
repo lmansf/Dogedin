@@ -87,6 +87,18 @@ export default function CartDrawer() {
                 <div className="flex flex-1 flex-col">
                   <p className="font-bold leading-tight">{line.productTitle}</p>
                   <p className="text-sm text-black/60">{line.title}</p>
+                  {/* Visible personalization (e.g. "Tag for: Rex"). Keys
+                      prefixed with "_" are fulfillment-only and stay hidden. */}
+                  {line.attributes
+                    .filter((a) => !a.key.startsWith("_") && a.value)
+                    .map((a) => (
+                      <p
+                        key={a.key}
+                        className="text-xs font-black uppercase tracking-wide text-[var(--turq)]"
+                      >
+                        {a.key}: {a.value}
+                      </p>
+                    ))}
                   <div className="mt-auto flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <button
