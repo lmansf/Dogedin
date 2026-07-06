@@ -4,6 +4,26 @@
   "sections": {
     "footer": {
       "type": "footer",
+      "blocks": {
+        "business_links": {
+          "type": "link_list",
+          "settings": {
+            "heading": "For businesses",
+            "menu": "footer-business"
+          }
+        },
+        "about_links": {
+          "type": "link_list",
+          "settings": {
+            "heading": "About",
+            "menu": "footer-about"
+          }
+        }
+      },
+      "block_order": [
+        "business_links",
+        "about_links"
+      ],
       "settings": {
         "color_scheme": "scheme-5",
         "newsletter_enable": true,
