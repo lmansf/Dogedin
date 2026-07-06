@@ -1,15 +1,15 @@
 <script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
 {%- comment -%}
-  Dog-friendly Dunedin guide — approved businesses from public_businesses,
-  with the full Business Insights engagement counting (record_business_stat:
-  view / website / phone / directions / offer_unlock). Every tap the shop
-  records feeds the same per-business, per-day aggregates the paid Insights
-  portal sells back to businesses. Aggregates only — no visitor identity.
+  Dog-friendly Dunedin guide — approved businesses from public_businesses, with
+  the full Business Insights engagement counting (record_business_stat) AND
+  community reviews (list + write + upvote + reply), ported from the website's
+  BusinessCard/ReviewForm/ReviewItem. Reviews read/write the reviews +
+  review_replies tables; RLS lets anyone read/insert for an approved business.
 {%- endcomment -%}
 <div class="color-{{ section.settings.color_scheme }} gradient">
 <div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
 <h2 class="h1" style="margin:0 0 0.4rem;">{{ section.settings.heading | escape }}</h2>
-<p style="margin:0 0 1.6rem;">The community&#39;s favorite dog-friendly spots — reviewed by the pack on dogedin. Some carry a member deal; tap to unlock it.</p>
+<p style="margin:0 0 1.6rem;">The community&#39;s favorite dog-friendly spots — reviewed by the pack. Some carry a member deal; tap to unlock it.</p>
 <div id="dgd-guide" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(28rem,1fr));gap:1.8rem;"></div>
 </div>
 </div>
@@ -21,74 +21,207 @@
     var mount = document.getElementById("dgd-guide");
     var stat = function (id, s) { D.rpc("record_business_stat", { p_business_id: id, p_stat: s }).catch(function () {}); };
     var BTN = "border:0.2rem solid rgb(var(--color-foreground));padding:0.5rem 1rem;font:inherit;font-weight:800;font-size:1.2rem;text-transform:uppercase;letter-spacing:0.05rem;cursor:pointer;background:transparent;color:rgb(var(--color-foreground));text-decoration:none;display:inline-block;";
+    var INP = "width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.6rem 0.8rem;font:inherit;background:#fff;color:#211e18;";
+    var stars = function (n) {
+      var full = Math.round(n), s = "";
+      for (var i = 1; i <= 5; i++) s += i <= full ? "★" : "☆";
+      return s;
+    };
+    var avgOf = function (list) {
+      if (!list.length) return 0;
+      var sum = 0; list.forEach(function (r) { sum += r.rating; });
+      return Math.round((sum / list.length) * 10) / 10;
+    };
+
+    var reviewsByBiz = {}; // business_id -> [reviews]
+
     D.select("public_businesses?select=id,slug,name,category,neighborhood,description,image,dog_friendly,phone,website,address,offer&order=name.asc&limit={{ section.settings.limit }}")
       .then(function (rows) {
         rows = rows || [];
         if (!rows.length) { mount.parentElement.parentElement.style.display = "none"; return; }
-        mount.innerHTML = rows.map(function (b, i) {
-          var img = "";
-          if (b.image) {
-            var src = /^https?:/.test(b.image) ? b.image : "https://dogedin.com" + b.image;
-            img = '<div style="aspect-ratio:16/9;border-bottom:0.25rem solid rgb(var(--color-foreground));background:#fff;"><img src="' + esc(src) + '" alt="' + esc(b.name) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></div>';
-          }
-          var meta = [b.category, b.neighborhood].filter(Boolean).map(esc).join(" &middot; ");
-          var actions = "";
-          if (b.website) actions += '<a class="dgd-g-act" data-i="' + i + '" data-stat="website" href="' + esc(b.website) + '" target="_blank" rel="noopener" style="' + BTN + '">Website</a>';
-          if (b.phone) actions += '<a class="dgd-g-act" data-i="' + i + '" data-stat="phone" href="tel:' + esc(b.phone) + '" style="' + BTN + '">Call</a>';
-          var q = encodeURIComponent(b.name + ", " + (b.address || "Dunedin, FL"));
-          actions += '<a class="dgd-g-act" data-i="' + i + '" data-stat="directions" href="https://www.google.com/maps/search/?api=1&query=' + q + '" target="_blank" rel="noopener" style="' + BTN + '">Directions</a>';
-          var offer = "";
-          if (b.offer && b.offer.label) {
-            offer = '<div style="margin-top:0.8rem;">' +
-              '<button class="dgd-g-offer" data-i="' + i + '" style="' + BTN + 'background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));">\uD83C\uDF9F Member deal: ' + esc(b.offer.label) + "</button>" +
-              '<div class="dgd-g-offer-detail" data-i="' + i + '" style="display:none;border:0.2rem dashed rgb(var(--color-foreground));padding:0.8rem 1rem;margin-top:0.6rem;font-weight:700;"></div></div>';
-          }
-          return '<div class="dgd-g-card" data-i="' + i + '" style="border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));color:rgb(var(--color-foreground));display:flex;flex-direction:column;">' + img +
-            '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;flex:1;">' +
-            '<h3 style="margin:0;font-size:1.8rem;">' + esc(b.name) + "</h3>" +
-            (meta ? '<p style="margin:0.2rem 0 0;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;opacity:0.65;">' + meta + "</p>" : "") +
-            (b.description ? '<p style="margin:0.6rem 0 0;opacity:0.85;">' + esc(b.description) + "</p>" : "") +
-            offer +
-            '<div style="display:flex;gap:0.8rem;flex-wrap:wrap;margin-top:auto;padding-top:1rem;">' + actions + "</div>" +
-            "</div></div>";
-        }).join("");
 
-        // Listing views: each card counted once after >=50% visible for >=1s.
-        var seen = {}, timers = {};
-        var io = new IntersectionObserver(function (entries) {
-          entries.forEach(function (entry) {
-            var i = entry.target.getAttribute("data-i");
-            if (entry.intersectionRatio >= 0.5) {
-              if (!timers[i] && !seen[i]) timers[i] = setTimeout(function () {
-                seen[i] = true; stat(rows[i].id, "view");
-              }, 1000);
-            } else if (timers[i]) { clearTimeout(timers[i]); timers[i] = null; }
+        // Batch-load reviews (+ replies) for the shown businesses in one query.
+        var ids = rows.map(function (b) { return b.id; });
+        var revUrl = "reviews?select=id,business_id,author,rating,body,upvotes,created_at,review_replies(id,review_id,author,body,created_at)"
+          + "&business_id=in.(" + ids.join(",") + ")&order=upvotes.desc";
+        return D.select(revUrl).catch(function () { return []; }).then(function (revs) {
+          (revs || []).forEach(function (r) {
+            (reviewsByBiz[r.business_id] = reviewsByBiz[r.business_id] || []).push(r);
           });
-        }, { threshold: [0, 0.5, 1] });
-        mount.querySelectorAll(".dgd-g-card").forEach(function (el) { io.observe(el); });
-
-        // Website / call / directions taps (fire-and-forget, nav proceeds).
-        mount.querySelectorAll(".dgd-g-act").forEach(function (a) {
-          a.addEventListener("click", function () {
-            stat(rows[a.getAttribute("data-i")].id, a.getAttribute("data-stat"));
-          });
-        });
-
-        // Offer unlock: reveal detail + code, counted once per page view.
-        var unlocked = {};
-        mount.querySelectorAll(".dgd-g-offer").forEach(function (btn) {
-          btn.addEventListener("click", function () {
-            var i = btn.getAttribute("data-i"), b = rows[i];
-            var box = mount.querySelector('.dgd-g-offer-detail[data-i="' + i + '"]');
-            if (!box) return;
-            box.innerHTML = esc((b.offer && b.offer.detail) || (b.offer && b.offer.label) || "") +
-              ((b.offer && b.offer.code) ? ' &middot; code: <span style="letter-spacing:0.15rem;">' + esc(b.offer.code) + "</span>" : "");
-            box.style.display = box.style.display === "none" ? "block" : "none";
-            if (box.style.display === "block" && !unlocked[i]) { unlocked[i] = true; stat(b.id, "offer_unlock"); }
-          });
+          render(rows);
         });
       })
       .catch(function () { mount.parentElement.parentElement.style.display = "none"; });
+
+    function render(rows) {
+      mount.innerHTML = rows.map(function (b, i) {
+        var img = "";
+        if (b.image) {
+          var src = /^https?:/.test(b.image) ? b.image : "https://dogedin.com" + b.image;
+          img = '<div style="aspect-ratio:16/9;border-bottom:0.25rem solid rgb(var(--color-foreground));background:#fff;"><img src="' + esc(src) + '" alt="' + esc(b.name) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></div>';
+        }
+        var meta = [b.category, b.neighborhood].filter(Boolean).map(esc).join(" &middot; ");
+        var list = reviewsByBiz[b.id] || [];
+        var avg = avgOf(list);
+        var ratingLine = list.length
+          ? '<p style="margin:0.4rem 0 0;font-size:1.3rem;"><span style="color:#c99a2e;letter-spacing:0.1rem;">' + stars(avg) + '</span> <span style="font-weight:700;opacity:0.7;">' + avg.toFixed(1) + " &middot; " + list.length + " review" + (list.length === 1 ? "" : "s") + "</span></p>"
+          : '<p style="margin:0.4rem 0 0;font-size:1.2rem;font-weight:700;opacity:0.5;">No reviews yet — be the first</p>';
+        var actions = "";
+        if (b.website) actions += '<a class="dgd-g-act" data-i="' + i + '" data-stat="website" href="' + esc(b.website) + '" target="_blank" rel="noopener" style="' + BTN + '">Website</a>';
+        if (b.phone) actions += '<a class="dgd-g-act" data-i="' + i + '" data-stat="phone" href="tel:' + esc(b.phone) + '" style="' + BTN + '">Call</a>';
+        var q = encodeURIComponent(b.name + ", " + (b.address || "Dunedin, FL"));
+        actions += '<a class="dgd-g-act" data-i="' + i + '" data-stat="directions" href="https://www.google.com/maps/search/?api=1&query=' + q + '" target="_blank" rel="noopener" style="' + BTN + '">Directions</a>';
+        actions += '<button class="dgd-g-rev" data-i="' + i + '" style="' + BTN + '">★ Reviews</button>';
+        var offer = "";
+        if (b.offer && b.offer.label) {
+          offer = '<div style="margin-top:0.8rem;">' +
+            '<button class="dgd-g-offer" data-i="' + i + '" style="' + BTN + 'background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));">🎟 Member deal: ' + esc(b.offer.label) + "</button>" +
+            '<div class="dgd-g-offer-detail" data-i="' + i + '" style="display:none;border:0.2rem dashed rgb(var(--color-foreground));padding:0.8rem 1rem;margin-top:0.6rem;font-weight:700;"></div></div>';
+        }
+        return '<div class="dgd-g-card" data-i="' + i + '" style="border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));color:rgb(var(--color-foreground));display:flex;flex-direction:column;">' + img +
+          '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;flex:1;">' +
+          '<h3 style="margin:0;font-size:1.8rem;">' + esc(b.name) + "</h3>" +
+          (meta ? '<p style="margin:0.2rem 0 0;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;opacity:0.65;">' + meta + "</p>" : "") +
+          ratingLine +
+          (b.description ? '<p style="margin:0.6rem 0 0;opacity:0.85;">' + esc(b.description) + "</p>" : "") +
+          offer +
+          '<div style="display:flex;gap:0.8rem;flex-wrap:wrap;margin-top:auto;padding-top:1rem;">' + actions + "</div>" +
+          '<div class="dgd-g-revpanel" data-i="' + i + '" style="display:none;border-top:0.2rem dashed rgb(var(--color-foreground));margin-top:1rem;padding-top:1rem;"></div>' +
+          "</div></div>";
+      }).join("");
+
+      // Listing views: each card counted once after >=50% visible for >=1s.
+      var seen = {}, timers = {};
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          var i = entry.target.getAttribute("data-i");
+          if (entry.intersectionRatio >= 0.5) {
+            if (!timers[i] && !seen[i]) timers[i] = setTimeout(function () { seen[i] = true; stat(rows[i].id, "view"); }, 1000);
+          } else if (timers[i]) { clearTimeout(timers[i]); timers[i] = null; }
+        });
+      }, { threshold: [0, 0.5, 1] });
+      mount.querySelectorAll(".dgd-g-card").forEach(function (el) { io.observe(el); });
+
+      mount.querySelectorAll(".dgd-g-act").forEach(function (a) {
+        a.addEventListener("click", function () { stat(rows[a.getAttribute("data-i")].id, a.getAttribute("data-stat")); });
+      });
+
+      var unlocked = {};
+      mount.querySelectorAll(".dgd-g-offer").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var i = btn.getAttribute("data-i"), b = rows[i];
+          var box = mount.querySelector('.dgd-g-offer-detail[data-i="' + i + '"]');
+          if (!box) return;
+          box.innerHTML = esc((b.offer && b.offer.detail) || (b.offer && b.offer.label) || "") +
+            ((b.offer && b.offer.code) ? ' &middot; code: <span style="letter-spacing:0.15rem;">' + esc(b.offer.code) + "</span>" : "");
+          box.style.display = box.style.display === "none" ? "block" : "none";
+          if (box.style.display === "block" && !unlocked[i]) { unlocked[i] = true; stat(b.id, "offer_unlock"); }
+        });
+      });
+
+      // Reviews panel: build lazily on first open.
+      mount.querySelectorAll(".dgd-g-rev").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var i = btn.getAttribute("data-i");
+          var panel = mount.querySelector('.dgd-g-revpanel[data-i="' + i + '"]');
+          if (!panel) return;
+          if (panel.style.display === "block") { panel.style.display = "none"; return; }
+          if (!panel.getAttribute("data-built")) { buildReviewPanel(panel, rows[i]); panel.setAttribute("data-built", "1"); }
+          panel.style.display = "block";
+        });
+      });
+    }
+
+    // Render the review list + a write-a-review form for one business.
+    function buildReviewPanel(panel, biz) {
+      var list = reviewsByBiz[biz.id] || [];
+      panel.innerHTML =
+        '<div class="dgd-rev-list" style="display:flex;flex-direction:column;gap:1rem;"></div>' +
+        '<form class="dgd-rev-form" style="display:flex;flex-direction:column;gap:0.8rem;margin-top:1.2rem;border-top:0.15rem solid rgba(var(--color-foreground),0.25);padding-top:1.2rem;">' +
+        '<p style="margin:0;font-weight:800;">Write a review</p>' +
+        '<input class="dgd-rev-name" placeholder="Your name" maxlength="60" style="' + INP + '" required>' +
+        '<select class="dgd-rev-rating" style="' + INP + '">' +
+        '<option value="5">★★★★★ — 5</option><option value="4">★★★★☆ — 4</option><option value="3">★★★☆☆ — 3</option><option value="2">★★☆☆☆ — 2</option><option value="1">★☆☆☆☆ — 1</option></select>' +
+        '<textarea class="dgd-rev-body" placeholder="How was it — and how dog-friendly?" rows="2" maxlength="1000" style="' + INP + 'resize:vertical;" required></textarea>' +
+        '<p class="dgd-rev-err" style="color:#a6332e;font-weight:700;margin:0;"></p>' +
+        '<button type="submit" style="' + BTN + 'background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));align-self:flex-start;">Post review</button>' +
+        '</form>';
+      var listEl = panel.querySelector(".dgd-rev-list");
+      renderReviewList(listEl, biz);
+
+      panel.querySelector(".dgd-rev-form").addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        var errEl = panel.querySelector(".dgd-rev-err"); errEl.textContent = "";
+        var author = panel.querySelector(".dgd-rev-name").value.trim().slice(0, 60);
+        var rating = parseInt(panel.querySelector(".dgd-rev-rating").value, 10);
+        var body = panel.querySelector(".dgd-rev-body").value.trim().slice(0, 1000);
+        if (!author || !body) { errEl.textContent = "Name and review are required."; return; }
+        try {
+          var id = crypto.randomUUID();
+          await D.insert("reviews", { id: id, business_id: biz.id, author: author, rating: rating, body: body });
+          var row = { id: id, business_id: biz.id, author: author, rating: rating, body: body, upvotes: 0, created_at: new Date().toISOString(), review_replies: [] };
+          (reviewsByBiz[biz.id] = reviewsByBiz[biz.id] || []).unshift(row);
+          panel.querySelector(".dgd-rev-form").reset();
+          renderReviewList(listEl, biz);
+        } catch (e) { errEl.textContent = e.message || "Couldn't post that — try again."; }
+      });
+    }
+
+    function renderReviewList(listEl, biz) {
+      var list = reviewsByBiz[biz.id] || [];
+      if (!list.length) { listEl.innerHTML = '<p style="font-weight:700;opacity:0.5;margin:0;">No reviews yet — be the first!</p>'; return; }
+      listEl.innerHTML = list.map(function (r, idx) {
+        var replies = (r.review_replies || []).map(function (rp) {
+          return '<div style="margin:0.4rem 0 0 1.2rem;padding-left:0.8rem;border-left:0.2rem solid rgba(var(--color-foreground),0.3);font-size:1.2rem;"><b>' + esc(rp.author) + '</b> — ' + esc(rp.body) + "</div>";
+        }).join("");
+        return '<div style="border:0.2rem solid rgba(var(--color-foreground),0.3);padding:0.8rem 1rem;">' +
+          '<p style="margin:0;"><span style="color:#c99a2e;letter-spacing:0.1rem;">' + stars(r.rating) + '</span> <b>' + esc(r.author) + "</b></p>" +
+          '<p style="margin:0.3rem 0 0;opacity:0.9;">' + esc(r.body) + "</p>" +
+          '<div style="display:flex;gap:0.8rem;margin-top:0.5rem;align-items:center;flex-wrap:wrap;">' +
+          '<button class="dgd-up" data-idx="' + idx + '" style="' + BTN + 'padding:0.3rem 0.7rem;font-size:1.1rem;">👍 <span class="dgd-up-n">' + (r.upvotes || 0) + "</span></button>" +
+          '<button class="dgd-replybtn" data-idx="' + idx + '" style="' + BTN + 'padding:0.3rem 0.7rem;font-size:1.1rem;">Reply</button></div>' +
+          '<div class="dgd-replies">' + replies + "</div>" +
+          '<form class="dgd-replyform" data-idx="' + idx + '" style="display:none;gap:0.6rem;margin-top:0.6rem;">' +
+          '<input class="dgd-reply-name" placeholder="Your name" maxlength="60" style="' + INP + '">' +
+          '<input class="dgd-reply-body" placeholder="Reply…" maxlength="1000" style="' + INP + '">' +
+          '<button type="submit" style="' + BTN + 'padding:0.3rem 0.7rem;font-size:1.1rem;">Send</button></form>' +
+          "</div>";
+      }).join("");
+
+      // Upvote (increment_review_upvotes returns the new count).
+      listEl.querySelectorAll(".dgd-up").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+          var r = list[btn.getAttribute("data-idx")];
+          try {
+            var n = await D.rpc("increment_review_upvotes", { p_review_id: r.id });
+            var val = Array.isArray(n) ? n[0] : n;
+            if (typeof val === "number") { r.upvotes = val; btn.querySelector(".dgd-up-n").textContent = val; }
+          } catch (e) {}
+        });
+      });
+      // Toggle reply form.
+      listEl.querySelectorAll(".dgd-replybtn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var f = listEl.querySelector('.dgd-replyform[data-idx="' + btn.getAttribute("data-idx") + '"]');
+          if (f) f.style.display = f.style.display === "flex" ? "none" : "flex";
+        });
+      });
+      // Submit reply.
+      listEl.querySelectorAll(".dgd-replyform").forEach(function (f) {
+        f.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var r = list[f.getAttribute("data-idx")];
+          var author = f.querySelector(".dgd-reply-name").value.trim().slice(0, 60);
+          var body = f.querySelector(".dgd-reply-body").value.trim().slice(0, 1000);
+          if (!author || !body) return;
+          try {
+            await D.insert("review_replies", { review_id: r.id, author: author, body: body });
+            (r.review_replies = r.review_replies || []).push({ author: author, body: body });
+            renderReviewList(listEl, biz);
+          } catch (e) {}
+        });
+      });
+    }
   }
   boot();
 })();

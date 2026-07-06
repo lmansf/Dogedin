@@ -110,8 +110,9 @@
         photoPath = crypto.randomUUID() + "." + ext;
         await D.upload("business-photos", photoPath, photo, null);
         var imageUrl = D.publicUrl("business-photos", photoPath);
+        var businessId = crypto.randomUUID();
         var base = {
-          id: crypto.randomUUID(), name: name,
+          id: businessId, name: name,
           category: document.getElementById("b-cat").value,
           neighborhood: document.getElementById("b-hood").value.trim() || null,
           description: desc, address: addr,
@@ -133,6 +134,9 @@
           }
         }
         if (!done) throw (lastErr || new Error("Couldn't generate a unique listing link — please try again."));
+        // Best-effort welcome email with their portal link — same edge function
+        // the website uses; the listing is already saved either way.
+        D.invokeFunction("welcome-business", { business_id: businessId });
         document.getElementById("dgd-listbiz").innerHTML =
           '<h3 class="h2" style="margin:0 0 0.8rem;">Thanks — we&#39;ll take a look! 🐾</h3>' +
           '<p style="margin:0 0 1rem;">Your listing for <strong>' + esc(name) + '</strong> is in the review queue. A Dogedin admin reviews every submission before it appears in the Dog-friendly Dunedin guide.</p>' +

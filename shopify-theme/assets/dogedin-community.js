@@ -134,6 +134,17 @@
         return ("cleaned" in j) ? j.cleaned : text;
       } catch (e) { return text; }
     },
+    // Fire a Supabase Edge Function (the same notification path the website
+    // uses — notify-ad-inquiry, welcome-business). Best-effort: the row is
+    // already saved, so a failed nudge never blocks the user.
+    async invokeFunction(name, body, token) {
+      try {
+        await fetch(URL_ + "/functions/v1/" + name, {
+          method: "POST", headers: headers(token, { "Content-Type": "application/json" }),
+          body: JSON.stringify(body || {})
+        });
+      } catch (e) {}
+    },
     // Weighted-random pick (lib/ads.ts pickWeighted, ported verbatim).
     pickWeighted(ads) {
       if (!ads.length) return null;

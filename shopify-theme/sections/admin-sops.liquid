@@ -91,6 +91,15 @@
       <tr><td>Banner</td><td>$4/day</td><td>≈ $120</td></tr>
     </table></div>
 
+    <h4>2.6 · Selling ad space as a Shopify product</h4>
+    <p>Ad slots are also sold as regular products (“Homepage Banner Ad”, “Community Favorites Ribbon Ad”) with duration variants, so a business can pay at normal checkout. The flow is two steps, on purpose — the same shape as the website’s paid path:</p>
+    <ol>
+      <li>The business <strong>applies with its creative</strong> at <code>/pages/advertise</code> (this is what uploads the banner and files the <code>applied</code> row).</li>
+      <li>The business <strong>buys the matching ad product using the same email</strong>. Checkout collects the money.</li>
+    </ol>
+    <p><strong>Fulfilment = activating the ad.</strong> When the order comes in, open <code>/pages/ads-admin</code>, find the application whose email matches the order, set the run dates, and hit <strong>Approve &amp; publish ▶</strong>. That’s the whole fulfilment step.</p>
+    <p class="callout"><strong>Optional automation:</strong> the repo ships an edge function (<code>shopify-ad-activate</code>) that does this for you — on <code>orders/paid</code> it finds the matching applied advertiser and activates it for the days purchased. It’s off until you deploy it (Supabase → deploy the function with <code>--no-verify-jwt</code>, set <code>WEBHOOK_SECRET</code>, and register the Shopify <code>orders/paid</code> webhook to its URL with <code>?secret=…</code>). Product SKUs follow <code>AD-BANNER-28</code> / <code>AD-RIBBON-7</code> (placement + days) so the function knows what to activate. Until it’s deployed, the manual step above is the fulfilment.</p>
+
     <h3 id="sop-guide">3 · Guide listings (Dog-friendly Dunedin)</h3>
     <p>Businesses add themselves at <code>/pages/list-business</code> (category, hours, address, card photo). Each arrives as <code>pending</code> and is invisible until you approve it.</p>
     <ol>

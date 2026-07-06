@@ -88,6 +88,7 @@
           '<p style="margin:0.2rem 0 0;font-size:1.1rem;opacity:0.6;font-weight:700;">' + esc(d.breed || "Unknown breed") + " · " + (d.lost_contact_opt_in ? "Contact public" : "Contact private") + "</p>" +
           '<p style="margin:0.4rem 0 0;font-size:1.1rem;font-weight:700;">Tag code: <span style="font-family:monospace;letter-spacing:0.2rem;border:0.2rem solid #211e18;background:#c99a2e;padding:0.1rem 0.6rem;">' + esc(d.tag_code) + "</span></p></div>" +
           '<div style="display:flex;flex-direction:column;gap:0.4rem;align-items:flex-end;">' +
+          '<a href="/pages/dog?slug=' + encodeURIComponent(d.slug) + '" style="' + SMALL + 'color:#1fa89b;">View profile →</a>' +
           '<a href="' + LOOKUP + '?tag=' + encodeURIComponent(d.tag_code) + '" style="' + SMALL + 'color:#1fa89b;">Preview lookup →</a>' +
           '<button data-edit="' + d.id + '" style="' + SMALL + '">Edit</button>' +
           '<button data-del="' + d.id + '" style="' + SMALL + 'color:#a6332e;">Delete</button></div></div>' +

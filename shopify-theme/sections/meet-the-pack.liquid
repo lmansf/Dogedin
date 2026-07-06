@@ -31,8 +31,10 @@
         var img = d.photo_path
           ? '<img src="' + esc(D.photoUrl(d.photo_path)) + '" alt="' + esc(d.dog_name) + '" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-bottom:0.25rem solid rgb(var(--color-foreground));">'
           : '<div style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:4rem;border-bottom:0.25rem solid rgb(var(--color-foreground));">🐶</div>';
-        return '<div style="scroll-snap-align:start;flex:0 0 22rem;color:rgb(var(--color-foreground));border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));">' + img +
-          '<div style="padding:1rem 1.2rem;"><h3 style="margin:0;font-size:1.7rem;">' + esc(d.dog_name) + "</h3>" +
+        var href = "/pages/dog?slug=" + encodeURIComponent(d.slug);
+        return '<div style="scroll-snap-align:start;flex:0 0 22rem;color:rgb(var(--color-foreground));border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));">' +
+          '<a href="' + href + '" style="text-decoration:none;color:inherit;">' + img + "</a>" +
+          '<div style="padding:1rem 1.2rem;"><h3 style="margin:0;font-size:1.7rem;"><a href="' + href + '" style="text-decoration:none;color:inherit;">' + esc(d.dog_name) + "</a></h3>" +
           '<p style="margin:0.2rem 0 0;opacity:0.75;">' + esc(d.breed || "Very good dog") + "</p>" +
           (d.bio ? '<p style="margin:0.4rem 0 0;font-style:italic;opacity:0.85;font-size:1.3rem;">' + esc(d.bio) + "</p>" : "") +
           '<button class="dgd-paw" data-id="' + esc(d.id) + '" title="' + (session ? "Give a paw" : "Sign in to give a paw") + '" style="' + PAW_BASE + (mine[d.id] ? PAW_ON : PAW_OFF) + '">🐾 <span>' + (Number(d.paw_count) || 0) + "</span></button>" +

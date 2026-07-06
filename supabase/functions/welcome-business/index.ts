@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         `<p>Sign in — or create your account — with <strong>this email address</strong> ` +
         `(the one you listed with). It's the same login as dogedin.com, so if you already ` +
         `have a Dogedin account, just use it.</p>` +
-        `<p>Free, you'll see how many dog people view your listing and your reviews at a ` +
+        `<p>You'll see how many dog people view your listing and your reviews at a ` +
         `glance. Once your listing is approved, the counters start automatically.</p>` +
         `<p>🐾 The Dogedin pack<br><a href="${portal}/portal">${portal}/portal</a></p>`,
     }),

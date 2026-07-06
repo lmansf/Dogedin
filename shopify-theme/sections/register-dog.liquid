@@ -126,7 +126,7 @@
                 '<h3 class="h2" style="margin:0 0 0.8rem;">Welcome to the pack, ' + esc(dogName) + "! 🐕</h3>" +
                 '<p style="margin:0 0 1rem;">Profile created. Save this <strong>lost-dog tag code</strong> — it goes on ' + esc(dogName) + '&#39;s tag and QR:</p>' +
                 '<p style="font-size:2.4rem;font-weight:800;letter-spacing:0.3rem;border:0.3rem solid rgb(var(--color-foreground));display:inline-block;padding:0.6rem 1.4rem;margin:0 0 1.4rem;">' + esc(tag) + "</p>" +
-                '<p style="margin:0;">' + esc(dogName) + ' is now in the pack — <a style="font-weight:800;text-decoration:underline;color:inherit;" href="/">meet them on the homepage →</a></p>';
+                '<p style="margin:0;">' + esc(dogName) + ' is now in the pack — <a style="font-weight:800;text-decoration:underline;color:inherit;" href="/pages/dog?slug=' + encodeURIComponent(slug) + '">see ' + esc(dogName) + '&#39;s profile →</a></p>';
             } catch (e) {
               lastErr = e;
               if (e.code !== "23505" && e.status !== 409) { if (photoPath) D.removeObject("dog-photos", photoPath, s.access_token); throw e; }

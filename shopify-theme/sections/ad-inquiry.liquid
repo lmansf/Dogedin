@@ -27,12 +27,18 @@
       var btn = document.getElementById("dgd-inq-btn");
       err.style.color = "#a6332e"; err.textContent = ""; btn.disabled = true; btn.textContent = "Sending…";
       try {
+        // Id minted client-side because anon can't read the row back, and the
+        // notify function needs it (matches the website's AdInquiryForm).
+        var inquiryId = crypto.randomUUID();
         await D.insert("ad_inquiries", {
+          id: inquiryId,
           business_name: document.getElementById("dgd-inq-biz").value.trim(),
           contact_name: document.getElementById("dgd-inq-name").value.trim(),
           email: document.getElementById("dgd-inq-email").value.trim(),
           message: document.getElementById("dgd-inq-msg").value.trim() || null
         });
+        // Best-effort email nudge to the team — same edge function the site uses.
+        D.invokeFunction("notify-ad-inquiry", { inquiry_id: inquiryId });
         form.innerHTML = '<p style="font-weight:800;font-size:1.6rem;margin:0;">Got it — thanks! 🐾 We&#39;ll be in touch about rates and dates.</p>';
       } catch (e) {
         err.textContent = e.message || "Something went wrong — try again?";
