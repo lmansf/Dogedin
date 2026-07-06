@@ -17,9 +17,9 @@
 -- After a wipe, run supabase/seed.sql if you want the starter guide spots
 -- back instead of an empty guide.
 --
--- Storage note: deleting storage.objects rows makes files inaccessible
--- immediately; for byte-level cleanup also use the dashboard's per-bucket
--- "empty bucket" (Storage → bucket → select all → delete).
+-- Storage note: uploaded files CANNOT be deleted from SQL (Supabase's
+-- protect_delete trigger blocks it) — empty the three buckets via the
+-- dashboard or Storage API afterward; see step 3 at the bottom.
 -- ============================================================================
 begin;
 
@@ -60,11 +60,17 @@ where email is null
 -- sign up again with the same email), use this instead of the above:
 -- delete from auth.users;
 
--- 3) Uploaded files: dog photos, business photos, ad creatives.
-delete from storage.objects
-where bucket_id in ('dog-photos', 'business-photos', 'ad-creatives');
-
 commit;
+
+-- 3) Uploaded files — NOT deletable from SQL: Supabase's
+--    storage.protect_delete() trigger raises 42501 on direct deletes from
+--    storage tables ("Use the Storage API instead"). Empty the buckets via:
+--      Dashboard: Storage -> dog-photos / business-photos / ad-creatives
+--                 -> select all -> Delete
+--      API:       for b in dog-photos business-photos ad-creatives; do
+--                   curl -X POST "https://<PROJECT_REF>.supabase.co/storage/v1/bucket/$b/empty" \
+--                     -H "Authorization: Bearer $SERVICE_ROLE_KEY"
+--                 done
 
 -- ============================================================================
 -- VERIFY — everything below should be 0 (or your admin count for users)
@@ -76,6 +82,4 @@ select 'reviews',            count(*) from public.reviews            union all
 select 'advertisers',        count(*) from public.advertisers        union all
 select 'ad_inquiries',       count(*) from public.ad_inquiries       union all
 select 'members',            count(*) from public.members            union all
-select 'auth users',         count(*) from auth.users                union all
-select 'storage objects',    count(*) from storage.objects
-  where bucket_id in ('dog-photos','business-photos','ad-creatives');
+select 'auth users',         count(*) from auth.users;
