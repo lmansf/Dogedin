@@ -56,6 +56,37 @@ const JS_DAY_TO_KEY: (keyof BusinessHours)[] = [
   "saturday",
 ];
 
+// "Open now" is judged on Dunedin's clock (America/New_York), not the
+// visitor's device timezone, so a snowbird checking from Ohio sees the truth.
+function dunedinNow(): { dayKey: keyof BusinessHours; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const dayKey = get("weekday").toLowerCase() as keyof BusinessHours;
+  return { dayKey, minutes: parseInt(get("hour"), 10) * 60 + parseInt(get("minute"), 10) };
+}
+const toMinutes = (hhmm: string | null): number | null => {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+function isOpenNow(hours: BusinessHours | null): boolean | null {
+  if (!hours) return null;
+  const { dayKey, minutes } = dunedinNow();
+  const d = hours[dayKey];
+  if (!d || d.closed) return false;
+  const open = toMinutes(d.open);
+  const close = toMinutes(d.close);
+  if (open == null || close == null) return false;
+  // Past-midnight closes (e.g. 20:00–01:00) count the late-night stretch.
+  return close > open ? minutes >= open && minutes < close : minutes >= open || minutes < close;
+}
+
 // A single "things to do" business: image, meta, an optional partner offer, and
 // an expandable reviews section (list + upvotes + replies + write-a-review).
 // Reviews are held in local state so newly posted ones appear immediately, in
@@ -95,6 +126,12 @@ export default function BusinessCard({
   const avg = useMemo(() => averageRating(reviews), [reviews]);
   const todayKey = useMemo(() => JS_DAY_TO_KEY[new Date().getDay()], []);
   const today = business.hours?.[todayKey];
+  // Computed in an effect so the server-rendered HTML (cached for everyone)
+  // never bakes in a moment-in-time answer — no hydration mismatch either.
+  const [openNow, setOpenNow] = useState<boolean | null>(null);
+  useEffect(() => {
+    setOpenNow(isOpenNow(business.hours));
+  }, [business.hours]);
 
   const addReview = (review: Review) =>
     // Newest first — matches the server's upvotes-then-recency ordering closely
@@ -131,6 +168,15 @@ export default function BusinessCard({
           <span className="text-xs font-bold text-black/50">
             {business.neighborhood}
           </span>
+          {openNow !== null && (
+            <span
+              className={`border-2 border-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                openNow ? "bg-[var(--green)] text-[var(--sand)]" : "bg-zinc-200 text-black/60"
+              }`}
+            >
+              {openNow ? "● Open now" : "Closed now"}
+            </span>
+          )}
         </div>
 
         <h3 className="font-display text-2xl font-extrabold leading-tight">

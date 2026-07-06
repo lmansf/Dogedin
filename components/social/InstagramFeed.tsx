@@ -8,6 +8,11 @@ export default async function InstagramFeed() {
   const posts = await getInstagramPosts();
   const handle = process.env.NEXT_PUBLIC_INSTAGRAM_HANDLE;
 
+  // Not configured at all -> render nothing. Setup instructions belong in the
+  // docs, never on the live page (and an unconfigured feed shouldn't hold
+  // homepage real estate as a placeholder).
+  if ((!posts || posts.length === 0) && !handle) return null;
+
   return (
     <section className="border-[3px] border-black bg-white p-5 shadow-hard-lg sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -51,36 +56,16 @@ export default async function InstagramFeed() {
       ) : (
         <div className="border-[3px] border-dashed border-black/30 p-6 text-center">
           <p className="text-sm font-bold text-black/60">
-            {handle ? (
-              <>
-                Follow{" "}
-                <a
-                  href={`https://instagram.com/${handle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-black underline"
-                >
-                  @{handle}
-                </a>{" "}
-                for the latest good dogs.
-              </>
-            ) : (
-              <>
-                Instagram feed not connected yet — set{" "}
-                <code className="border border-black bg-white px-1">
-                  INSTAGRAM_ACCESS_TOKEN
-                </code>
-                ,{" "}
-                <code className="border border-black bg-white px-1">
-                  INSTAGRAM_USER_ID
-                </code>{" "}
-                and{" "}
-                <code className="border border-black bg-white px-1">
-                  NEXT_PUBLIC_INSTAGRAM_HANDLE
-                </code>
-                .
-              </>
-            )}
+            Follow{" "}
+            <a
+              href={`https://instagram.com/${handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-black underline"
+            >
+              @{handle}
+            </a>{" "}
+            for the latest good dogs.
           </p>
         </div>
       )}
