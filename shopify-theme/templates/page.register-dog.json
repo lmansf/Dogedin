@@ -10,6 +10,7 @@
     "register": {
       "type": "register-dog",
       "settings": {
+        "upsell_product": "lost-dog-qr-id-tag",
         "color_scheme": "scheme-1",
         "padding_top": 12,
         "padding_bottom": 48

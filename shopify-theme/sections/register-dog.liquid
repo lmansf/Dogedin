@@ -8,6 +8,22 @@
   <p style="margin:0 0 1.6rem;">Every Dunedin dog gets a public profile and a lost-dog tag code. Same account as dogedin.com — one pack, two doors.</p>
   <div id="dgd-reg-body"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
 </div>
+{%- assign dgd_upsell = section.settings.upsell_product -%}
+{%- if dgd_upsell != blank -%}
+<template id="dgd-upsell-tpl">
+  <div style="border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));margin:1.6rem auto 0;max-width:62rem;padding:1.2rem 1.4rem;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap;">
+    {%- if dgd_upsell.featured_image -%}
+    <a href="{{ dgd_upsell.url }}" style="flex:0 0 auto;"><img src="{{ dgd_upsell.featured_image | image_url: width: 220 }}" alt="{{ dgd_upsell.title | escape }}" width="110" height="110" style="width:11rem;height:11rem;object-fit:cover;border:0.2rem solid rgb(var(--color-foreground));"></a>
+    {%- endif -%}
+    <div style="flex:1;min-width:20rem;">
+      <p style="margin:0;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1rem;opacity:0.65;">🏷 Make it real</p>
+      <h3 style="margin:0.2rem 0 0.2rem;font-size:1.8rem;">Get __DOGNAME__ a physical QR tag</h3>
+      <p style="margin:0 0 0.8rem;opacity:0.85;">The tag code above, printed on a durable tag a finder can scan to reach you. {{ dgd_upsell.price | money }}.</p>
+      <a href="{{ dgd_upsell.url }}" style="display:inline-block;border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:0.8rem 1.4rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06rem;text-decoration:none;font-size:1.2rem;">Shop the tag →</a>
+    </div>
+  </div>
+</template>
+{%- endif -%}
 <script>
 (function () {
   function boot() {
@@ -127,6 +143,10 @@
                 '<p style="margin:0 0 1rem;">Profile created. Save this <strong>lost-dog tag code</strong> — it goes on ' + esc(dogName) + '&#39;s tag and QR:</p>' +
                 '<p style="font-size:2.4rem;font-weight:800;letter-spacing:0.3rem;border:0.3rem solid rgb(var(--color-foreground));display:inline-block;padding:0.6rem 1.4rem;margin:0 0 1.4rem;">' + esc(tag) + "</p>" +
                 '<p style="margin:0;">' + esc(dogName) + ' is now in the pack — <a style="font-weight:800;text-decoration:underline;color:inherit;" href="/pages/dog?slug=' + encodeURIComponent(slug) + '">see ' + esc(dogName) + '&#39;s profile →</a></p>';
+              // Physical-tag upsell — the theme editor picks which product, and
+              // its Liquid-rendered card (if any) is personalised + appended here.
+              var upTpl = document.getElementById("dgd-upsell-tpl");
+              if (upTpl) body.insertAdjacentHTML("beforeend", upTpl.innerHTML.replace(/__DOGNAME__/g, esc(dogName)));
             } catch (e) {
               lastErr = e;
               if (e.code !== "23505" && e.status !== 409) { if (photoPath) D.removeObject("dog-photos", photoPath, s.access_token); throw e; }
@@ -157,6 +177,12 @@
   "tag": "section",
   "class": "section",
   "settings": [
+    {
+      "type": "product",
+      "id": "upsell_product",
+      "label": "Tag upsell product",
+      "info": "Shown as an upsell on the registration success screen. Point it at your physical ID-tag product."
+    },
     {
       "type": "color_scheme",
       "id": "color_scheme",
