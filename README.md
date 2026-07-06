@@ -1,50 +1,75 @@
 # Dogedin
 
-Shopify-style ecommerce storefront for dogs.
-Next.js (App Router) + Tailwind 4, deployed on Vercel.
+Dunedin, FL's home for extremely good dogs — a dog-community site: dog profiles
+and lost-dog tags, a review-driven local guide to dog-friendly spots, a photo
+feed, events, a supporting shop, and self-serve advertising for local
+businesses.
 
-## Architecture
+Next.js (App Router) + React + TypeScript, Tailwind CSS v4 (a neo-brutalist
+theme), deployed on Vercel. Supabase (Postgres + RLS + Auth + Storage + Edge
+Functions) is the backend; Shopify is a headless commerce source for the shop.
 
-- **Shopify Storefront API** owns commerce: catalog, pricing, discounts, cart, checkout.
-  Products render as cards (name, image, description, price, discount badge).
-- **Supabase** is wired for custom content Shopify doesn't own (carousel CMS, signups).
-  Currently idle - no tables yet.
-- **Carousel**: native CSS scroll-snap (no carousel library). The first card on the
-  home page is a dog-photo carousel whose last slide is a **featured item slot**.
-- **Category rows**: each product carousel is driven by a Shopify **collection** the
-  merchant curates in admin (no code). The home page expects collections with handles
-  `for-dogs` and `for-humans`; create them in Shopify to fill the two rows. Add more
-  rows by calling `getCollection("<handle>")` and rendering another `<ProductRow>`.
-- **Demo fallback**: until those collections return products, the home page falls back
-  to a demo catalog (`lib/demoProducts.ts`, picsum images) so the storefront looks
-  alive. Live Shopify data replaces it automatically. Demo items use placeholder
-  variant ids, so **Add to cart** on them errors until Shopify is connected. Remove the
-  demo module and the `picsum.photos` entry in `next.config.mjs` once real products are in.
-- **Cart**: a slide-out drawer (header cart button) backed by Shopify cart mutations via
-  server actions (`app/cart/actions.ts`, wrapping `lib/shopify.ts`). The cart id lives in an
-  httpOnly cookie and **Checkout** hands off to Shopify's hosted checkout URL.
+## What's in here
+
+- **Dog profiles & the pack** — register a dog (`/register`), get a public
+  profile (`/dog/{slug}`) and a printable QR tag for lost-dog lookup
+  (`/found`). Owners manage their dogs at `/account`. Signed-in owners can give
+  other dogs a "paw", send friend requests, and post photos (auto-moderated).
+- **Local guide** — community-reviewed dog-friendly businesses at
+  `/things-to-do`, with ratings, reviews, and a self-serve listing form at
+  `/list-your-business`. Admins moderate at `/admin/businesses`.
+- **Advertising** — tasteful, clearly-labelled ad slots sold self-serve at
+  `/advertise`: businesses upload a creative, pick dates, and pay; the creative
+  clears an automated content check and goes live on payment. Admins manage
+  campaigns at `/admin/ads`.
+- **Business Insights** — a paid stats subscription for listed businesses,
+  surfaced on the media-kit deployment's `/portal`.
+- **Shop** — a headless Shopify storefront (`/shop`) that funds the site.
+- **Events & Instagram** — auto-pulled feeds (currently a pre-launch teaser for
+  events; a "follow us" card for Instagram until the Graph API is configured).
+- **Admin** — moderation queues for photos, businesses, ads, posts, reports and
+  ad inquiries under `/admin/*`, gated by an `app_admins` email allow-list.
+
+The three analytics dashboards live in sibling repos: `dogedin-media-kit`
+(business-facing + the insights portal), `dogedin-public-analytics` (public
+community stats), and `dogedin-private-analytics` (admin-only).
+
+## Data & backend
+
+`supabase/schema.sql` is the single, idempotent source of truth for tables,
+RLS policies, storage buckets, and the `SECURITY DEFINER` RPCs the app and
+dashboards call. Run it once against the Supabase project (safe to re-run).
+`supabase/seed.sql` loads a few starter businesses/reviews for a fresh install.
+
+Content that isn't wired up degrades gracefully rather than breaking: an empty
+businesses table shows a friendly empty state, a missing Shopify store shows
+"opening soon", and missing Stripe/Supabase keys surface readable errors
+instead of failing silently.
 
 ## Setup
 
 ```bash
 npm install
-cp .env.local.example .env.local   # fill in creds (optional - builds without them)
+cp .env.local.example .env.local   # fill in creds (the app builds without them)
 npm run dev
 ```
 
-With no env set, the site builds and renders with placeholder dog photos and the
-demo catalog (the two category rows). Add the Shopify vars to pull live products.
-
-## Environment
-
-| Var | Purpose |
-| --- | --- |
-| `SHOPIFY_STORE_DOMAIN` | e.g. `dogedin-store.myshopify.com` |
-| `SHOPIFY_STOREFRONT_TOKEN` | Storefront API access token |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (optional) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (optional) |
+With no env set the site still builds and renders, using labelled sample/demo
+content in development. See `.env.local.example` for the full, commented list of
+environment variables (Supabase, Shopify, Stripe, Instagram, Resend, and the
+Business Insights + advertising settings).
 
 ## Deploy
 
-Push to a Git repo and import into Vercel. Set the env vars in the Vercel project
-settings. Framework preset auto-detects as Next.js.
+Push to a Git repo and import into Vercel (framework auto-detects as Next.js).
+Set the environment variables in the Vercel project, run `supabase/schema.sql`
+against the Supabase project, and point `NEXT_PUBLIC_SITE_URL` at the canonical
+domain.
+
+## Operating docs
+
+- `docs/site-overview.md` — architecture and current status
+- `docs/owner-actions.md` — what a launch still needs from the owner
+- `docs/monetization-owner-actions.md` — ads/insights/membership config
+- `docs/photo-moderation-runbook.md` — photo moderation modes
+- `docs/instagram-pipeline.md` — the dog-of-the-day Instagram pipeline

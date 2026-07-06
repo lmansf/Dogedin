@@ -104,9 +104,7 @@ Guardrails, all built in:
    inside the app now (same place as checkout — no Supabase Edge Function or
    gateway auth to get right), so it needs the Anthropic key where the *site*
    runs: add `ANTHROPIC_API_KEY` to Vercel and redeploy. (Until it's set,
-   self-serve applications fall back to the manual review queue, no charge. The
-   old `moderate-ad` edge function is no longer used by this flow — you can
-   ignore it.)
+   self-serve applications fall back to the manual review queue, no charge.)
 2. Confirm the Stripe **webhook** (already used for paid ads/membership) is live
    and `STRIPE_SECRET_KEY` + `SUPABASE_SERVICE_ROLE_KEY` + `NEXT_PUBLIC_SITE_URL`
    are set — the same three the existing pay-link flow needs.
