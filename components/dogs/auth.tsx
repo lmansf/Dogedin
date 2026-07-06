@@ -70,7 +70,7 @@ export function useIsAdmin() {
 // check their inbox. In "reset" mode we email a recovery link that lands on
 // /reset-password (see ResetPasswordFlow) where the new password is chosen.
 export function AuthPanel({ intro }: { intro?: string }) {
-  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signup");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -80,8 +80,7 @@ export function AuthPanel({ intro }: { intro?: string }) {
   if (!supabase) {
     return (
       <p className="border-[3px] border-black bg-[var(--gold)]/30 px-4 py-3 text-sm font-bold">
-        Sign-in isn&apos;t configured yet — set the Supabase env vars and run{" "}
-        <code className="border border-black bg-white px-1">supabase/schema.sql</code>.
+        Sign-in is temporarily unavailable — please check back soon. 🐾
       </p>
     );
   }

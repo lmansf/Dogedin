@@ -105,6 +105,9 @@ create table if not exists public.reviews (
   created_at    timestamptz not null default now()
 );
 create index if not exists reviews_business_id_idx on public.reviews(business_id);
+-- Newest-first review listings per business (order by created_at desc) are the
+-- hot path; the composite lets Postgres seek+scan instead of sorting.
+create index if not exists reviews_business_created_idx on public.reviews(business_id, created_at);
 
 create table if not exists public.review_replies (
   id            uuid primary key default gen_random_uuid(),
@@ -474,6 +477,9 @@ create table if not exists public.ad_stats_daily (
   primary key (ad_id, slot, day)
 );
 alter table public.ad_stats_daily enable row level security;
+-- Date-range rollups ("last 30 days across all ads") scan by day; without this
+-- the composite PK (ad_id, slot, day) can't serve a day-only range efficiently.
+create index if not exists ad_stats_daily_day_idx on public.ad_stats_daily(day);
 drop policy if exists "admins read ad stats" on public.ad_stats_daily;
 create policy "admins read ad stats" on public.ad_stats_daily
   for select to authenticated
@@ -1163,6 +1169,9 @@ create table if not exists public.business_stats_daily (
   primary key (business_id, stat, day)
 );
 alter table public.business_stats_daily enable row level security;
+-- Date-range rollups ("this business, last 30 days") scan by day; the composite
+-- PK (business_id, stat, day) can't serve a day-only range on its own.
+create index if not exists business_stats_daily_day_idx on public.business_stats_daily(day);
 
 drop policy if exists "admins read business stats" on public.business_stats_daily;
 create policy "admins read business stats" on public.business_stats_daily

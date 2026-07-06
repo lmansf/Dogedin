@@ -68,6 +68,12 @@ export default function AdInquiryForm() {
             ? "We couldn't auto-review your ad just now, so a human will check it and email you a secure payment link. You weren't charged."
             : "Thanks for supporting Dunedin's dog community."}
         </p>
+        <a
+          href="/"
+          className="mt-4 inline-block border-[3px] border-black bg-[var(--sand)] px-4 py-2 text-sm font-black uppercase tracking-wide shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+        >
+          Back to Dogedin
+        </a>
       </div>
     );
   }
@@ -408,7 +414,7 @@ export default function AdInquiryForm() {
               />
             </label>
             <span className="text-[11px] font-bold text-black/40">
-              Optional — leave blank to run until you tell us to stop.
+              Both dates required — you&apos;re billed only for the days you run.
             </span>
           </div>
         )}

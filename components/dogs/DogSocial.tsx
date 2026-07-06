@@ -156,6 +156,21 @@ export default function DogSocial({
           onUnfriend={friendshipId ? () => doUnfriend(friendshipId) : undefined}
         />
       )}
+      {/* Signed in but no dog of their own: the paw + friend controls need a dog
+          to act as, so explain the disabled state instead of leaving it silent. */}
+      {!amOwner && configured && !!user && !actingDogId && (
+        <div className="border-[3px] border-black bg-white p-4 shadow-hard">
+          <p className="text-sm font-bold">
+            Register a dog to give {dogName} a paw and add them as a friend.
+          </p>
+          <Link
+            href="/register"
+            className="mt-3 inline-block border-2 border-black bg-[var(--turq)] px-3 py-1.5 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none"
+          >
+            Register your dog →
+          </Link>
+        </div>
+      )}
 
       {amOwner && incoming.length > 0 && (
         <div className="border-[3px] border-black bg-[var(--gold)]/20 p-4 shadow-hard">
@@ -299,19 +314,29 @@ function FriendActions({
   onUnfriend,
 }: {
   relationship: RelationshipStatus;
-  onAdd: () => void;
+  onAdd: () => void | Promise<void>;
   onUnfriend?: () => void;
 }) {
+  const [busy, setBusy] = useState(false);
+  const handleAdd = async () => {
+    setBusy(true);
+    try {
+      await onAdd();
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-white p-4 shadow-hard">
       <h2 className="font-display text-lg font-extrabold">Friends</h2>
       {relationship === "none" && (
         <button
           type="button"
-          onClick={onAdd}
-          className="border-2 border-black bg-[var(--turq)] px-3 py-1.5 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5"
+          onClick={handleAdd}
+          disabled={busy}
+          className="border-2 border-black bg-[var(--turq)] px-3 py-1.5 text-xs font-black uppercase tracking-wide text-[var(--sand)] shadow-hard transition-transform hover:-translate-y-0.5 disabled:opacity-50"
         >
-          + Add friend
+          {busy ? "Sending…" : "+ Add friend"}
         </button>
       )}
       {relationship === "pending-outgoing" && (
@@ -485,8 +510,8 @@ function PostCard({
               disabled={!canAct}
               aria-pressed={liked}
               aria-label={liked ? "Remove paw" : "Give a paw"}
-              className={`font-black uppercase tracking-wide disabled:opacity-40 ${
-                liked ? "text-[var(--coral)]" : "text-black/60"
+              className={`-ml-1 rounded px-1 py-0.5 text-sm font-black uppercase tracking-wide disabled:opacity-40 ${
+                liked ? "text-[var(--coral)]" : "text-black/70"
               }`}
             >
               🐾 {likeCount}
@@ -496,7 +521,7 @@ function PostCard({
             <button
               type="button"
               onClick={() => setReporting((v) => !v)}
-              className="text-black/30 hover:text-black/60"
+              className="px-1 py-0.5 font-bold text-black/50 hover:text-black hover:underline"
             >
               Report
             </button>
