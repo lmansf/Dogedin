@@ -6,6 +6,7 @@ import Link from "next/link";
 import { StarRating } from "./Stars";
 import ReviewItem from "./ReviewItem";
 import ReviewForm from "./ReviewForm";
+import ClaimForm from "./ClaimForm";
 import { recordBusinessStat } from "@/lib/businessStats";
 import type { Business, BusinessHours, Review } from "@/lib/businesses";
 
@@ -106,6 +107,7 @@ export default function BusinessCard({
 }) {
   const [reviews, setReviews] = useState<Review[]>(business.reviews);
   const [open, setOpen] = useState(defaultOpen);
+  const [claimOpen, setClaimOpen] = useState(false);
   const [showHours, setShowHours] = useState(false);
   const permalink = `/things-to-do/${business.slug}`;
 
@@ -333,6 +335,24 @@ export default function BusinessCard({
               canPersist={canPersist}
               onAdded={addReview}
             />
+          </div>
+        )}
+
+        {/* Owner claim — quieter than the review CTA (it's for the business,
+            not visitors). Opens an inline lead form; verified claims unlock the
+            business dashboard + ad pitch. */}
+        <button
+          type="button"
+          onClick={() => setClaimOpen((v) => !v)}
+          aria-expanded={claimOpen}
+          className="mt-1 w-fit text-xs font-black uppercase tracking-wide text-black/50 underline hover:text-black"
+        >
+          {claimOpen ? "Never mind" : "🏷 Own this business? Claim it"}
+        </button>
+
+        {claimOpen && (
+          <div className="mt-2">
+            <ClaimForm businessId={business.id} businessName={business.name} />
           </div>
         )}
       </div>
