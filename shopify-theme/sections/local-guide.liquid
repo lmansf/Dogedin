@@ -9,7 +9,8 @@
 <div class="color-{{ section.settings.color_scheme }} gradient">
 <div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
 <h2 class="h1" style="margin:0 0 0.4rem;">{{ section.settings.heading | escape }}</h2>
-<p style="margin:0 0 1.6rem;">The community&#39;s favorite dog-friendly spots — reviewed by the pack. Some carry a member deal; tap to unlock it.</p>
+<p style="margin:0 0 1.2rem;">The community&#39;s favorite dog-friendly spots — reviewed by the pack. Some carry a member deal; tap to unlock it.</p>
+<div id="dgd-guide-filters" style="display:flex;gap:0.6rem;flex-wrap:wrap;margin:0 0 1.6rem;"></div>
 <div id="dgd-guide" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(28rem,1fr));gap:1.8rem;"></div>
 </div>
 </div>
@@ -34,6 +35,34 @@
     };
 
     var reviewsByBiz = {}; // business_id -> [reviews]
+
+    // Category filter bar — a subdirectory of the categories actually present,
+    // each a chip that shows only that category's cards (client-side; the whole
+    // approved guide is already loaded). Hidden entirely if there's <2 groups.
+    function buildFilters(rows) {
+      var bar = document.getElementById("dgd-guide-filters");
+      if (!bar) return;
+      var counts = {};
+      rows.forEach(function (b) { var c = b.category || "Other"; counts[c] = (counts[c] || 0) + 1; });
+      var cats = Object.keys(counts).sort();
+      if (cats.length < 2) { bar.style.display = "none"; return; }
+      var CHIP = "border:0.2rem solid rgb(var(--color-foreground));padding:0.5rem 1rem;font:inherit;font-weight:800;font-size:1.2rem;text-transform:uppercase;letter-spacing:0.05rem;cursor:pointer;";
+      var ON = "background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));";
+      var OFF = "background:transparent;color:rgb(var(--color-foreground));";
+      function chip(label, val, n, active) {
+        return '<button class="dgd-cat" data-cat="' + esc(val) + '" style="' + CHIP + (active ? ON : OFF) + '">' + esc(label) + ' <span style="opacity:0.65;">' + n + "</span></button>";
+      }
+      bar.innerHTML = chip("All", "all", rows.length, true) + cats.map(function (c) { return chip(c, c, counts[c], false); }).join("");
+      bar.querySelectorAll(".dgd-cat").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var cat = btn.getAttribute("data-cat");
+          bar.querySelectorAll(".dgd-cat").forEach(function (b2) { b2.setAttribute("style", CHIP + (b2 === btn ? ON : OFF)); });
+          mount.querySelectorAll(".dgd-g-card").forEach(function (card) {
+            card.style.display = (cat === "all" || card.getAttribute("data-cat") === cat) ? "" : "none";
+          });
+        });
+      });
+    }
 
     D.select("public_businesses?select=id,slug,name,category,neighborhood,description,image,dog_friendly,phone,website,address,offer&order=name.asc&limit={{ section.settings.limit }}")
       .then(function (rows) {
@@ -78,7 +107,7 @@
             '<button class="dgd-g-offer" data-i="' + i + '" style="' + BTN + 'background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));">🎟 Member deal: ' + esc(b.offer.label) + "</button>" +
             '<div class="dgd-g-offer-detail" data-i="' + i + '" style="display:none;border:0.2rem dashed rgb(var(--color-foreground));padding:0.8rem 1rem;margin-top:0.6rem;font-weight:700;"></div></div>';
         }
-        return '<div class="dgd-g-card" data-i="' + i + '" style="border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));color:rgb(var(--color-foreground));display:flex;flex-direction:column;">' + img +
+        return '<div class="dgd-g-card" data-i="' + i + '" data-cat="' + esc(b.category || "Other") + '" style="border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));color:rgb(var(--color-foreground));display:flex;flex-direction:column;">' + img +
           '<div style="padding:1.2rem 1.4rem;display:flex;flex-direction:column;flex:1;">' +
           '<h3 style="margin:0;font-size:1.8rem;">' + esc(b.name) + "</h3>" +
           (meta ? '<p style="margin:0.2rem 0 0;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;opacity:0.65;">' + meta + "</p>" : "") +
@@ -89,6 +118,8 @@
           '<div class="dgd-g-revpanel" data-i="' + i + '" style="display:none;border-top:0.2rem dashed rgb(var(--color-foreground));margin-top:1rem;padding-top:1rem;"></div>' +
           "</div></div>";
       }).join("");
+
+      buildFilters(rows);
 
       // Listing views: each card counted once after >=50% visible for >=1s.
       var seen = {}, timers = {};
