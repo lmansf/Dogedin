@@ -1,0 +1,195 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div id="dgd-listbiz" style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 64rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🌴 For Dunedin businesses</p>
+  <h2 class="h1" style="margin:0 0 0.6rem;">List your business</h2>
+  <p style="margin:0 0 1.6rem;">Add your dog-friendly spot to the Dog-friendly Dunedin guide. Real hours and an address let visitors get one-tap directions — every listing is reviewed before it goes live.</p>
+  <div id="dgd-listbiz-body"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+</div>
+
+<script>
+(function () {
+  var CATEGORIES = ["Restaurant", "Cafe", "Brewery / Bar", "Beach", "Park / Trail", "Retail / Shop", "Service", "Other"];
+  var DAYS = [["monday", "Monday"], ["tuesday", "Tuesday"], ["wednesday", "Wednesday"], ["thursday", "Thursday"], ["friday", "Friday"], ["saturday", "Saturday"], ["sunday", "Sunday"]];
+  var TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var body = document.getElementById("dgd-listbiz-body");
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var I = 'width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;';
+    var B = 'border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;';
+    var L = 'font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05rem;opacity:0.65;display:block;margin:0 0 0.4rem;';
+    var photo = null;
+
+    var catOpts = CATEGORIES.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + "</option>"; }).join("");
+    var hoursRows = DAYS.map(function (d) {
+      return '<div data-day="' + d[0] + '" style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;margin:0 0 0.5rem;">' +
+        '<span style="width:9rem;font-weight:700;">' + d[1] + "</span>" +
+        '<label style="font-size:1.1rem;font-weight:700;display:flex;gap:0.4rem;align-items:center;"><input type="checkbox" class="dgd-closed"> Closed</label>' +
+        '<input type="time" class="dgd-open" value="09:00" style="border:0.2rem solid rgb(var(--color-foreground));padding:0.4rem;background:#fff;color:#211e18;">' +
+        '<span style="opacity:0.5;">to</span>' +
+        '<input type="time" class="dgd-close" value="17:00" style="border:0.2rem solid rgb(var(--color-foreground));padding:0.4rem;background:#fff;color:#211e18;"></div>';
+    }).join("");
+
+    body.innerHTML =
+      '<form id="dgd-b" style="display:flex;flex-direction:column;gap:1.2rem;">' +
+      '<label><span style="' + L + '">Business name *</span><input style="' + I + '" id="b-name" maxlength="120" required></label>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;">' +
+      '<label><span style="' + L + '">Category *</span><select style="' + I + '" id="b-cat">' + catOpts + "</select></label>" +
+      '<label><span style="' + L + '">Neighborhood</span><input style="' + I + '" id="b-hood" maxlength="80" placeholder="e.g. Downtown Dunedin"></label></div>' +
+      '<label><span style="' + L + '">Description *</span><textarea style="' + I + 'resize:vertical;" id="b-desc" rows="3" maxlength="600" placeholder="What makes it worth a visit — and how it treats dogs." required></textarea></label>' +
+      '<label><span style="' + L + '">Street address *</span><input style="' + I + '" id="b-addr" maxlength="200" placeholder="123 Main St, Dunedin, FL 34698" required><span style="font-size:1rem;opacity:0.5;">Builds one-tap Google &amp; Apple Maps directions.</span></label>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;">' +
+      '<label><span style="' + L + '">Phone</span><input style="' + I + '" id="b-phone" type="tel" maxlength="40" placeholder="(727) 555-0100"></label>' +
+      '<label><span style="' + L + '">Website</span><input style="' + I + '" id="b-web" type="url" maxlength="200" placeholder="https://…"></label></div>' +
+      '<label style="display:flex;gap:0.8rem;align-items:center;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem;"><input type="checkbox" id="b-dog" checked style="width:1.8rem;height:1.8rem;"><span style="font-weight:700;">Dogs are welcome here</span></label>' +
+      '<fieldset style="border:0.2rem solid rgb(var(--color-foreground));padding:1rem;"><legend style="padding:0 0.4rem;' + L + '">Hours</legend>' + hoursRows + "</fieldset>" +
+      '<label><span style="' + L + '">Photo for your card * (JPG/PNG/WebP, 5 MB max)</span><input type="file" id="b-photo" accept="image/jpeg,image/png,image/webp"></label>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;border-top:0.15rem solid rgba(33,30,24,0.15);padding-top:1.2rem;">' +
+      '<label><span style="' + L + '">Your name * <span style="opacity:0.5;text-transform:none;">(not public)</span></span><input style="' + I + '" id="b-oname" maxlength="80" required></label>' +
+      '<label><span style="' + L + '">Your email * <span style="opacity:0.5;text-transform:none;">(not public)</span></span><input style="' + I + '" id="b-oemail" type="email" maxlength="120" required></label></div>' +
+      '<p id="b-err" style="color:#a6332e;font-weight:700;margin:0;"></p>' +
+      '<button style="' + B + '" type="submit" id="b-btn">Submit for review</button></form>';
+
+    var form = document.getElementById("dgd-b"), errEl = document.getElementById("b-err");
+
+    // Enable/disable the time inputs when a day is toggled closed.
+    body.querySelectorAll("[data-day]").forEach(function (row) {
+      var cb = row.querySelector(".dgd-closed");
+      cb.addEventListener("change", function () {
+        row.querySelector(".dgd-open").disabled = cb.checked;
+        row.querySelector(".dgd-close").disabled = cb.checked;
+      });
+    });
+
+    document.getElementById("b-photo").addEventListener("change", function (ev) {
+      errEl.textContent = ""; photo = null;
+      var f = ev.target.files[0] || null;
+      if (!f) return;
+      if (TYPES.indexOf(f.type) < 0) { ev.target.value = ""; errEl.textContent = "Photo must be a JPG, PNG or WEBP."; return; }
+      if (f.size > 5 * 1024 * 1024) { ev.target.value = ""; errEl.textContent = "Photo must be 5 MB or smaller."; return; }
+      photo = f;
+    });
+
+    function collectHours() {
+      var hours = {};
+      body.querySelectorAll("[data-day]").forEach(function (row) {
+        var closed = row.querySelector(".dgd-closed").checked;
+        hours[row.getAttribute("data-day")] = {
+          closed: closed,
+          open: closed ? null : row.querySelector(".dgd-open").value,
+          close: closed ? null : row.querySelector(".dgd-close").value
+        };
+      });
+      return hours;
+    }
+    // slugStem, ported from lib/businesses.ts (40-char stem).
+    function slugStem(name) {
+      return (name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40)) || "business";
+    }
+
+    form.addEventListener("submit", async function (ev) {
+      ev.preventDefault(); errEl.textContent = "";
+      var name = document.getElementById("b-name").value.trim();
+      var desc = document.getElementById("b-desc").value.trim();
+      var addr = document.getElementById("b-addr").value.trim();
+      var oname = document.getElementById("b-oname").value.trim();
+      var oemail = document.getElementById("b-oemail").value.trim();
+      if (!name || !desc || !addr || !oname || !oemail) { errEl.textContent = "Business name, description, address, your name and email are all required."; return; }
+      if (!photo) { errEl.textContent = "A photo for the card is required."; return; }
+      var btn = document.getElementById("b-btn"); btn.disabled = true; btn.textContent = "Uploading…";
+      var photoPath = null;
+      try {
+        // Upload the card photo to the public-read business-photos bucket, then
+        // insert the listing as 'pending' (RLS forces that status). Retry on a
+        // slug collision the same way registration does (23505).
+        var ext = (photo.name.split(".").pop() || "jpg").toLowerCase();
+        photoPath = crypto.randomUUID() + "." + ext;
+        await D.upload("business-photos", photoPath, photo, null);
+        var imageUrl = D.publicUrl("business-photos", photoPath);
+        var businessId = crypto.randomUUID();
+        var base = {
+          id: businessId, name: name,
+          category: document.getElementById("b-cat").value,
+          neighborhood: document.getElementById("b-hood").value.trim() || null,
+          description: desc, address: addr,
+          phone: document.getElementById("b-phone").value.trim() || null,
+          website: document.getElementById("b-web").value.trim() || null,
+          dog_friendly: document.getElementById("b-dog").checked,
+          hours: collectHours(), owner_name: oname, owner_email: oemail,
+          image: imageUrl, status: "pending"
+        };
+        var stem = slugStem(name), done = false, lastErr = null;
+        for (var i = 0; i < 4 && !done; i++) {
+          try {
+            var row = Object.assign({}, base, { slug: stem + "-" + D.randomSuffix() });
+            await D.insert("businesses", row);
+            done = true;
+          } catch (e) {
+            lastErr = e;
+            if (e.code !== "23505" && e.status !== 409) throw e;
+          }
+        }
+        if (!done) throw (lastErr || new Error("Couldn't generate a unique listing link — please try again."));
+        // Best-effort welcome email with their portal link — same edge function
+        // the website uses; the listing is already saved either way.
+        D.invokeFunction("welcome-business", { business_id: businessId });
+        document.getElementById("dgd-listbiz").innerHTML =
+          '<h3 class="h2" style="margin:0 0 0.8rem;">Thanks — we&#39;ll take a look! 🐾</h3>' +
+          '<p style="margin:0 0 1rem;">Your listing for <strong>' + esc(name) + '</strong> is in the review queue. A Dogedin admin reviews every submission before it appears in the Dog-friendly Dunedin guide.</p>' +
+          '<p style="margin:0;">Want to be seen sooner? <a href="/pages/advertise" style="text-decoration:underline;color:inherit;font-weight:800;">Advertise your business →</a></p>';
+      } catch (e) {
+        if (photoPath) D.removeObject("business-photos", photoPath, null);
+        errEl.textContent = (e && e.message) || "Something went wrong — please try again.";
+        btn.disabled = false; btn.textContent = "Submit for review";
+      }
+    });
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "List your business",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "List your business"
+    }
+  ]
+}
+{% endschema %}

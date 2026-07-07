@@ -1,0 +1,24 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-page",
+      "settings": {
+        "padding_top": 28,
+        "padding_bottom": 4
+      }
+    },
+    "register": {
+      "type": "register-dog",
+      "settings": {
+        "upsell_product": "lost-dog-qr-id-tag",
+        "color_scheme": "scheme-1",
+        "padding_top": 12,
+        "padding_bottom": 48
+      }
+    }
+  },
+  "order": [
+    "main",
+    "register"
+  ]
+}

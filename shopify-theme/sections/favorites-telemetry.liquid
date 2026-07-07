@@ -1,0 +1,53 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+{%- comment -%}
+  Favorites telemetry — the shop's feed into the Dogedin intelligence dataset.
+  Mirrors the site's listing-view/tap counting using the existing
+  record_feature_click RPC -> feature_interest_daily (per feature, per source,
+  per day; aggregates only, no PII). Renders nothing.
+    - feature "shop_favorites", source "view": Community favorites section
+      seen (>=25% visible for >=1 continuous second, once per page view)
+    - feature "shop_product", source <product-handle>: a favorite tapped
+{%- endcomment -%}
+<div style="display:none;" aria-hidden="true"></div>
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var sec = document.querySelector('[id$="__featured_collection"]');
+    if (!sec) {
+      var c = document.querySelector(".collection");
+      sec = c ? (c.closest("section") || c) : null;
+    }
+    if (!sec) return;
+    var counted = false, timer = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.intersectionRatio >= 0.25) {
+          if (!timer && !counted) timer = setTimeout(function () {
+            counted = true;
+            D.rpc("record_feature_click", { p_feature: "shop_favorites", p_source: "view" }).catch(function () {});
+          }, 1000);
+        } else if (timer) { clearTimeout(timer); timer = null; }
+      });
+    }, { threshold: [0, 0.25, 1] });
+    io.observe(sec);
+    sec.addEventListener("click", function (ev) {
+      var a = ev.target && ev.target.closest ? ev.target.closest('a[href*="/products/"]') : null;
+      if (!a) return;
+      var m = (a.getAttribute("href") || "").match(/\/products\/([a-z0-9-]+)/);
+      if (!m) return;
+      D.rpc("record_feature_click", { p_feature: "shop_product", p_source: m[1] }).catch(function () {});
+    });
+  }
+  boot();
+})();
+</script>
+{% schema %}
+{
+  "name": "Favorites telemetry",
+  "tag": "section",
+  "class": "section",
+  "settings": [],
+  "presets": [{ "name": "Favorites telemetry" }]
+}
+{% endschema %}

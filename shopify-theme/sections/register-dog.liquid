@@ -1,0 +1,219 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div id="dgd-register" style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 62rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🐾 Dunedin, Florida · join the pack</p>
+  <h2 class="h1" style="margin:0 0 0.6rem;">Register your dog</h2>
+  <p style="margin:0 0 1.6rem;">Every Dunedin dog gets a public profile and a lost-dog tag code. Same account as dogedin.com — one pack, two doors.</p>
+  <div id="dgd-reg-body"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+</div>
+{%- assign dgd_upsell = section.settings.upsell_product -%}
+{%- if dgd_upsell != blank -%}
+<template id="dgd-upsell-tpl">
+  <div style="border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));margin:1.6rem auto 0;max-width:62rem;padding:1.2rem 1.4rem;display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap;">
+    {%- if dgd_upsell.featured_image -%}
+    <a href="{{ dgd_upsell.url }}" style="flex:0 0 auto;"><img src="{{ dgd_upsell.featured_image | image_url: width: 220 }}" alt="{{ dgd_upsell.title | escape }}" width="110" height="110" style="width:11rem;height:11rem;object-fit:cover;border:0.2rem solid rgb(var(--color-foreground));"></a>
+    {%- endif -%}
+    <div style="flex:1;min-width:20rem;">
+      <p style="margin:0;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1rem;opacity:0.65;">🏷 Make it real</p>
+      <h3 style="margin:0.2rem 0 0.2rem;font-size:1.8rem;">Get __DOGNAME__ a physical QR tag</h3>
+      <p style="margin:0 0 0.8rem;opacity:0.85;">The tag code above, printed on a durable tag a finder can scan to reach you. {{ dgd_upsell.price | money }}.</p>
+      <a href="{{ dgd_upsell.url }}" style="display:inline-block;border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:0.8rem 1.4rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06rem;text-decoration:none;font-size:1.2rem;">Shop the tag →</a>
+    </div>
+  </div>
+</template>
+{%- endif -%}
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var body = document.getElementById("dgd-reg-body");
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var I = 'width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;';
+    var B = 'border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;';
+
+    function authView(msg) {
+      body.innerHTML =
+        (msg ? '<p style="font-weight:700;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;margin:0 0 1.2rem;">' + esc(msg) + "</p>" : "") +
+        '<p style="margin:0 0 1.2rem;">Sign in or create an account — this ties each profile to you, so only you can edit it.</p>' +
+        '<form id="dgd-auth" style="display:flex;flex-direction:column;gap:1rem;max-width:42rem;">' +
+        '<input style="' + I + '" type="email" id="dgd-email" placeholder="Email" required>' +
+        '<input style="' + I + '" type="password" id="dgd-pass" placeholder="Password (8+ characters)" minlength="8" required>' +
+        '<div style="display:flex;gap:1rem;flex-wrap:wrap;">' +
+        '<button style="' + B + '" type="submit" data-mode="signup">Create account</button>' +
+        '<button style="' + B + 'opacity:0.85;" type="submit" data-mode="signin">Sign in</button>' +
+        "</div>" +
+        '<button type="button" id="dgd-forgot" style="background:none;border:none;text-align:left;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;padding:0;color:inherit;">Forgot password?</button>' +
+        '<p id="dgd-auth-err" style="color:#a6332e;font-weight:700;margin:0;"></p>' +
+        "</form>";
+      var form = document.getElementById("dgd-auth");
+      var errEl = document.getElementById("dgd-auth-err");
+      var mode = "signup";
+      form.querySelectorAll("button[data-mode]").forEach(function (b) {
+        b.addEventListener("click", function () { mode = b.getAttribute("data-mode"); });
+      });
+      document.getElementById("dgd-forgot").addEventListener("click", async function () {
+        errEl.style.color = "inherit";
+        try {
+          await D.resetPassword(document.getElementById("dgd-email").value);
+          errEl.textContent = "If that email has an account, a reset link is on its way (finishes on dogedin.com).";
+        } catch (e) { errEl.style.color = "#a6332e"; errEl.textContent = e.message; }
+      });
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault(); errEl.style.color = "#a6332e"; errEl.textContent = "";
+        var email = document.getElementById("dgd-email").value, pass = document.getElementById("dgd-pass").value;
+        try {
+          if (mode === "signup") {
+            var res = await D.signUp(email, pass);
+            if (res.confirm) { errEl.style.color = "inherit"; errEl.textContent = "Check your email to confirm your account, then sign in here."; return; }
+          } else {
+            await D.signIn(email, pass);
+          }
+          render();
+        } catch (e) { errEl.textContent = e.message; }
+      });
+    }
+
+    function formView(sess) {
+      body.innerHTML =
+        '<div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin:0 0 1.2rem;">' +
+        '<span style="font-weight:700;opacity:0.7;">Signed in as ' + esc(sess.user.email) + "</span>" +
+        '<button id="dgd-signout" style="background:none;border:none;font:inherit;font-weight:800;text-transform:uppercase;font-size:1.1rem;text-decoration:underline;cursor:pointer;color:inherit;">Sign out</button></div>' +
+        '<form id="dgd-dog" style="display:flex;flex-direction:column;gap:1rem;">' +
+        '<input style="' + I + '" id="dgd-owner" placeholder="Your name *" maxlength="80" required>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;">' +
+        '<input style="' + I + '" id="dgd-phone" type="tel" placeholder="Phone *" maxlength="40" required>' +
+        '<input style="' + I + '" id="dgd-oemail" type="email" placeholder="Email *" maxlength="120" required value="' + esc(sess.user.email) + '">' +
+        "</div>" +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;">' +
+        '<input style="' + I + '" id="dgd-dogname" placeholder="Dog&#39;s name *" maxlength="60" required>' +
+        '<input style="' + I + '" id="dgd-breed" placeholder="Breed (e.g. Border Collie)" maxlength="60">' +
+        "</div>" +
+        '<textarea style="' + I + 'resize:vertical;" id="dgd-bio" rows="2" maxlength="300" placeholder="Fun fact — e.g. Has personally greeted every dog on the Pinellas Trail"></textarea>' +
+        '<label style="font-weight:700;">Photo (JPG/PNG/WebP, 3 MB max)<br><input type="file" id="dgd-photo" accept="image/jpeg,image/png,image/webp" style="margin-top:0.4rem;"></label>' +
+        '<label style="display:flex;gap:1rem;align-items:flex-start;border:0.2rem solid rgb(var(--color-foreground));padding:1rem;">' +
+        '<input type="checkbox" id="dgd-optin" style="width:1.8rem;height:1.8rem;margin-top:0.2rem;">' +
+        '<span><strong>Lost dog contact</strong> — show my phone &amp; email on my dog&#39;s public profile so a finder can reach me. Leave off to keep contact details private.</span></label>' +
+        '<p id="dgd-dog-err" style="color:#a6332e;font-weight:700;margin:0;"></p>' +
+        '<button style="' + B + '" type="submit" id="dgd-save">Create profile</button>' +
+        "</form>";
+      document.getElementById("dgd-signout").addEventListener("click", function () { D.signOut(); render(); });
+      var form = document.getElementById("dgd-dog");
+      var errEl = document.getElementById("dgd-dog-err");
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault(); errEl.textContent = "";
+        var btn = document.getElementById("dgd-save"); btn.disabled = true; btn.textContent = "Saving…";
+        try {
+          var s = await D.getSession(); if (!s) { render(); return; }
+          var ownerName = document.getElementById("dgd-owner").value.trim();
+          var phone = document.getElementById("dgd-phone").value.trim();
+          var oemail = document.getElementById("dgd-oemail").value.trim();
+          var dogName = document.getElementById("dgd-dogname").value.trim();
+          var breed = document.getElementById("dgd-breed").value.trim();
+          var bio = document.getElementById("dgd-bio").value.trim().slice(0, 300);
+          if (!ownerName || !phone || !oemail || !dogName) throw new Error("Owner name, phone, email and dog name are all required.");
+          var file = document.getElementById("dgd-photo").files[0] || null;
+          if (file) {
+            if (["image/jpeg", "image/png", "image/webp"].indexOf(file.type) < 0) throw new Error("Photo must be a JPG, PNG or WEBP.");
+            if (file.size > 3 * 1024 * 1024) throw new Error("Photo must be 3 MB or smaller.");
+          }
+          var photoPath = null;
+          if (file) {
+            var ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+            photoPath = s.user.id + "/" + crypto.randomUUID() + "." + ext;
+            await D.upload("dog-photos", photoPath, file, s.access_token);
+          }
+          var cleanBio = bio ? await D.moderateBio(bio, s.access_token) : null;
+          var base = {
+            user_id: s.user.id, owner_name: ownerName, owner_phone: phone, owner_email: oemail,
+            dog_name: dogName, breed: breed || null, bio: cleanBio, photo_path: photoPath,
+            lost_contact_opt_in: document.getElementById("dgd-optin").checked
+          };
+          var stem = D.slugStem(dogName), done = false, lastErr = null;
+          for (var attempt = 0; attempt < 4 && !done; attempt++) {
+            var slug = stem + "-" + D.randomSuffix();
+            var tag = D.randomTagCode();
+            try {
+              var row = Object.assign({}, base, { slug: slug, tag_code: tag });
+              await D.insert("dog_profiles", row, s.access_token);
+              done = true;
+              body.innerHTML =
+                '<h3 class="h2" style="margin:0 0 0.8rem;">Welcome to the pack, ' + esc(dogName) + "! 🐕</h3>" +
+                '<p style="margin:0 0 1rem;">Profile created. Save this <strong>lost-dog tag code</strong> — it goes on ' + esc(dogName) + '&#39;s tag and QR:</p>' +
+                '<p style="font-size:2.4rem;font-weight:800;letter-spacing:0.3rem;border:0.3rem solid rgb(var(--color-foreground));display:inline-block;padding:0.6rem 1.4rem;margin:0 0 1.4rem;">' + esc(tag) + "</p>" +
+                '<p style="margin:0;">' + esc(dogName) + ' is now in the pack — <a style="font-weight:800;text-decoration:underline;color:inherit;" href="/pages/dog?slug=' + encodeURIComponent(slug) + '">see ' + esc(dogName) + '&#39;s profile →</a></p>';
+              // Physical-tag upsell — the theme editor picks which product, and
+              // its Liquid-rendered card (if any) is personalised + appended here.
+              var upTpl = document.getElementById("dgd-upsell-tpl");
+              if (upTpl) body.insertAdjacentHTML("beforeend", upTpl.innerHTML.replace(/__DOGNAME__/g, esc(dogName)));
+            } catch (e) {
+              lastErr = e;
+              if (e.code !== "23505" && e.status !== 409) { if (photoPath) D.removeObject("dog-photos", photoPath, s.access_token); throw e; }
+            }
+          }
+          if (!done) { if (photoPath) D.removeObject("dog-photos", photoPath, s.access_token); throw (lastErr || new Error("Couldn't generate a unique profile link — please try again.")); }
+        } catch (e) {
+          errEl.textContent = e.message || String(e);
+          btn.disabled = false; btn.textContent = "Create profile";
+        }
+      });
+    }
+
+    async function render() {
+      var sess = await D.getSession();
+      if (sess) formView(sess); else authView();
+    }
+    render();
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Register your dog",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "product",
+      "id": "upsell_product",
+      "label": "Tag upsell product",
+      "info": "Shown as an upsell on the registration success screen. Point it at your physical ID-tag product."
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Register your dog"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,32 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-page",
+      "settings": {
+        "padding_top": 28,
+        "padding_bottom": 4
+      }
+    },
+    "apply": {
+      "type": "ad-apply",
+      "settings": {
+        "color_scheme": "scheme-1",
+        "padding_top": 8,
+        "padding_bottom": 24
+      }
+    },
+    "inquiry": {
+      "type": "ad-inquiry",
+      "settings": {
+        "color_scheme": "scheme-2",
+        "padding_top": 24,
+        "padding_bottom": 48
+      }
+    }
+  },
+  "order": [
+    "main",
+    "apply",
+    "inquiry"
+  ]
+}

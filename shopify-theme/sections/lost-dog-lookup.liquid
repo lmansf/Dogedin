@@ -1,0 +1,111 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 62rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🚨 Lost &amp; found — always ad-free</p>
+  <h2 class="h1" style="margin:0 0 0.6rem;">Found a dog? Look up the tag.</h2>
+  <p style="margin:0 0 1.6rem;">Type the code from the dogedin tag (or the dog&#39;s name) and reach the owner in seconds — if they&#39;ve opted in to sharing contact info.</p>
+  <form id="dgd-find" style="display:flex;gap:1rem;flex-wrap:wrap;">
+    <input style="width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;flex:1;min-width:22rem;" id="dgd-find-q" placeholder="Tag code or dog name" minlength="2" required>
+    <button style="border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;" type="submit">Search</button>
+  </form>
+  <div id="dgd-find-out" style="margin-top:1.6rem;"></div>
+</div>
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var out = document.getElementById("dgd-find-out");
+    function card(d) {
+      var img = d.photoPath ? '<img src="' + esc(D.photoUrl(d.photoPath)) + '" alt="' + esc(d.dogName) + '" style="width:7rem;height:7rem;object-fit:cover;border:0.2rem solid rgb(var(--color-foreground));">' : '<span style="font-size:3rem;">🐶</span>';
+      var contact = "";
+      if (d.ownerPhone || d.ownerEmail) {
+        contact = '<p style="margin:0.4rem 0 0;font-weight:800;">' +
+          (d.ownerPhone ? '📞 <a style="text-decoration:underline;color:inherit;" href="tel:' + esc(d.ownerPhone) + '">' + esc(d.ownerPhone) + "</a> " : "") +
+          (d.ownerEmail ? '✉️ <a style="text-decoration:underline;color:inherit;" href="mailto:' + esc(d.ownerEmail) + '">' + esc(d.ownerEmail) + "</a>" : "") + "</p>";
+      } else if (d.hasContact === false) {
+        contact = '<p style="margin:0.4rem 0 0;opacity:0.7;">Owner contact is private — this pup&#39;s human chose not to share it.</p>';
+      }
+      return '<div style="display:flex;gap:1.4rem;align-items:center;border:0.25rem solid rgb(var(--color-foreground));padding:1.2rem;margin-bottom:1rem;background:rgb(var(--color-background));">' + img +
+        '<div><h3 style="margin:0;font-size:1.8rem;">' + esc(d.dogName) + "</h3>" +
+        (d.breed ? '<p style="margin:0.2rem 0 0;opacity:0.75;">' + esc(d.breed) + "</p>" : "") + contact +
+        (d.bio ? '<p style="margin:0.4rem 0 0;font-style:italic;opacity:0.85;">' + esc(d.bio) + "</p>" : "") + "</div></div>";
+    }
+    async function full(slug) {
+      var rows = await D.select("public_dog_profiles?select=slug,dog_name,breed,bio,photo_path,lost_contact_opt_in,owner_phone,owner_email&slug=eq." + encodeURIComponent(slug));
+      var d = rows && rows[0]; if (!d) return null;
+      return { slug: d.slug, dogName: d.dog_name, breed: d.breed, bio: d.bio, photoPath: d.photo_path, hasContact: d.lost_contact_opt_in, ownerPhone: d.owner_phone, ownerEmail: d.owner_email };
+    }
+    document.getElementById("dgd-find").addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      var q = document.getElementById("dgd-find-q").value.trim();
+      if (q.length < 2) return;
+      out.innerHTML = '<p style="font-weight:700;opacity:0.6;">Searching…</p>';
+      try {
+        var slug = null;
+        try { slug = await D.rpc("resolve_tag", { code: q }); } catch (e) {}
+        if (slug) {
+          var d = await full(slug);
+          out.innerHTML = d ? '<p style="font-weight:800;margin:0 0 1rem;">Tag match! 🎉</p>' + card(d) : "";
+          if (d) return;
+        }
+        var res = await D.rpc("search_dogs", { q: q });
+        if (!res || !res.length) { out.innerHTML = '<p style="font-weight:700;">No match — double-check the tag code, or try searching the dog&#39;s name.</p>'; return; }
+        var cards = await Promise.all(res.slice(0, 10).map(function (r) { return full(r.slug); }));
+        out.innerHTML = cards.filter(Boolean).map(card).join("");
+      } catch (e) {
+        out.innerHTML = '<p style="color:#a6332e;font-weight:700;">' + esc(e.message || "Search failed") + "</p>";
+      }
+    });
+    // Support /pages/found?tag=CODE straight from a QR.
+    var params = new URLSearchParams(location.search);
+    var t = params.get("tag");
+    if (t) { document.getElementById("dgd-find-q").value = t; document.getElementById("dgd-find").dispatchEvent(new Event("submit", { cancelable: true })); }
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Lost-dog lookup",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Lost-dog lookup"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,99 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div id="dgd-claim" style="border: 0.3rem solid rgb(var(--color-foreground)); box-shadow: 0.6rem 0.6rem 0 rgb(var(--color-foreground)); background: rgb(var(--color-background)); padding: 2rem 2.4rem; max-width: 60rem; margin: 0 auto;">
+  <p style="margin:0 0 1rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🏷 Claim your listing</p>
+  <div id="dgd-claim-body"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+</div>
+
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var body = document.getElementById("dgd-claim-body");
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var I = 'width:100%;border:0.2rem solid rgb(var(--color-foreground));padding:0.8rem 1rem;font:inherit;background:#fff;color:#211e18;';
+    var B = 'border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.4rem 0.4rem 0 rgb(var(--color-foreground));background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));padding:1rem 1.6rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;cursor:pointer;font-size:1.3rem;';
+    var L = 'font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05rem;opacity:0.65;display:block;margin:0 0 0.4rem;';
+
+    async function init() {
+      var params = new URLSearchParams(location.search);
+      var bid = params.get("b");
+      var bname = params.get("n") || "";
+      // Prefer the authoritative name from the approved listing.
+      if (bid) {
+        try {
+          var rows = await D.select("public_businesses?select=id,name&id=eq." + encodeURIComponent(bid));
+          if (rows && rows.length) bname = rows[0].name;
+        } catch (e) {}
+      }
+      render(bid, bname);
+    }
+
+    function render(bid, bname) {
+      body.innerHTML =
+        '<h2 class="h1" style="margin:0 0 0.6rem;">Claim ' + (bname ? esc(bname) : "your business") + "</h2>" +
+        '<p style="margin:0 0 1.6rem;">Tell us who you are and we&#39;ll verify it&#39;s really you — a quick call or a hello in person. Once you&#39;re verified you can see how many dog people are finding you, and promote your spot to the whole pack.</p>' +
+        '<form id="dgd-claim-form" style="display:flex;flex-direction:column;gap:1.2rem;">' +
+        (bname ? "" : '<label><span style="' + L + '">Business name *</span><input style="' + I + '" id="c-biz" maxlength="120" required></label>') +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;">' +
+        '<label><span style="' + L + '">Your name *</span><input style="' + I + '" id="c-name" maxlength="80" required></label>' +
+        '<label><span style="' + L + '">Your role</span><input style="' + I + '" id="c-role" maxlength="80" placeholder="Owner, manager…"></label>' +
+        "</div>" +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;">' +
+        '<label><span style="' + L + '">Phone *</span><input style="' + I + '" id="c-phone" type="tel" maxlength="40" required></label>' +
+        '<label><span style="' + L + '">Email *</span><input style="' + I + '" id="c-email" type="email" maxlength="120" required></label>' +
+        "</div>" +
+        '<label><span style="' + L + '">Anything to add?</span><textarea style="' + I + 'resize:vertical;" id="c-msg" rows="2" maxlength="2000" placeholder="Best time to reach you, etc."></textarea></label>' +
+        '<p style="font-size:1.1rem;opacity:0.6;margin:0;">Use the email you’ll sign in with — that’s the one we’ll connect to your listing once you’re verified.</p>' +
+        '<p id="c-err" style="color:#a6332e;font-weight:700;margin:0;"></p>' +
+        '<button style="' + B + '" type="submit" id="c-btn">Submit claim</button></form>';
+
+      document.getElementById("dgd-claim-form").addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        var errEl = document.getElementById("c-err"); errEl.textContent = "";
+        var name = document.getElementById("c-name").value.trim();
+        var phone = document.getElementById("c-phone").value.trim();
+        var email = document.getElementById("c-email").value.trim();
+        var role = document.getElementById("c-role").value.trim();
+        var msg = document.getElementById("c-msg").value.trim();
+        var finalName = bname || (document.getElementById("c-biz") ? document.getElementById("c-biz").value.trim() : "");
+        if (!finalName || !name || !phone || !email) { errEl.textContent = "Business, your name, phone and email are all required."; return; }
+        var btn = document.getElementById("c-btn"); btn.disabled = true; btn.textContent = "Submitting…";
+        try {
+          await D.insert("business_claims", {
+            business_id: bid || null, business_name: finalName.slice(0, 120),
+            contact_name: name.slice(0, 80), email: email.slice(0, 120), phone: phone.slice(0, 40),
+            role: role.slice(0, 80) || null, message: msg.slice(0, 2000) || null, status: "new"
+          });
+          document.getElementById("dgd-claim").innerHTML =
+            '<h2 class="h1" style="margin:0 0 0.8rem;">Claim received — thank you! 🐾</h2>' +
+            '<p style="margin:0 0 1rem;">We’ll verify <strong>' + esc(finalName) + '</strong> is really yours (a quick call or in-person hello) and then connect it to <strong>' + esc(email) + '</strong>.</p>' +
+            '<p style="margin:0;">In the meantime, <a href="/pages/business" style="color:inherit;font-weight:800;text-decoration:underline;">create your account</a> with that email so you’re ready to go, or <a href="/pages/advertise" style="color:inherit;font-weight:800;text-decoration:underline;">see how advertising works →</a></p>';
+        } catch (e) {
+          errEl.textContent = (e && e.message) || "Something went wrong — please try again.";
+          btn.disabled = false; btn.textContent = "Submit claim";
+        }
+      });
+    }
+    init();
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Claim a business",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "scheme-1" },
+    { "type": "range", "id": "padding_top", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Padding top", "default": 36 },
+    { "type": "range", "id": "padding_bottom", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Padding bottom", "default": 48 }
+  ],
+  "presets": [{ "name": "Claim a business" }]
+}
+{% endschema %}

@@ -1,0 +1,83 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+<h2 class="h1" style="margin:0 0 0.4rem;">Meet the pack 🐕</h2>
+<p style="margin:0 0 1.6rem;">The newest registered dogs of Dunedin — live from the community. Tap the paw to cheer for a pup.</p>
+<div id="dgd-pack" style="display:flex;gap:1.6rem;overflow-x:auto;padding-bottom:1rem;scroll-snap-type:x mandatory;"></div>
+</div>
+</div>
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var mount = document.getElementById("dgd-pack");
+    var session = null, mine = {};
+    var PAW_ON = "background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));";
+    var PAW_OFF = "background:transparent;color:rgb(var(--color-foreground));";
+    var PAW_BASE = "border:0.2rem solid rgb(var(--color-foreground));padding:0.4rem 1rem;font:inherit;font-weight:800;cursor:pointer;margin-top:0.6rem;";
+    async function init() {
+      session = await D.getSession();
+      var rows;
+      try { rows = await D.rpc("pack_dogs", { p_sort: "recent", p_limit: {{ section.settings.limit }} }); } catch (e) { rows = null; }
+      if (!rows || !rows.length) { mount.parentElement.parentElement.style.display = "none"; return; }
+      if (session) {
+        try {
+          var owned = await D.select("dog_paws?select=dog_id&dog_id=in.(" + rows.map(function (r) { return r.id; }).join(",") + ")", session.access_token);
+          (owned || []).forEach(function (o) { mine[o.dog_id] = true; });
+        } catch (e) {}
+      }
+      mount.innerHTML = rows.map(function (d) {
+        var img = d.photo_path
+          ? '<img src="' + esc(D.photoUrl(d.photo_path)) + '" alt="' + esc(d.dog_name) + '" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-bottom:0.25rem solid rgb(var(--color-foreground));">'
+          : '<div style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:4rem;border-bottom:0.25rem solid rgb(var(--color-foreground));">🐶</div>';
+        var href = "/pages/dog?slug=" + encodeURIComponent(d.slug);
+        return '<div style="scroll-snap-align:start;flex:0 0 22rem;color:rgb(var(--color-foreground));border:0.25rem solid rgb(var(--color-foreground));box-shadow:0.5rem 0.5rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));">' +
+          '<a href="' + href + '" style="text-decoration:none;color:inherit;">' + img + "</a>" +
+          '<div style="padding:1rem 1.2rem;"><h3 style="margin:0;font-size:1.7rem;"><a href="' + href + '" style="text-decoration:none;color:inherit;">' + esc(d.dog_name) + "</a></h3>" +
+          '<p style="margin:0.2rem 0 0;opacity:0.75;">' + esc(d.breed || "Very good dog") + "</p>" +
+          (d.bio ? '<p style="margin:0.4rem 0 0;font-style:italic;opacity:0.85;font-size:1.3rem;">' + esc(d.bio) + "</p>" : "") +
+          '<button class="dgd-paw" data-id="' + esc(d.id) + '" title="' + (session ? "Give a paw" : "Sign in to give a paw") + '" style="' + PAW_BASE + (mine[d.id] ? PAW_ON : PAW_OFF) + '">🐾 <span>' + (Number(d.paw_count) || 0) + "</span></button>" +
+          "</div></div>";
+      }).join("");
+      mount.querySelectorAll(".dgd-paw").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          if (!session) { window.location.href = "/pages/register-your-dog"; return; }
+          var id = b.getAttribute("data-id");
+          var span = b.querySelector("span");
+          var n = parseInt(span.textContent, 10) || 0;
+          b.disabled = true;
+          try {
+            if (mine[id]) {
+              await D.del("dog_paws?dog_id=eq." + id, session.access_token);
+              mine[id] = false; span.textContent = Math.max(0, n - 1);
+              b.setAttribute("style", PAW_BASE + PAW_OFF);
+            } else {
+              await D.insert("dog_paws", { dog_id: id }, session.access_token);
+              mine[id] = true; span.textContent = n + 1;
+              b.setAttribute("style", PAW_BASE + PAW_ON);
+            }
+          } catch (e) {}
+          b.disabled = false;
+        });
+      });
+    }
+    init();
+  }
+  boot();
+})();
+</script>
+{% schema %}
+{
+  "name": "Meet the pack",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "range", "id": "limit", "min": 4, "max": 16, "step": 1, "label": "Dogs to show", "default": 8 },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "scheme-1" },
+    { "type": "range", "id": "padding_top", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Padding top", "default": 36 },
+    { "type": "range", "id": "padding_bottom", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Padding bottom", "default": 36 }
+  ],
+  "presets": [{ "name": "Meet the pack" }]
+}
+{% endschema %}

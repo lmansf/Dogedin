@@ -1,0 +1,134 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+
+<div id="dgd-ad-{{ section.id }}"></div>
+<script>
+(function () {
+  var slot = {{ section.settings.slot | json }};
+  var placement = {{ section.settings.placement | json }};
+  var label = {{ section.settings.label | json }};
+  var mount = document.getElementById("dgd-ad-{{ section.id }}");
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    D.select("public_ads?select=id,business_name,tagline,image_url,mobile_image_url,link_url,weight,placement&placement=eq." + placement)
+      .then(function (rows) {
+        var ads = (rows || []).map(function (a) {
+          return { id: a.id, businessName: a.business_name, tagline: a.tagline, imageUrl: a.image_url,
+                   mobileImageUrl: a.mobile_image_url, linkUrl: a.link_url, weight: a.weight == null ? 1 : a.weight };
+        });
+        var ad = D.pickWeighted(ads);
+        if (!ad) {
+          mount.innerHTML = '<a href="/pages/advertise" style="display:flex;justify-content:center;border:0.3rem dashed rgba(var(--color-foreground),0.35);padding:2.4rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1rem;font-size:1.2rem;color:rgba(var(--color-foreground),0.55);text-decoration:none;">Your business here — reach Dunedin&#39;s dog people →</a>';
+          return;
+        }
+        mount.innerHTML =
+          '<a href="' + esc(ad.linkUrl) + '" id="dgd-ad-link-{{ section.id }}" target="_blank" rel="noopener noreferrer sponsored" style="display:block;text-decoration:none;color:rgb(var(--color-foreground));border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.6rem 0.6rem 0 rgb(var(--color-foreground));background:rgb(var(--color-background));">' +
+          '<div style="border-bottom:0.3rem solid rgb(var(--color-foreground));">' +
+          '<picture>' + (ad.mobileImageUrl ? '<source media="(max-width: 640px)" srcset="' + esc(ad.mobileImageUrl) + '">' : "") +
+          '<img src="' + esc(ad.imageUrl) + '" alt="' + esc(ad.businessName) + '" loading="lazy" style="display:block;margin:0 auto;width:100%;max-width:100%;height:auto;"></picture></div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:0.8rem 1.2rem;">' +
+          '<span style="font-weight:800;">' + esc(ad.businessName) + (ad.tagline ? ' — <span style="font-weight:400;">' + esc(ad.tagline) + "</span>" : "") + "</span>" +
+          '<span style="border:0.15rem solid rgb(var(--color-foreground));padding:0.2rem 0.6rem;font-size:1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08rem;opacity:0.75;white-space:nowrap;">' + esc(label) + " · Ad</span></div></a>";
+
+        // Viewability-gated impression (AdSlot.tsx rules): >=50% visible for
+        // >=1 continuous second, counted once per page view.
+        var counted = false, timer = null;
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.intersectionRatio >= 0.5) {
+              if (!timer && !counted) timer = setTimeout(function () {
+                counted = true;
+                D.rpc("record_ad_impression", { p_ad_id: ad.id, p_slot: slot }).catch(function () {});
+              }, 1000);
+            } else if (timer) { clearTimeout(timer); timer = null; }
+          });
+        }, { threshold: [0, 0.5, 1] });
+        io.observe(mount);
+
+        // Click: count via record_ad_click (which also returns the target),
+        // then follow the link. Fire-and-forget so the nav never blocks.
+        document.getElementById("dgd-ad-link-{{ section.id }}").addEventListener("click", function () {
+          D.rpc("record_ad_click", { p_ad_id: ad.id, p_slot: slot }).catch(function () {});
+        });
+      })
+      .catch(function () { mount.innerHTML = ""; });
+  }
+  boot();
+})();
+</script>
+</div>
+</div>
+{% schema %}
+{
+  "name": "Ad slot (live)",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "slot",
+      "label": "Slot name (stats key)",
+      "default": "shop_home_feed"
+    },
+    {
+      "type": "select",
+      "id": "placement",
+      "label": "Placement type",
+      "options": [
+        {
+          "value": "banner",
+          "label": "Banner (728\u00d790)"
+        },
+        {
+          "value": "ribbon",
+          "label": "Ribbon (1200\u00d7120)"
+        },
+        {
+          "value": "generic",
+          "label": "Generic (300\u00d7250)"
+        }
+      ],
+      "default": "banner"
+    },
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Disclosure label",
+      "default": "Local partner"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "Color scheme",
+      "default": "scheme-1"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Ad slot (live)"
+    }
+  ]
+}
+{% endschema %}

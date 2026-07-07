@@ -1,0 +1,111 @@
+<script src="{{ 'dogedin-community.js' | asset_url }}" defer></script>
+<div class="color-{{ section.settings.color_scheme }} gradient">
+<div class="page-width" style="padding-top: {{ section.settings.padding_top }}px; padding-bottom: {{ section.settings.padding_bottom }}px;">
+<div id="dgd-dog" style="max-width:62rem;margin:0 auto;"><p style="opacity:0.6;font-weight:700;">Loading…</p></div>
+</div>
+</div>
+<script>
+(function () {
+  function boot() {
+    var D = window.Dogedin; if (!D) return setTimeout(boot, 60);
+    var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); };
+    var mount = document.getElementById("dgd-dog");
+    var PAW_BASE = "border:0.25rem solid rgb(var(--color-foreground));padding:0.7rem 1.4rem;font:inherit;font-weight:800;font-size:1.4rem;cursor:pointer;";
+    var PAW_ON = "background:rgba(var(--color-button),1);color:rgb(var(--color-button-text));";
+    var PAW_OFF = "background:transparent;color:rgb(var(--color-foreground));";
+
+    async function init() {
+      var params = new URLSearchParams(location.search);
+      var slug = params.get("slug");
+      var tag = params.get("tag");
+      var session = await D.getSession();
+
+      // A QR / tag link resolves the code to a slug first.
+      if (!slug && tag) {
+        try { slug = await D.rpc("resolve_tag", { code: tag }); } catch (e) {}
+      }
+      if (!slug) { notFound("No dog specified."); return; }
+
+      var rows;
+      try { rows = await D.select("public_dog_profiles?slug=eq." + encodeURIComponent(slug) + "&select=id,slug,dog_name,breed,bio,photo_path,lost_contact_opt_in,owner_phone,owner_email,created_at"); }
+      catch (e) { rows = null; }
+      if (!rows || !rows.length) { notFound("We couldn't find that dog."); return; }
+      var d = rows[0];
+
+      var count = 0;
+      try { var c = await D.rpc("dog_paw_count", { p_dog_id: d.id }); count = Number(Array.isArray(c) ? c[0] : c) || 0; } catch (e) {}
+      var mine = false;
+      if (session) {
+        try {
+          var owned = await D.select("dog_paws?select=dog_id&dog_id=eq." + d.id, session.access_token);
+          mine = !!(owned && owned.length);
+        } catch (e) {}
+      }
+
+      var img = d.photo_path
+        ? '<img src="' + esc(D.photoUrl(d.photo_path)) + '" alt="' + esc(d.dog_name) + '" style="width:100%;aspect-ratio:1;object-fit:cover;border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.6rem 0.6rem 0 rgb(var(--color-foreground));">'
+        : '<div style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:7rem;border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.6rem 0.6rem 0 rgb(var(--color-foreground));">🐶</div>';
+
+      var contact = "";
+      if (d.lost_contact_opt_in && (d.owner_phone || d.owner_email)) {
+        contact = '<div style="border:0.2rem dashed rgb(var(--color-foreground));padding:1rem 1.2rem;margin-top:1.4rem;">' +
+          '<p style="margin:0 0 0.4rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06rem;font-size:1.1rem;">🚨 Found ' + esc(d.dog_name) + '? Reach the owner</p>' +
+          (d.owner_phone ? '<p style="margin:0;"><a href="tel:' + esc(d.owner_phone) + '" style="color:inherit;font-weight:700;text-decoration:underline;">📞 ' + esc(d.owner_phone) + "</a></p>" : "") +
+          (d.owner_email ? '<p style="margin:0.2rem 0 0;"><a href="mailto:' + esc(d.owner_email) + '" style="color:inherit;font-weight:700;text-decoration:underline;">✉️ ' + esc(d.owner_email) + "</a></p>" : "") +
+          "</div>";
+      }
+
+      mount.innerHTML =
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(24rem,1fr));gap:2.4rem;align-items:start;">' +
+        "<div>" + img + "</div>" +
+        '<div><p style="margin:0 0 0.6rem;font-size:1.1rem;font-weight:800;text-transform:uppercase;letter-spacing:0.13rem;opacity:0.7;">🐾 Dunedin pack member</p>' +
+        '<h1 class="h1" style="margin:0;">' + esc(d.dog_name) + "</h1>" +
+        '<p style="margin:0.4rem 0 0;font-size:1.5rem;opacity:0.75;font-weight:700;">' + esc(d.breed || "Very good dog") + "</p>" +
+        (d.bio ? '<p style="margin:1rem 0 0;font-style:italic;font-size:1.5rem;opacity:0.9;">“' + esc(d.bio) + "”</p>" : "") +
+        '<div style="margin-top:1.4rem;"><button id="dgd-paw" title="' + (session ? "Give a paw" : "Sign in to give a paw") + '" style="' + PAW_BASE + (mine ? PAW_ON : PAW_OFF) + '">🐾 <span id="dgd-paw-n">' + count + "</span> paw" + (count === 1 ? "" : "s") + "</button></div>" +
+        contact +
+        '<p style="margin:1.6rem 0 0;"><a href="/pages/dogs" style="color:inherit;font-weight:800;text-decoration:underline;">← Meet the whole pack</a></p>' +
+        "</div></div>";
+
+      // Update the page title for a shareable, meaningful tab/OG name.
+      try { document.title = d.dog_name + " · Dogedin"; } catch (e) {}
+
+      var paw = document.getElementById("dgd-paw");
+      paw.addEventListener("click", async function () {
+        if (!session) { window.location.href = "/pages/register-your-dog"; return; }
+        var span = document.getElementById("dgd-paw-n");
+        var n = parseInt(span.textContent, 10) || 0;
+        paw.disabled = true;
+        try {
+          if (mine) { await D.del("dog_paws?dog_id=eq." + d.id, session.access_token); mine = false; span.textContent = Math.max(0, n - 1); paw.setAttribute("style", PAW_BASE + PAW_OFF); }
+          else { await D.insert("dog_paws", { dog_id: d.id }, session.access_token); mine = true; span.textContent = n + 1; paw.setAttribute("style", PAW_BASE + PAW_ON); }
+        } catch (e) {}
+        paw.disabled = false;
+      });
+    }
+
+    function notFound(msg) {
+      mount.innerHTML =
+        '<div style="border:0.3rem solid rgb(var(--color-foreground));box-shadow:0.6rem 0.6rem 0 rgb(var(--color-foreground));padding:2rem 2.4rem;text-align:center;">' +
+        '<h1 class="h2" style="margin:0 0 0.6rem;">🐾 ' + esc(msg) + "</h1>" +
+        '<p style="margin:0 0 1rem;">The profile may have been removed, or the link is off.</p>' +
+        '<p style="margin:0;"><a href="/pages/dogs" style="color:inherit;font-weight:800;text-decoration:underline;">Browse the pack →</a></p></div>';
+    }
+    init();
+  }
+  boot();
+})();
+</script>
+{% schema %}
+{
+  "name": "Dog profile",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    { "type": "color_scheme", "id": "color_scheme", "label": "Color scheme", "default": "scheme-1" },
+    { "type": "range", "id": "padding_top", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Padding top", "default": 40 },
+    { "type": "range", "id": "padding_bottom", "min": 0, "max": 100, "step": 4, "unit": "px", "label": "Padding bottom", "default": 48 }
+  ],
+  "presets": [{ "name": "Dog profile" }]
+}
+{% endschema %}
