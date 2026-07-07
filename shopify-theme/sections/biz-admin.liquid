@@ -45,12 +45,13 @@
 
     async function deskView(sess) {
       body.innerHTML = '<p style="opacity:0.6;font-weight:700;">Loading…</p>';
-      var token = sess.access_token, biz, inq;
+      var token = sess.access_token, biz, inq, claims;
       try {
         biz = await D.select("businesses?select=id,slug,name,category,neighborhood,description,image,address,phone,website,owner_name,owner_email,status,created_at&order=created_at.desc", token);
         inq = await D.select("ad_inquiries?select=id,business_name,contact_name,email,message,created_at,notified_at&order=created_at.desc", token);
+        claims = await D.select("business_claims?select=id,business_id,business_name,contact_name,email,phone,role,message,status,created_at,verified_at&order=created_at.desc", token);
       } catch (e) { body.innerHTML = '<p style="color:#a6332e;font-weight:700;">Couldn&#39;t load: ' + esc(e.message) + "</p>"; return; }
-      biz = biz || []; inq = inq || [];
+      biz = biz || []; inq = inq || []; claims = claims || [];
       var pending = biz.filter(function (r) { return r.status === "pending"; });
       var others = biz.filter(function (r) { return r.status !== "pending"; });
 
@@ -71,11 +72,38 @@
           "</div></div></div>";
       }
 
+      var CLAIM_BADGE = { "new": "#c99a2e", contacted: "#1fa89b", verified: "#1f5c4a", rejected: "#d4cdbb" };
+      var CLAIM_FG = { "new": "#211e18", contacted: "#f4e9ce", verified: "#f4e9ce", rejected: "#211e18" };
+      function claimCard(c) {
+        var acts = "";
+        if (c.status === "new") acts += '<button data-claim-contact="' + c.id + '" style="' + SMALL + '">Mark contacted</button>';
+        if (c.status === "new" || c.status === "contacted") acts += '<button data-claim-verify="' + c.id + '" style="' + SMALL + 'background:#1f5c4a;color:#f4e9ce;">Verify &amp; grant access ✓</button>';
+        if (c.status !== "rejected" && c.status !== "verified") acts += '<button data-claim-reject="' + c.id + '" style="' + SMALL + 'color:#a6332e;">Reject</button>';
+        if (c.status === "rejected") acts += '<button data-claim-restore="' + c.id + '" style="' + SMALL + '">Restore</button>';
+        acts += '<button data-claim-del="' + c.id + '" style="' + SMALL + 'color:#a6332e;">Delete</button>';
+        return '<div style="border:0.2rem solid rgb(var(--color-foreground));background:#fff;color:#211e18;padding:1rem;margin:0 0 1rem;">' +
+          '<p style="margin:0;font-weight:800;font-size:1.5rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">' + esc(c.business_name) +
+          '<span style="border:0.2rem solid #211e18;background:' + (CLAIM_BADGE[c.status] || "#eee") + ";color:" + (CLAIM_FG[c.status] || "#211e18") + ';padding:0.1rem 0.6rem;font-size:1rem;text-transform:uppercase;">' + esc(c.status) + "</span>" +
+          (c.business_id ? "" : '<span style="border:0.2rem solid #211e18;padding:0.1rem 0.6rem;font-size:1rem;text-transform:uppercase;opacity:0.6;">no listing link</span>') + "</p>" +
+          '<p style="margin:0.3rem 0 0;font-size:1.2rem;font-weight:700;">' + esc(c.contact_name) + (c.role ? " · " + esc(c.role) : "") + "</p>" +
+          '<p style="margin:0.2rem 0 0;font-size:1.2rem;">📞 <a href="tel:' + esc(c.phone) + '" style="color:inherit;text-decoration:underline;">' + esc(c.phone) + '</a> · ✉️ <a href="mailto:' + esc(c.email) + '" style="color:inherit;text-decoration:underline;">' + esc(c.email) + "</a></p>" +
+          (c.message ? '<p style="margin:0.4rem 0 0;font-size:1.2rem;opacity:0.8;">“' + esc(c.message) + '”</p>' : "") +
+          '<p style="margin:0.3rem 0 0;font-size:1rem;opacity:0.5;font-weight:700;">' + esc((c.created_at || "").slice(0, 10)) + (c.status === "verified" && c.verified_at ? " · verified " + esc(c.verified_at.slice(0, 10)) : "") + "</p>" +
+          '<div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:0.7rem;">' + acts + "</div></div>";
+      }
+
+      var newClaims = claims.filter(function (c) { return c.status === "new"; }).length;
       var html =
         '<div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin:0 0 1.2rem;flex-wrap:wrap;">' +
         '<span style="font-weight:700;opacity:0.7;">Signed in as ' + esc(sess.user.email) + '</span>' +
         '<span><a href="/pages/ads-admin" style="' + LINK + 'color:#1fa89b;margin-right:1.2rem;">Ads console →</a><button id="dgd-x-out" style="' + LINK + '">Sign out</button></span></div>' +
-        '<h3 class="h4" style="margin:0 0 0.8rem;">Guide listings</h3>' +
+        '<h3 class="h4" style="margin:0 0 0.8rem;">Claim requests</h3>' +
+        (newClaims ? '<p style="border:0.2rem solid rgb(var(--color-foreground));background:rgba(201,154,46,0.3);padding:0.8rem 1.2rem;font-weight:800;margin:0 0 1.2rem;">🔔 ' + newClaims + " new claim" + (newClaims === 1 ? "" : "s") + " to verify — call or visit, then grant access</p>" : "");
+      if (!claims.length) html += '<p style="opacity:0.6;font-weight:700;">No claims yet — businesses claim their listing from the guide (🏷 Claim). Verifying one links it to their email so they get their dashboard.</p>';
+      claims.forEach(function (c) { html += claimCard(c); });
+
+      html +=
+        '<h3 class="h4" style="margin:1.6rem 0 0.8rem;border-top:0.2rem solid rgb(var(--color-foreground));padding-top:1.2rem;">Guide listings</h3>' +
         (pending.length ? '<p style="border:0.2rem solid rgb(var(--color-foreground));background:rgba(201,154,46,0.3);padding:0.8rem 1.2rem;font-weight:800;margin:0 0 1.2rem;">🔔 ' + pending.length + " listing" + (pending.length === 1 ? "" : "s") + " waiting for review</p>" : "");
       if (!biz.length) html += '<p style="opacity:0.6;font-weight:700;">No submissions yet — they arrive from /pages/list-business.</p>';
       pending.forEach(function (r) { html += bizCard(r); });
@@ -102,6 +130,43 @@
       }
       body.querySelectorAll("button[data-appr]").forEach(function (b) { b.addEventListener("click", review(b.getAttribute("data-appr"), "approved")); });
       body.querySelectorAll("button[data-deny]").forEach(function (b) { b.addEventListener("click", review(b.getAttribute("data-deny"), "denied")); });
+
+      var byId = function (id) { return claims.filter(function (c) { return c.id === id; })[0]; };
+      function claimUpdate(id, patch) {
+        return async function () {
+          try { await D.update("business_claims?id=eq." + id, patch, token); deskView(sess); }
+          catch (e) { alert(e.message); }
+        };
+      }
+      body.querySelectorAll("button[data-claim-contact]").forEach(function (b) {
+        b.addEventListener("click", claimUpdate(b.getAttribute("data-claim-contact"), { status: "contacted", contacted_at: new Date().toISOString() }));
+      });
+      body.querySelectorAll("button[data-claim-reject]").forEach(function (b) {
+        b.addEventListener("click", claimUpdate(b.getAttribute("data-claim-reject"), { status: "rejected" }));
+      });
+      body.querySelectorAll("button[data-claim-restore]").forEach(function (b) {
+        b.addEventListener("click", claimUpdate(b.getAttribute("data-claim-restore"), { status: "new" }));
+      });
+      body.querySelectorAll("button[data-claim-del]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          if (!confirm("Delete this claim request?")) return;
+          try { await D.del("business_claims?id=eq." + b.getAttribute("data-claim-del"), token); deskView(sess); }
+          catch (e) { alert(e.message); }
+        });
+      });
+      // Verify: link the listing to the claimant's email (grants dashboard
+      // access via businesses.owner_email), then mark the claim verified.
+      body.querySelectorAll("button[data-claim-verify]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          var c = byId(b.getAttribute("data-claim-verify")); if (!c) return;
+          if (!confirm("Verify " + c.business_name + " and give " + c.email + " access to its dashboard?")) return;
+          try {
+            if (c.business_id) await D.update("businesses?id=eq." + c.business_id, { owner_email: c.email }, token);
+            await D.update("business_claims?id=eq." + c.id, { status: "verified", verified_at: new Date().toISOString() }, token);
+            deskView(sess);
+          } catch (e) { alert(e.message); }
+        });
+      });
     }
 
     async function render() {

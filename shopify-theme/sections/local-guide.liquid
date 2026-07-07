@@ -101,6 +101,7 @@
         var q = encodeURIComponent(b.name + ", " + (b.address || "Dunedin, FL"));
         actions += '<a class="dgd-g-act" data-i="' + i + '" data-stat="directions" href="https://www.google.com/maps/search/?api=1&query=' + q + '" target="_blank" rel="noopener" style="' + BTN + '">Directions</a>';
         actions += '<button class="dgd-g-rev" data-i="' + i + '" style="' + BTN + '">★ Reviews</button>';
+        actions += '<a class="dgd-g-claim" href="/pages/claim?b=' + encodeURIComponent(b.id) + '&n=' + encodeURIComponent(b.name) + '" style="' + BTN + '" title="Are you the owner? Claim this listing.">🏷 Claim</a>';
         var offer = "";
         if (b.offer && b.offer.label) {
           offer = '<div style="margin-top:0.8rem;">' +

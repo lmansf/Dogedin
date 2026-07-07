@@ -41,6 +41,8 @@ begin
     'business_members', 'business_invite_codes',
     -- ads
     'ad_stats_daily', 'advertisers', 'ad_inquiries',
+    -- business claims
+    'business_claims',
     -- membership & misc counters/caches
     'members', 'feature_interest_daily', 'ig_feed_cache'
   ] loop
