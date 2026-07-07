@@ -63,15 +63,34 @@ export const BUSINESS_CATEGORIES = [
   "Beach",
   "Park / Trail",
   "Retail / Shop",
+  "Vet",
+  "Groomer",
   "Service",
   "Other",
 ] as const;
+
+// The directory's home turf, in display order: Dunedin first, then the ring of
+// neighbor towns working outward. Listings from anywhere else sort after these
+// (alphabetically by city) rather than being rejected — the guide grows out
+// from Dunedin, it isn't fenced to it.
+export const DIRECTORY_CITIES = [
+  "Dunedin",
+  "Clearwater",
+  "Palm Harbor",
+  "Tarpon Springs",
+] as const;
+
+export function cityRank(city: string): number {
+  const i = (DIRECTORY_CITIES as readonly string[]).indexOf(city);
+  return i === -1 ? DIRECTORY_CITIES.length : i;
+}
 
 export type Business = {
   id: string;
   slug: string;
   name: string;
-  category: string; // Brewery, Beach, Restaurant, Park, Cafe, Shop, ...
+  category: string; // Brewery, Beach, Restaurant, Park, Cafe, Shop, Vet, ...
+  city: string; // "Dunedin", "Clearwater", ... — drives the guide's town order
   neighborhood: string;
   description: string;
   image: string; // self-hosted asset path, or a business-photos storage URL
@@ -122,8 +141,20 @@ export function byReviewTraffic(a: Business, b: Business) {
   );
 }
 
+// Guide page ordering: Dunedin's listings lead, then each neighbor town in
+// ring order (see DIRECTORY_CITIES), review activity deciding the order within
+// a town. Towns beyond the ring sort alphabetically so the order stays stable
+// as the directory spreads.
+export function byCityThenReviewTraffic(a: Business, b: Business) {
+  return (
+    cityRank(a.city) - cityRank(b.city) ||
+    a.city.localeCompare(b.city) ||
+    byReviewTraffic(a, b)
+  );
+}
+
 export async function getBusinesses(): Promise<Business[]> {
-  if (!supabase) return [...DEMO_BUSINESSES].sort(byReviewTraffic);
+  if (!supabase) return [...DEMO_BUSINESSES].sort(byCityThenReviewTraffic);
   try {
     // public_businesses is a view (approved listings, no owner contact info) —
     // fetched separately from reviews rather than via a PostgREST embed, since
@@ -132,7 +163,7 @@ export async function getBusinesses(): Promise<Business[]> {
     const { data: businesses, error } = await supabase
       .from("public_businesses")
       .select(
-        "id, slug, name, category, neighborhood, description, image, dog_friendly, phone, website, address, hours, place_id, offer, created_at"
+        "id, slug, name, category, city, neighborhood, description, image, dog_friendly, phone, website, address, hours, place_id, offer, created_at"
       )
       .order("created_at", { ascending: false });
     if (error) {
@@ -158,12 +189,12 @@ export async function getBusinesses(): Promise<Business[]> {
       reviewsByBusiness.set(businessId, list);
     }
 
-    // Most-reviewed first (rating as tiebreak) — see byReviewTraffic. The
-    // query's created_at order only decides ties between listings with the same
-    // review count and rating.
+    // Dunedin first, then the town ring; most-reviewed first within a town —
+    // see byCityThenReviewTraffic. The query's created_at order only decides
+    // ties between listings with the same city, review count and rating.
     return businesses
       .map((b) => mapBusinessRow(b, reviewsByBusiness.get(b.id) ?? []))
-      .sort(byReviewTraffic);
+      .sort(byCityThenReviewTraffic);
   } catch (err) {
     // Table/view may not exist yet, network hiccup, etc. Log and show nothing
     // rather than pretending demo businesses are real listings.
@@ -182,7 +213,7 @@ export async function getBusinessBySlug(slug: string): Promise<Business | null> 
     const { data: row, error } = await supabase
       .from("public_businesses")
       .select(
-        "id, slug, name, category, neighborhood, description, image, dog_friendly, phone, website, address, hours, place_id, offer, created_at"
+        "id, slug, name, category, city, neighborhood, description, image, dog_friendly, phone, website, address, hours, place_id, offer, created_at"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -257,6 +288,8 @@ function mapBusinessRow(row: any, reviewRows: any[]): Business {
     slug: row.slug,
     name: row.name,
     category: row.category,
+    // Pre-city rows (and the demo seed) are all Dunedin businesses.
+    city: row.city ?? "Dunedin",
     neighborhood: row.neighborhood ?? "",
     description: row.description ?? "",
     image: row.image ?? "",
@@ -338,6 +371,7 @@ export const EMPTY_HOURS: BusinessHours = DAYS_OF_WEEK.reduce((acc, day) => {
 export type BusinessSubmission = {
   name: string;
   category: string;
+  city: string;
   neighborhood: string;
   description: string;
   address: string;
@@ -384,6 +418,7 @@ export async function submitBusiness(
     id: businessId,
     name: input.name.trim(),
     category: input.category,
+    city: input.city.trim() || "Dunedin",
     neighborhood: input.neighborhood.trim() || null,
     description: input.description.trim(),
     address: input.address.trim(),

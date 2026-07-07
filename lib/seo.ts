@@ -118,7 +118,7 @@ export function thingsToDoJsonLd(businesses: Business[]): JsonLdObject {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Dog-friendly things to do in Dunedin, FL",
+    name: "Dog-friendly things to do in Dunedin, FL and nearby",
     url: `${SITE_URL}/things-to-do`,
     itemListElement: businesses.map((b, i) => ({
       "@type": "ListItem",

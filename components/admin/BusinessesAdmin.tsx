@@ -11,6 +11,7 @@ type BusinessRow = {
   slug: string;
   name: string;
   category: string;
+  city: string;
   neighborhood: string | null;
   description: string | null;
   image: string | null;
@@ -48,7 +49,7 @@ export default function BusinessesAdmin() {
     const { data } = await supabase
       .from("businesses")
       .select(
-        "id, slug, name, category, neighborhood, description, image, address, phone, website, hours, owner_name, owner_email, status, created_at"
+        "id, slug, name, category, city, neighborhood, description, image, address, phone, website, hours, owner_name, owner_email, status, created_at"
       )
       .order("created_at", { ascending: false });
     setRows((data as BusinessRow[]) ?? []);
@@ -126,7 +127,7 @@ export default function BusinessesAdmin() {
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <p className="font-display text-xl font-extrabold">{row.name}</p>
               <p className="text-xs font-bold text-black/50">
-                {row.category}
+                {row.category} · {row.city}
                 {row.neighborhood && ` · ${row.neighborhood}`}
               </p>
               {row.description && <p className="text-sm text-black/70">{row.description}</p>}
@@ -183,7 +184,9 @@ export default function BusinessesAdmin() {
                     {row.status}
                   </span>
                 </p>
-                <p className="text-xs text-black/50">{row.category}</p>
+                <p className="text-xs text-black/50">
+                  {row.category} · {row.city}
+                </p>
               </div>
               {row.status === "denied" && (
                 <button

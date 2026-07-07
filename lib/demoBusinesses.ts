@@ -24,6 +24,7 @@ export const DEMO_BUSINESSES: Business[] = [
     slug: "dunedin-brewery",
     name: "Dunedin Brewery",
     category: "Brewery",
+    city: "Dunedin",
     neighborhood: "Downtown Dunedin",
     description:
       "Florida's oldest craft brewery, with a shaded patio where good dogs are as welcome as the beer.",
@@ -75,6 +76,7 @@ export const DEMO_BUSINESSES: Business[] = [
     slug: "honeymoon-island-dog-beach",
     name: "Honeymoon Island Dog Beach",
     category: "Beach",
+    city: "Dunedin",
     neighborhood: "Honeymoon Island",
     description:
       "A dedicated off-leash stretch of Gulf shoreline. Shallow, calm water perfect for first-time swimmers.",
@@ -112,6 +114,7 @@ export const DEMO_BUSINESSES: Business[] = [
     slug: "kellys-chic-a-boom",
     name: "Kelly's Chic-a-Boom Room",
     category: "Restaurant",
+    city: "Dunedin",
     neighborhood: "Downtown Dunedin",
     description:
       "Brunch institution with a leafy dog-friendly patio and a pup menu that's arguably better than the human one.",
@@ -145,6 +148,7 @@ export const DEMO_BUSINESSES: Business[] = [
     slug: "hammock-park",
     name: "Hammock Park",
     category: "Park",
+    city: "Dunedin",
     neighborhood: "Dunedin",
     description:
       "Quiet boardwalk trails through oak hammock and wetlands. Shady, flat, and blissfully uncrowded on weekdays.",

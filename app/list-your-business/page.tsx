@@ -5,7 +5,7 @@ import BusinessSubmissionForm from "@/components/spots/BusinessSubmissionForm";
 export const metadata: Metadata = {
   title: "List your business",
   description:
-    "Add your Dunedin, Florida business to the dog-friendly local guide — hours, directions and a card photo, reviewed before it goes live.",
+    "Add your Dunedin, Clearwater, Palm Harbor or Tarpon Springs business to the dog-friendly local guide — hours, directions and a card photo, reviewed before it goes live.",
 };
 
 export default function ListYourBusinessPage() {
@@ -15,7 +15,7 @@ export default function ListYourBusinessPage() {
         <div className="dots pointer-events-none absolute inset-0" />
         <div className="relative">
           <span className="inline-block -rotate-2 border-[3px] border-black bg-[var(--sand)] px-3 py-1 text-xs font-black uppercase tracking-widest shadow-hard">
-            🌴 For Dunedin businesses
+            🌴 For local businesses
           </span>
           <h1 className="mt-4 font-display text-4xl font-extrabold leading-[0.95] text-[var(--sand)] md:text-5xl">
             List your business

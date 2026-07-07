@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import BusinessCard from "@/components/spots/BusinessCard";
 import BeachCard from "@/components/spots/BeachCard";
 import ComingSoonLink from "@/components/ComingSoonLink";
-import AdSlot from "@/components/ads/AdSlot";
+import DirectoryGrid from "@/components/spots/DirectoryGrid";
 import JsonLd from "@/components/JsonLd";
 import { getBusinesses, persistenceEnabled } from "@/lib/businesses";
 import { thingsToDoJsonLd } from "@/lib/seo";
@@ -11,7 +10,7 @@ import { thingsToDoJsonLd } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Things to do in Dunedin",
   description:
-    "Dog-friendly restaurants, breweries, beaches and parks in Dunedin, Florida, on Tampa Bay's Gulf coast — reviewed by the local pack.",
+    "Dog-friendly restaurants, breweries, beaches, parks, vets and groomers in Dunedin, Florida and its neighbor towns — Clearwater, Palm Harbor and Tarpon Springs — reviewed by the local pack.",
 };
 
 // Re-render at most every 5 minutes so a newly approved (or removed) listing
@@ -44,9 +43,10 @@ export default async function ThingsToDoPage() {
             Things to do in Dunedin
           </h1>
           <p className="mt-4 max-w-xl text-lg font-bold text-[var(--sand)]/90">
-            The pack's favourite dog-friendly spots — breweries, beaches, brunch
-            and boardwalks. Read the reviews, upvote the good calls, and add your
-            own.
+            The pack's favourite dog-friendly spots — breweries, beaches, brunch,
+            vets and groomers. Dunedin first, then out through Clearwater, Palm
+            Harbor and Tarpon Springs. Read the reviews, upvote the good calls,
+            and add your own.
           </p>
         </div>
       </section>
@@ -76,17 +76,9 @@ export default async function ThingsToDoPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {businesses.slice(0, 2).map((b) => (
-            <BusinessCard key={b.id} business={b} canPersist={canPersist} />
-          ))}
-          {/* Native local-partner card: same anatomy as the guide's own cards,
-              clearly labelled, placed where readers are choosing where to go. */}
-          <AdSlot slot="ttd_grid" variant="card" label="Local guide partner" />
-          {businesses.slice(2).map((b) => (
-            <BusinessCard key={b.id} business={b} canPersist={canPersist} />
-          ))}
-        </div>
+        // Town sections (Dunedin first) with category chips; the native
+        // local-partner ad card lives inside the first section's grid.
+        <DirectoryGrid businesses={businesses} canPersist={canPersist} />
       )}
 
       {/* Club teaser — pre-launch, so no deals are promised here. */}

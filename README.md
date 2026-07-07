@@ -17,7 +17,10 @@ Functions) is the backend; Shopify is a headless commerce source for the shop.
   other dogs a "paw", send friend requests, and post photos (auto-moderated).
 - **Local guide** — community-reviewed dog-friendly businesses at
   `/things-to-do`, with ratings, reviews, and a self-serve listing form at
-  `/list-your-business`. Admins moderate at `/admin/businesses`.
+  `/list-your-business`. Admins moderate at `/admin/businesses`. The guide
+  spans the town ring — Dunedin first, then Clearwater, Palm Harbor and
+  Tarpon Springs — with category filters; `supabase/seed-directory.sql`
+  imports ~60 real researched listings (see `docs/directory-expansion.md`).
 - **Advertising** — tasteful, clearly-labelled ad slots sold self-serve at
   `/advertise`: businesses upload a creative, pick dates, and pay; the creative
   clears an automated content check and goes live on payment. Admins manage
