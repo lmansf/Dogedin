@@ -11,23 +11,26 @@
 -- 3. Admin access: uncomment the last line with your email to use /admin/ads.
 -- ============================================================================
 
+-- status 'approved' explicitly: since the moderation gate landed, the column
+-- defaults to 'pending', which would leave these launch spots invisible on
+-- the public view. city defaults to 'Dunedin', matching all four.
 insert into public.businesses
-  (slug, name, category, neighborhood, description, image, dog_friendly, place_id, offer)
+  (slug, name, category, neighborhood, description, image, dog_friendly, place_id, offer, status)
 values
   ('dunedin-brewery', 'Dunedin Brewery', 'Brewery', 'Downtown Dunedin',
    'Florida''s oldest craft brewery, with a shaded patio where good dogs are as welcome as the beer.',
    '/assets/spots/dunedin-brewery.svg', true, 'demo-place-dunedin-brewery',
-   '{"label": "$1 off pints", "detail": "Show this review at the bar", "code": "DOGEDIN"}'::jsonb),
+   '{"label": "$1 off pints", "detail": "Show this review at the bar", "code": "DOGEDIN"}'::jsonb, 'approved'),
   ('honeymoon-island-dog-beach', 'Honeymoon Island Dog Beach', 'Beach', 'Honeymoon Island',
    'A dedicated off-leash stretch of Gulf shoreline. Shallow, calm water perfect for first-time swimmers.',
-   '/assets/spots/honeymoon-island.svg', true, null, null),
+   '/assets/spots/honeymoon-island.svg', true, null, null, 'approved'),
   ('kellys-chic-a-boom', 'Kelly''s Chic-a-Boom Room', 'Restaurant', 'Downtown Dunedin',
    'Brunch institution with a leafy dog-friendly patio and a pup menu that''s arguably better than the human one.',
    '/assets/spots/kellys.svg', true, 'demo-place-kellys',
-   '{"label": "Free pup-cup", "detail": "With any entrée — mention Dogedin", "code": null}'::jsonb),
+   '{"label": "Free pup-cup", "detail": "With any entrée — mention Dogedin", "code": null}'::jsonb, 'approved'),
   ('hammock-park', 'Hammock Park', 'Park', 'Dunedin',
    'Quiet boardwalk trails through oak hammock and wetlands. Shady, flat, and blissfully uncrowded on weekdays.',
-   '/assets/spots/hammock-park.svg', true, null, null)
+   '/assets/spots/hammock-park.svg', true, null, null, 'approved')
 on conflict (slug) do nothing;
 
 -- Starter reviews (+ replies), only where a spot has no reviews at all yet.

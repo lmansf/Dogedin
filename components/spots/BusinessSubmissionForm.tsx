@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   BUSINESS_CATEGORIES,
+  DIRECTORY_CITIES,
   DAYS_OF_WEEK,
   EMPTY_HOURS,
   submitBusiness,
@@ -25,6 +26,7 @@ const DAY_LABELS: Record<(typeof DAYS_OF_WEEK)[number], string> = {
 export default function BusinessSubmissionForm() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<string>(BUSINESS_CATEGORIES[0]);
+  const [city, setCity] = useState<string>(DIRECTORY_CITIES[0]);
   const [neighborhood, setNeighborhood] = useState("");
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
@@ -102,6 +104,7 @@ export default function BusinessSubmissionForm() {
       const { error, businessId } = await submitBusiness({
         name,
         category,
+        city,
         neighborhood,
         description,
         address,
@@ -162,17 +165,31 @@ export default function BusinessSubmissionForm() {
             ))}
           </select>
         </Field>
-        <Field label="Neighborhood">
-          <input
-            type="text"
-            value={neighborhood}
-            onChange={(e) => setNeighborhood(e.target.value)}
-            maxLength={80}
-            placeholder="e.g. Downtown Dunedin"
+        <Field label="Town" required>
+          <select
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
             className={inputClass}
-          />
+          >
+            {DIRECTORY_CITIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </Field>
       </div>
+
+      <Field label="Neighborhood">
+        <input
+          type="text"
+          value={neighborhood}
+          onChange={(e) => setNeighborhood(e.target.value)}
+          maxLength={80}
+          placeholder="e.g. Downtown Dunedin, Sponge Docks"
+          className={inputClass}
+        />
+      </Field>
 
       <Field label="Description" required>
         <textarea

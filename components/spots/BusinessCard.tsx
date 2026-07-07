@@ -166,7 +166,11 @@ export default function BusinessCard({
             {business.category}
           </span>
           <span className="text-xs font-bold text-black/50">
-            {business.neighborhood}
+            {/* "Downtown Dunedin" already says the town; otherwise append it so
+                a Clearwater listing can't be mistaken for a Dunedin one. */}
+            {business.neighborhood.includes(business.city)
+              ? business.neighborhood
+              : [business.neighborhood, business.city].filter(Boolean).join(", ")}
           </span>
           {openNow !== null && (
             <span

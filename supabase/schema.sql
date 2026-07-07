@@ -64,6 +64,12 @@ alter table public.businesses add column if not exists address    text;
 -- open/close null when closed. Built from an actual per-day form, not a
 -- single "hours" free-text field, so /things-to-do can show real hours today.
 alter table public.businesses add column if not exists hours      jsonb;
+-- Town for the multi-city directory (Dunedin → Clearwater → Palm Harbor →
+-- Tarpon Springs, growing outward — see DIRECTORY_CITIES in lib/businesses.ts).
+-- Free text on purpose: the app supplies a dropdown but the ring isn't a
+-- closed set. Every pre-existing row was a Dunedin listing, so the default
+-- backfills them correctly.
+alter table public.businesses add column if not exists city text not null default 'Dunedin';
 -- Stamped by the welcome-business Edge Function after it emails the submitter
 -- their portal link, so retries/duplicate invocations can never double-send.
 alter table public.businesses add column if not exists welcome_sent_at timestamptz;
@@ -154,7 +160,7 @@ create policy "admins manage businesses" on public.businesses
 drop view if exists public.public_businesses;
 create view public.public_businesses
 with (security_invoker = false) as
-  select id, slug, name, category, neighborhood, description, image, dog_friendly,
+  select id, slug, name, category, city, neighborhood, description, image, dog_friendly,
          phone, website, address, hours, place_id, offer, created_at
   from public.businesses
   where status = 'approved';

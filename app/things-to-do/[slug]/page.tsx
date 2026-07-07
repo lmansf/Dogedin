@@ -26,15 +26,15 @@ export async function generateMetadata({
   const ratingBit = count > 0 ? ` Rated ${rating}★ by ${count} local reviews.` : "";
   const description =
     (business.description ||
-      `${business.name} — a dog-friendly spot in Dunedin, Florida.`).slice(0, 155) +
+      `${business.name} — a dog-friendly spot in ${business.city}, Florida.`).slice(0, 155) +
     ratingBit;
 
   return {
-    title: `${business.name} · Dunedin`,
+    title: `${business.name} · ${business.city}`,
     description,
     alternates: { canonical: `/things-to-do/${slug}` },
     openGraph: {
-      title: `${business.name} · dog-friendly Dunedin`,
+      title: `${business.name} · dog-friendly ${business.city}`,
       description,
       images: business.image ? [{ url: business.image }] : undefined,
     },
