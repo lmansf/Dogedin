@@ -445,3 +445,37 @@ export async function submitBusiness(
   await cleanupPhoto();
   return { error: "Couldn't generate a unique listing link — please try again." };
 }
+
+export type ClaimSubmission = {
+  businessId: string;
+  businessName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  role?: string;
+  message?: string;
+};
+
+// "Claim this business" lead. Low-friction (no account needed): anyone may
+// insert, forced to status 'new' by RLS, exactly like an ad inquiry. An admin
+// verifies by phone / in person, then links the listing to this email so the
+// claimant gets portal access. Rows land in business_claims — the same table
+// the shop's admin desk reads, so a claim from either surface shows up in one
+// running list.
+export async function submitClaim(
+  input: ClaimSubmission
+): Promise<{ error: string | null }> {
+  if (!supabase) return { error: "Claims aren't connected yet — please try again later." };
+  const { error } = await supabase.from("business_claims").insert({
+    business_id: input.businessId,
+    business_name: input.businessName.slice(0, 120),
+    contact_name: input.contactName.trim().slice(0, 80),
+    email: input.email.trim().slice(0, 120),
+    phone: input.phone.trim().slice(0, 40),
+    role: input.role?.trim().slice(0, 80) || null,
+    message: input.message?.trim().slice(0, 2000) || null,
+    status: "new",
+  });
+  if (error) return { error: "Couldn't submit that — please try again." };
+  return { error: null };
+}
