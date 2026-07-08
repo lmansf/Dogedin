@@ -5,7 +5,6 @@ import AdSlot from "@/components/ads/AdSlot";
 import InstagramFeed from "@/components/social/InstagramFeed";
 import FeaturedBusiness from "@/components/home/FeaturedBusiness";
 import SpotsPreview from "@/components/home/SpotsPreview";
-import TopDogs from "@/components/home/TopDogs";
 import { getProducts } from "@/lib/shopify";
 import { listRecentDogs, dogPhotoUrl } from "@/lib/dogProfiles";
 import { PACK_GRADS, type PackDog } from "@/lib/dogs";
@@ -87,13 +86,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* The pack leads, right under the hero: real registered dogs (mascots
-          until the roster fills). */}
+      {/* The pack leads, right under the hero: real registered dogs, newest
+          first (mascots until the roster fills). The one pack section on the
+          page — the most-pawed leaderboard lives on /dogs, not here. */}
       <DogCarousel pack={pack} />
-
-      {/* Most-pawed dogs — the front page is itself a place to add a paw.
-          Hidden until the pack has a registered dog. */}
-      <TopDogs />
 
       {/* Ribbon: a slim partner strip below the community lede. Hidden until a
           ribbon campaign is live, so the page never fronts an "advertise here"
