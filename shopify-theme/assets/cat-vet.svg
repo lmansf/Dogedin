@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480" role="img" aria-label="VET">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b4432f"/>
+      <stop offset="1" stop-color="#e07856"/>
+    </linearGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="2" fill="#211e18" opacity="0.10"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="480" fill="url(#g)"/>
+  <rect width="800" height="480" fill="url(#dots)"/>
+  <rect x="10" y="10" width="780" height="460" fill="none" stroke="#211e18" stroke-width="10"/>
+  <text x="400" y="235" font-size="150" text-anchor="middle" dominant-baseline="central">🩺</text>
+  <g transform="translate(40,380)">
+    <rect x="0" y="0" width="88" height="40" fill="#f4e9ce" stroke="#211e18" stroke-width="4"/>
+    <text x="14" y="28" font-family="Georgia, serif" font-size="22" font-weight="800" fill="#211e18">VET</text>
+  </g>
+</svg>

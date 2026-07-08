@@ -34,6 +34,38 @@
       return Math.round((sum / list.length) * 10) / 10;
     };
 
+    // Card image. A real uploaded photo is a full https URL (Supabase storage)
+    // and is used as-is. The seeded directory uses house category art shipped
+    // as /assets/spots/*.svg — those are ALSO bundled in this theme, so we
+    // serve them from the theme (no dependency on dogedin.com being up). Any
+    // relative path we don't recognise falls back to a branded category tile
+    // rather than a broken image.
+    var SPOT_ART = {
+      "cat-beach.svg": "{{ 'cat-beach.svg' | asset_url }}",
+      "cat-brewery.svg": "{{ 'cat-brewery.svg' | asset_url }}",
+      "cat-cafe.svg": "{{ 'cat-cafe.svg' | asset_url }}",
+      "cat-groomer.svg": "{{ 'cat-groomer.svg' | asset_url }}",
+      "cat-park.svg": "{{ 'cat-park.svg' | asset_url }}",
+      "cat-restaurant.svg": "{{ 'cat-restaurant.svg' | asset_url }}",
+      "cat-service.svg": "{{ 'cat-service.svg' | asset_url }}",
+      "cat-shop.svg": "{{ 'cat-shop.svg' | asset_url }}",
+      "cat-vet.svg": "{{ 'cat-vet.svg' | asset_url }}",
+      "dunedin-brewery.svg": "{{ 'dunedin-brewery.svg' | asset_url }}",
+      "hammock-park.svg": "{{ 'hammock-park.svg' | asset_url }}",
+      "honeymoon-island.svg": "{{ 'honeymoon-island.svg' | asset_url }}",
+      "kellys.svg": "{{ 'kellys.svg' | asset_url }}"
+    };
+    var CAT_EMOJI = { "Restaurant": "🍽️", "Cafe": "☕", "Brewery / Bar": "🍺", "Beach": "🏖️", "Park / Trail": "🌳", "Retail / Shop": "🛍️", "Service": "🔧", "Vet": "🩺", "Groomer": "✂️", "Other": "🐾" };
+    function imgHtml(b) {
+      var src = null;
+      if (b.image) {
+        if (/^https?:/.test(b.image)) src = b.image;
+        else { var m = b.image.match(/([^\/]+\.svg)$/i); if (m && SPOT_ART[m[1]]) src = SPOT_ART[m[1]]; }
+      }
+      if (src) return '<div style="aspect-ratio:16/9;border-bottom:0.25rem solid rgb(var(--color-foreground));background:#fff;"><img src="' + esc(src) + '" alt="' + esc(b.name) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></div>';
+      return '<div style="aspect-ratio:16/9;border-bottom:0.25rem solid rgb(var(--color-foreground));background:rgb(var(--color-background));display:flex;align-items:center;justify-content:center;font-size:4.5rem;">' + (CAT_EMOJI[b.category] || "🐾") + "</div>";
+    }
+
     var reviewsByBiz = {}; // business_id -> [reviews]
 
     // Category filter bar — a subdirectory of the categories actually present,
@@ -84,11 +116,7 @@
 
     function render(rows) {
       mount.innerHTML = rows.map(function (b, i) {
-        var img = "";
-        if (b.image) {
-          var src = /^https?:/.test(b.image) ? b.image : "https://dogedin.com" + b.image;
-          img = '<div style="aspect-ratio:16/9;border-bottom:0.25rem solid rgb(var(--color-foreground));background:#fff;"><img src="' + esc(src) + '" alt="' + esc(b.name) + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></div>';
-        }
+        var img = imgHtml(b);
         var meta = [b.category, b.neighborhood].filter(Boolean).map(esc).join(" &middot; ");
         var list = reviewsByBiz[b.id] || [];
         var avg = avgOf(list);
