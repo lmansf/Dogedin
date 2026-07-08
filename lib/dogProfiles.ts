@@ -115,12 +115,6 @@ export function listRecentDogs(limit = 8): Promise<PackDogRow[]> {
   return fetchPackDogs("recent", limit);
 }
 
-// Most-pawed dogs, for the homepage "Top of the pack" rail and any
-// popularity surface. Ties break toward the newest dog.
-export function listTopPawedDogs(limit = 8): Promise<PackDogRow[]> {
-  return fetchPackDogs("paws", limit);
-}
-
 // Every public profile slug, for the sitemap. Reads the same public view as
 // the profile page (approved public data only). [] when Supabase is absent or
 // anything fails — the sitemap then simply lists the static routes.
