@@ -11,7 +11,7 @@
       "type": "local-guide",
       "settings": {
         "heading": "Dog-friendly Dunedin",
-        "limit": 9,
+        "limit": 150,
         "color_scheme": "scheme-1",
         "padding_top": 8,
         "padding_bottom": 48
